@@ -66,20 +66,34 @@ body {
   background: #e7e4dd; /* soft tone under the tiles while they load */
 }
 
-/* --- Panel shell --------------------------------------------------------- */
-#panel {
-  flex: 0 0 380px;
-  width: 380px;
+/* --- Panel shells --------------------------------------------------------
+   Right panel (#panel) owns the trip: controls, overnight towns, itinerary.
+   Left panel (#panel-left) owns what's along the way: food stops + sights. */
+#panel,
+#panel-left {
   height: 100vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--line);
   background: linear-gradient(180deg, #1d1a14 0%, var(--bg) 220px);
-  box-shadow: -18px 0 40px -24px rgba(0, 0, 0, 0.7);
   scrollbar-width: thin;
   scrollbar-color: var(--surface-hi) transparent;
+}
+
+#panel {
+  flex: 0 0 380px;
+  width: 380px;
+  border-left: 1px solid var(--line);
+  box-shadow: -18px 0 40px -24px rgba(0, 0, 0, 0.7);
   animation: panel-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+#panel-left {
+  flex: 0 0 340px;
+  width: 340px;
+  border-right: 1px solid var(--line);
+  box-shadow: 18px 0 40px -24px rgba(0, 0, 0, 0.7);
+  animation: panel-in-left 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes panel-in {
@@ -89,20 +103,31 @@ body {
   }
 }
 
-#panel::-webkit-scrollbar {
+@keyframes panel-in-left {
+  from {
+    transform: translateX(-26px);
+    opacity: 0;
+  }
+}
+
+#panel::-webkit-scrollbar,
+#panel-left::-webkit-scrollbar {
   width: 11px;
 }
-#panel::-webkit-scrollbar-thumb {
+#panel::-webkit-scrollbar-thumb,
+#panel-left::-webkit-scrollbar-thumb {
   background: var(--surface-hi);
   border: 3px solid var(--bg);
   border-radius: 999px;
 }
-#panel::-webkit-scrollbar-thumb:hover {
+#panel::-webkit-scrollbar-thumb:hover,
+#panel-left::-webkit-scrollbar-thumb:hover {
   background: #3a352a;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #panel {
+  #panel,
+  #panel-left {
     animation: none;
   }
   .summary__fill {
@@ -110,8 +135,9 @@ body {
   }
 }
 
-/* --- Header (sticky) ----------------------------------------------------- */
-#panel-header {
+/* --- Headers (sticky) ----------------------------------------------------- */
+#panel-header,
+#panel-left-header {
   position: sticky;
   top: 0;
   z-index: 5;
@@ -121,7 +147,8 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
-#panel-header h1 {
+#panel-header h1,
+#panel-left-header h1 {
   margin: 0;
   font-family: var(--serif);
   font-optical-sizing: auto;
@@ -132,7 +159,13 @@ body {
   color: var(--text);
 }
 
-#panel-header p {
+/* The left panel is the companion, not the star — slightly smaller title. */
+#panel-left-header h1 {
+  font-size: 1.15rem;
+}
+
+#panel-header p,
+#panel-left-header p {
   margin: 6px 0 0;
   font-size: 0.7rem;
   font-weight: 600;
@@ -155,7 +188,8 @@ body {
   margin-top: 22px;
 }
 #pois {
-  margin-top: 22px;
+  margin-top: 16px;
+  padding-bottom: 24px;
 }
 #itinerary {
   margin-top: 22px;
@@ -578,6 +612,15 @@ input[type="number"]:disabled {
 .poi:hover::before {
   opacity: 1;
 }
+/* Row lit up because its map marker is hovered (mirrors :hover, plus a lift). */
+.poi--hover {
+  border-color: #4a4335;
+  transform: translateX(2px);
+  background: var(--surface-hi, #2b2620);
+}
+.poi--hover::before {
+  opacity: 1;
+}
 .poi:focus-visible {
   outline: none;
   border-color: var(--river);
@@ -918,6 +961,19 @@ input[type="number"]:disabled {
 }
 .poi-marker--sight .poi-marker__dot {
   background: #2a9d8f;
+}
+.poi-marker__dot {
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+/* Marker emphasized because its panel row is hovered. */
+.poi-marker--active .poi-marker__dot {
+  transform: scale(1.7);
+}
+.poi-marker--active.poi-marker--food .poi-marker__dot {
+  box-shadow: 0 0 0 5px rgba(224, 123, 57, 0.35), 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.poi-marker--active.poi-marker--sight .poi-marker__dot {
+  box-shadow: 0 0 0 5px rgba(42, 157, 143, 0.35), 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
 /* Ghost marker: the proposed day-end — distinct, outlined, pulsing, non-interactive. */
