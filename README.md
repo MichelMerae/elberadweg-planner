@@ -9,6 +9,11 @@ evening, you set a daily riding distance and the planner measures that distance
 - Drag the slider (or type a distance, or click a point on the map) to set the
   next day's target. A pulsing ghost marker shows where you'd end up.
 - Pick an overnight town from the nearby list; commit the day to lock it in.
+- **Food on the way & Worth seeing:** the panel also lists cafés, bakeries and
+  restaurants (with opening hours where OSM knows them) plus viewpoints, castles
+  and notable bridges along the day you're planning — each labelled with how far
+  into your day it falls. Pin the ones you don't want to miss; pins are saved on
+  the day's card.
 - Committed days stack up as numbered pins on the map and cards in the panel,
   with a progress bar tracking how far along the ~650 km route you've planned.
 - Everything is saved to `localStorage`, so your plan is still there next visit.
@@ -52,6 +57,9 @@ The route and towns are **generated from OpenStreetMap**, not hand-drawn:
 - Towns are OSM `place=city|town|village` nodes within ~5 km of the route, each
   annotated with its distance *along* the route so the app can window them to the
   stretch you're planning.
+- Food stops (cafés, bakeries, restaurants, biergartens — within ~2 km) and
+  sights (viewpoints, castles, historic sites, named bridges — within ~3 km) are
+  pulled the same way and precomputed into `pois.json`.
 
 Distance-along-route maths (snapping a click to the line, finding the point at a
 given kilometre, windowing towns) is done with [Turf.js](https://turfjs.org/).
@@ -59,7 +67,7 @@ given kilometre, windowing towns) is done with [Turf.js](https://turfjs.org/).
 ## Rebuilding the data
 
 The generated data lives in `src/data/` (`route.json`, `route.meta.json`,
-`towns.json`) and is already committed. To regenerate it from OpenStreetMap:
+`towns.json`, `pois.json`) and is already committed. To regenerate it from OpenStreetMap:
 
 ```bash
 npm run build:data            # uses cached raw OSM if present
