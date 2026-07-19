@@ -1,29 +1,7 @@
 // Finds the towns near one endpoint of a day's ride, using a binary search
 // over the route-distance-sorted towns array to avoid scanning the whole list.
 
-// First index i such that towns[i].routeDistanceKm >= target.
-function lowerBound(towns, target) {
-  let low = 0;
-  let high = towns.length;
-  while (low < high) {
-    const mid = (low + high) >>> 1;
-    if (towns[mid].routeDistanceKm < target) low = mid + 1;
-    else high = mid;
-  }
-  return low;
-}
-
-// First index i such that towns[i].routeDistanceKm > target.
-function upperBound(towns, target) {
-  let low = 0;
-  let high = towns.length;
-  while (low < high) {
-    const mid = (low + high) >>> 1;
-    if (towns[mid].routeDistanceKm <= target) low = mid + 1;
-    else high = mid;
-  }
-  return low;
-}
+import { lowerBound, upperBound } from './sorted-range.js';
 
 // Ranking weight for a town's perpendicular offset from the route: a km of
 // detour off the path costs 1.5x a km of being early/late along it, so
