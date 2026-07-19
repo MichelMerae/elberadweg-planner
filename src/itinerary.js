@@ -9,8 +9,7 @@ function isValidTargetKm(targetKm) {
 /**
  * Stable identity for a plan-level break: its name at a route distance.
  * Module-level (main.js imports it) so callers can match a place against
- * getBreaks() without re-deriving the composition, mirroring how pinned
- * keys used to be shared.
+ * getBreaks() without re-deriving the composition.
  */
 export function breakKey(b) {
   return `${b.name}@${b.routeDistanceKm}`;

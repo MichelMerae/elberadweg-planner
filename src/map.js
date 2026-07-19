@@ -220,7 +220,7 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
     }).addTo(map);
   }
 
-  // Same name@km identity convention as ui.js's poiKey/itinerary's poiPinKey —
+  // Same name@km identity convention as ui.js's poiKey/itinerary's breakKey —
   // kept local so map.js stays import-free besides Leaflet.
   function poiMarkerKey(poi) {
     return `${poi.name}@${poi.routeDistanceKm}`;

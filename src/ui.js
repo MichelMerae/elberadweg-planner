@@ -398,7 +398,7 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
       .map((town, i) => {
         const selected = townKey(town) === selectedKey ? ' town--selected' : '';
         const isBreak = breakSet.has(townKey(town));
-        // Favorites use a kind-prefixed key (favKey.js: `${kind}:${name}@${km}`);
+        // Favorites use a kind-prefixed key (favorites.js favKey: `${kind}:${name}@${km}`);
         // main.js passes the Set already prefixed, ui builds the town lookup here.
         const isFav = favSet.has(`town:${townKey(town)}`);
         return `
@@ -461,6 +461,7 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
   // break. The day tag names the first committed day whose (startKm, endKm]
   // covers the favorite's km, else "beyond plan".
   function renderFavorites({ favorites = [], days = [], breakKeys } = {}) {
+    if (!favoritesEl) return; // container is optional, same contract as wireRowList
     currentFavorites = favorites;
     // Break lookups use the NON-prefixed key shape (name@km, = poiKey) — the
     // same shape the origin rows check, not the kind-prefixed favorite key.
@@ -477,9 +478,11 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
   }
 
   function dayTagFor(fav, days) {
-    // Same (startKm, endKm] convention as breaks: a favorite at a day's endKm
-    // belongs to that day, at its startKm to the previous one.
-    const day = days.find((d) => fav.routeDistanceKm > d.startKm && fav.routeDistanceKm <= d.endKm);
+    // Same (startKm, endKm] convention as breaks, including the km-0 widening
+    // main.js applies in breaksForDay: day 1 owns a place at exactly km 0.
+    const day = days.find(
+      (d) => fav.routeDistanceKm > (d.startKm === 0 ? -1 : d.startKm) && fav.routeDistanceKm <= d.endKm,
+    );
     return day ? `Day ${day.index + 1}` : 'beyond plan';
   }
 
@@ -494,7 +497,7 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
     // reflects whether this place is currently a committed break in the plan.
     const isBreak = breakSet.has(poiKey(fav));
     return `
-      <div class="poi favorite" role="button" tabindex="0" data-fav-index="${index}">
+      <div class="poi poi--fav" role="button" tabindex="0" data-fav-index="${index}">
         <span class="poi__name">${glyph} ${esc(fav.name)}</span>
         ${cat}
         ${rowActions(fav.name, isBreak, true)}

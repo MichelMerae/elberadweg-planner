@@ -879,10 +879,10 @@ input[type="number"]:disabled {
 }
 /* A favorite row shows its kind glyph inline in the name, so the left accent
    dot the stretch POI rows carry is dropped and the padding tightened. */
-.poi.favorite {
+.poi--fav {
   padding-left: 11px;
 }
-.poi.favorite::before {
+.poi--fav::before {
   display: none;
 }
 /* Day tag chip: which planned day covers the favorite (or "beyond plan"). */
