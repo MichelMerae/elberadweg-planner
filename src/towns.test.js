@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { loadTowns, townLabel, townsNear } from './towns.js';
+import { loadTowns, townsNear } from './towns.js';
 
 // Sorted ascending by routeDistanceKm, as the real towns.json will be.
 const TOWNS = [
@@ -98,14 +98,6 @@ describe('townsNear', () => {
     test('empty towns array returns empty', () => {
       expect(townsNear([], 10)).toEqual([]);
     });
-  });
-});
-
-describe('townLabel', () => {
-  test('formats name, distance along, and offset', () => {
-    expect(townLabel({ name: 'Foo', routeDistanceKm: 12.3, offsetKm: 1.2 })).toBe(
-      'Foo — 12.3 km along, 1.2 km off route'
-    );
   });
 });
 

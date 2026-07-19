@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { totalLength, pointAtDistance, snap, sliceDay } from './route.js';
+import { totalLength, pointAtDistance, snap } from './route.js';
 
 // Synthetic fixture: a line running due south along the Greenwich meridian
 // (lng fixed at 0), from 51.0N down to 50.0N, split into a few vertices.
@@ -77,45 +77,5 @@ describe('snap', () => {
   it('snaps the start point to distance 0', () => {
     const { distanceKm } = snap(meridianLine, [0, 51.0]);
     expect(distanceKm).toBeCloseTo(0, 3);
-  });
-});
-
-describe('sliceDay', () => {
-  it('returns a segment whose length approximates endKm - startKm', () => {
-    const total = totalLength(meridianLine);
-    const startKm = total * 0.25;
-    const endKm = total * 0.75;
-
-    const segment = sliceDay(meridianLine, startKm, endKm);
-    const segmentLength = totalLength(segment);
-
-    expect(segmentLength).toBeCloseTo(endKm - startKm, 0);
-  });
-
-  it('clamps when endKm exceeds total length', () => {
-    const total = totalLength(meridianLine);
-    const startKm = total * 0.5;
-
-    const segment = sliceDay(meridianLine, startKm, total + 500);
-    const segmentLength = totalLength(segment);
-
-    expect(segmentLength).toBeCloseTo(total - startKm, 0);
-  });
-
-  it('clamps a negative startKm to 0', () => {
-    const total = totalLength(meridianLine);
-    const endKm = total * 0.25;
-
-    const segment = sliceDay(meridianLine, -100, endKm);
-    const segmentLength = totalLength(segment);
-
-    expect(segmentLength).toBeCloseTo(endKm, 0);
-  });
-
-  it('returns a valid LineString feature', () => {
-    const segment = sliceDay(meridianLine, 10, 20);
-    expect(segment.type).toBe('Feature');
-    expect(segment.geometry.type).toBe('LineString');
-    expect(segment.geometry.coordinates.length).toBeGreaterThanOrEqual(2);
   });
 });

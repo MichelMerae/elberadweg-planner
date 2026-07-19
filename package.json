@@ -15,8 +15,6 @@
     "leaflet": "^1.9.4"
   },
   "devDependencies": {
-    "@tmcw/togeojson": "^7.1.2",
-    "osmtogeojson": "^3.0.0-beta.5",
     "vite": "^8.1.5",
     "vitest": "^4.1.10"
   }

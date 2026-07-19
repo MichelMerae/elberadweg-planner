@@ -260,6 +260,27 @@ describe('createItinerary - persistence', () => {
     expect(itinerary.getDays()).toHaveLength(0);
   });
 
+  it('treats valid JSON with a malformed day (negative targetKm) as empty, without throwing', () => {
+    const storage = createFakeStorage();
+    storage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        schemaVersion: 1,
+        routeVersion: 'v1',
+        days: [{ targetKm: 80, townChoice: null }, { targetKm: -5, townChoice: null }],
+      }),
+    );
+    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
+
+    let result;
+    expect(() => {
+      result = itinerary.load();
+    }).not.toThrow();
+
+    expect(result).toEqual({ loaded: false, routeChanged: false });
+    expect(itinerary.getDays()).toHaveLength(0);
+  });
+
   it('treats a schemaVersion mismatch as empty', () => {
     const storage = createFakeStorage();
     storage.setItem(

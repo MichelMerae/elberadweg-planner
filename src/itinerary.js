@@ -117,6 +117,9 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
     return days.length ? days[days.length - 1].endKm : 0;
   }
 
+  // Persisting is best-effort: a throwing setItem (private mode, quota,
+  // storage disabled by policy) must never break the in-memory plan or the
+  // render that follows a mutation.
   function save() {
     if (!storage) return;
     const payload = {
@@ -124,7 +127,11 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
       routeVersion,
       days: days.map((day) => ({ targetKm: day.targetKm, townChoice: day.townChoice ?? null })),
     };
-    storage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    try {
+      storage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // Swallow - the plan lives in memory; persistence just won't survive reload.
+    }
   }
 
   // Reads the persisted plan and replays it against the *current* totalKm.

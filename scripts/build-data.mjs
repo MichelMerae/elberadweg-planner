@@ -151,6 +151,7 @@ async function overpassPost(query, label) {
 
         // Rate-limited / gateway busy — wait and retry the same endpoint.
         if ([429, 502, 503, 504].includes(res.status)) {
+          lastErr = new Error(`HTTP ${res.status} from ${url}`);
           const wait = parseRetryAfter(res.headers.get('retry-after')) ?? backoffMs(attempt);
           console.warn(`[fetch] ${url} -> HTTP ${res.status}; waiting ${Math.round(wait)}ms`);
           await sleep(wait);

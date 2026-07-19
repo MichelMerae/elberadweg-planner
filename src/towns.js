@@ -25,6 +25,11 @@ function upperBound(towns, target) {
   return low;
 }
 
+// Ranking weight for a town's perpendicular offset from the route: a km of
+// detour off the path costs 1.5x a km of being early/late along it, so
+// on-route towns are preferred but a much-closer off-route town can still win.
+const OFFSET_WEIGHT = 1.5;
+
 // towns must be sorted ascending by routeDistanceKm.
 export function townsNear(towns, endpointKm, { windowKm = 12, max = 8 } = {}) {
   const start = lowerBound(towns, endpointKm - windowKm);
@@ -32,14 +37,13 @@ export function townsNear(towns, endpointKm, { windowKm = 12, max = 8 } = {}) {
 
   return towns
     .slice(start, end)
-    .map((town) => ({ town, score: Math.abs(town.routeDistanceKm - endpointKm) + 1.5 * town.offsetKm }))
+    .map((town) => ({
+      town,
+      score: Math.abs(town.routeDistanceKm - endpointKm) + OFFSET_WEIGHT * town.offsetKm,
+    }))
     .sort((a, b) => a.score - b.score)
     .slice(0, max)
     .map((entry) => entry.town);
-}
-
-export function townLabel(town) {
-  return `${town.name} — ${town.routeDistanceKm} km along, ${town.offsetKm} km off route`;
 }
 
 export async function loadTowns() {

@@ -21,15 +21,37 @@ function townMeta(town) {
   return `${round1(town.routeDistanceKm)} km along · ${town.offsetKm} km off route`;
 }
 
+// Escape user-facing data (OSM town names) before innerHTML interpolation.
+// None of the current dataset needs it, but a data rebuild could introduce
+// names containing & or < and must not become markup.
+function esc(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+  );
+}
+
+// Debounced wrapper with a .flush() escape hatch so commit can synchronously
+// deliver the latest pending value before it is read.
 function debounce(fn, ms) {
   let handle = null;
-  return (...args) => {
+  let lastArgs = null;
+  const wrapped = (...args) => {
+    lastArgs = args;
     if (handle) clearTimeout(handle);
     handle = setTimeout(() => {
       handle = null;
-      fn(...args);
+      fn(...lastArgs);
     }, ms);
   };
+  wrapped.flush = () => {
+    if (handle) {
+      clearTimeout(handle);
+      handle = null;
+      fn(...lastArgs);
+    }
+  };
+  return wrapped;
 }
 
 /**
@@ -95,7 +117,12 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
 
   range.addEventListener('input', () => handlePendingInput(range));
   number.addEventListener('input', () => handlePendingInput(number));
-  commitBtn.addEventListener('click', () => callbacks.onCommit && callbacks.onCommit());
+  commitBtn.addEventListener('click', () => {
+    // A commit within the debounce window must not act on a stale target:
+    // deliver any pending change synchronously before committing.
+    emitPending.flush();
+    if (callbacks.onCommit) callbacks.onCommit();
+  });
   removeBtn.addEventListener('click', () => callbacks.onRemoveLast && callbacks.onRemoveLast());
   resetBtn.addEventListener('click', () => {
     if (window.confirm('Reset the whole trip? This clears every planned day.')) {
@@ -155,8 +182,8 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
         const selected = townKey(town) === selectedKey ? ' town--selected' : '';
         return `
           <button type="button" class="town${selected}" data-town-index="${i}">
-            <span class="town__name">${town.name}</span>
-            <span class="town__place">${town.place}</span>
+            <span class="town__name">${esc(town.name)}</span>
+            <span class="town__place">${esc(town.place)}</span>
             <span class="town__meta">${townMeta(town)}</span>
           </button>`;
       })
@@ -189,7 +216,7 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
     const cards = days
       .map((day, i) => {
         const isFinish = reached && i === days.length - 1;
-        const town = day.townChoice ? day.townChoice.name : 'no town chosen';
+        const town = day.townChoice ? esc(day.townChoice.name) : 'no town chosen';
         const townClass = day.townChoice ? 'day-card__town' : 'day-card__town day-card__town--none';
         return `
           <div class="day-card${isFinish ? ' day-card--finish' : ''}">

@@ -40,27 +40,6 @@ export function snap(line, lngLat) {
 }
 
 /**
- * Sub-segment of the line between two distances along it, clamped to the
- * line's extent with start <= end enforced.
- * @param {Feature<LineString>|LineString} line
- * @param {number} startKm
- * @param {number} endKm
- * @returns {Feature<LineString>}
- */
-export function sliceDay(line, startKm, endKm) {
-  const total = totalLength(line);
-  const clampedStart = Math.min(Math.max(startKm, 0), total);
-  const clampedEnd = Math.min(Math.max(endKm, 0), total);
-  const lo = Math.min(clampedStart, clampedEnd);
-  const hi = Math.max(clampedStart, clampedEnd);
-
-  const startPoint = turf.point(pointAtDistance(line, lo));
-  const endPoint = turf.point(pointAtDistance(line, hi));
-
-  return turf.lineSlice(startPoint, endPoint, line);
-}
-
-/**
  * Loads the route GeoJSON feature. Dynamically imported so this module can
  * be used (and tested) before src/data/route.json exists.
  * @returns {Promise<Feature<LineString>>}
