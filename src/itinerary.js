@@ -7,6 +7,27 @@ function isValidTargetKm(targetKm) {
 }
 
 /**
+ * Stable identity for a plan-level break: its name at a route distance.
+ * Module-level (main.js imports it) so callers can match a place against
+ * getBreaks() without re-deriving the composition, mirroring how pinned
+ * keys used to be shared.
+ */
+export function breakKey(b) {
+  return `${b.name}@${b.routeDistanceKm}`;
+}
+
+function isValidBreak(place) {
+  return (
+    !!place &&
+    typeof place.routeDistanceKm === 'number' &&
+    Number.isFinite(place.routeDistanceKm) &&
+    place.routeDistanceKm >= 0 &&
+    typeof place.lat === 'number' &&
+    typeof place.lng === 'number'
+  );
+}
+
+/**
  * Shapes an internal day record into the public, defensive-copy form
  * returned by getDays()/addDay()/editDay()/setTownChoice().
  */
@@ -27,6 +48,10 @@ function toPublicDay(day, index) {
  * trip math; persistence lives in src/storage.js and feeds days back in via
  * hydrate().
  *
+ * Plan-level breaks (committed waypoints like a lunch stop) live here too,
+ * sorted by routeDistanceKm; each day derives its own breaks by km range via
+ * breaksInRange, so editing day distances re-buckets breaks automatically.
+ *
  * @param {Object} opts
  * @param {number} opts.totalKm - total route length in km; every endKm is
  *   clamped to [0, totalKm].
@@ -38,7 +63,11 @@ function toPublicDay(day, index) {
  *   removeLastDay: () => void,
  *   reset: () => void,
  *   totalPlannedKm: () => number,
- *   hydrate: (entries: Array<{targetKm: number, townChoice?: any}>) => void,
+ *   addBreak: (place: object) => void,
+ *   removeBreak: (key: string) => void,
+ *   getBreaks: () => Array<object>,
+ *   breaksInRange: (startKm: number, endKm: number) => Array<object>,
+ *   hydrate: (input: Array<{targetKm: number, townChoice?: any}> | {days: Array<object>, breaks?: Array<object>}) => void,
  * }}
  */
 export function createItinerary({ totalKm } = {}) {
@@ -46,6 +75,9 @@ export function createItinerary({ totalKm } = {}) {
 
   /** @type {Array<{targetKm: number, startKm: number, endKm: number, townChoice: any|null}>} */
   let days = [];
+
+  /** @type {Array<object>} plan-level breaks, kept sorted asc by routeDistanceKm */
+  let breaks = [];
 
   function assertValidIndex(index) {
     if (!Number.isInteger(index) || index < 0 || index >= days.length) {
@@ -56,6 +88,12 @@ export function createItinerary({ totalKm } = {}) {
   function assertValidTargetKm(targetKm) {
     if (!isValidTargetKm(targetKm)) {
       throw new Error(`targetKm must be a positive number, got: ${targetKm}`);
+    }
+  }
+
+  function assertValidBreak(place) {
+    if (!isValidBreak(place)) {
+      throw new Error('break needs numeric routeDistanceKm >= 0 and lat/lng');
     }
   }
 
@@ -104,21 +142,52 @@ export function createItinerary({ totalKm } = {}) {
 
   function reset() {
     days = [];
+    breaks = [];
   }
 
   function totalPlannedKm() {
     return days.length ? days[days.length - 1].endKm : 0;
   }
 
-  // Replaces all days by replaying persisted entries through the same
-  // chain/clamp math (recomputeFrom) that editDay() uses, rather than
-  // duplicating that derivation here. Validation matches addDay/editDay so
-  // hydrate can never build a day those couldn't. Malformed input (not an
-  // array, or any bad targetKm) hydrates to an empty itinerary, never throws.
-  function hydrate(entries) {
+  function addBreak(place) {
+    assertValidBreak(place);
+    const key = breakKey(place);
+    if (breaks.some((b) => breakKey(b) === key)) return; // no duplicates
+    breaks.push({ ...place });
+    breaks.sort((a, b) => a.routeDistanceKm - b.routeDistanceKm);
+  }
+
+  function removeBreak(key) {
+    breaks = breaks.filter((b) => breakKey(b) !== key);
+  }
+
+  function getBreaks() {
+    return breaks.map((b) => ({ ...b }));
+  }
+
+  // Breaks belonging to a day span (startKm, endKm]: a break exactly at the
+  // day's start belongs to the previous day, one exactly at the end belongs to
+  // this day. The list is small, so a linear filter is fine.
+  function breaksInRange(startKm, endKm) {
+    return getBreaks().filter((b) => b.routeDistanceKm > startKm && b.routeDistanceKm <= endKm);
+  }
+
+  // Replaces the plan by replaying persisted state. Accepts two forms:
+  //   - an array of day entries (sub-project 1 call sites; breaks untouched)
+  //   - { days, breaks } (breaks restored; an absent breaks field clears them)
+  // Days replay through the same chain/clamp math (recomputeFrom) editDay()
+  // uses, with the same targetKm validation, so hydrate can never build a day
+  // addDay/editDay couldn't; malformed days collapse the whole itinerary to
+  // empty (never throws). Break entries are validated with the shared
+  // predicate and individually dropped when invalid (data-corruption
+  // tolerance), then deduped by key and sorted.
+  function hydrate(input) {
+    const objectForm = !Array.isArray(input) && !!input && typeof input === 'object';
+    const dayEntries = objectForm ? input.days : input;
+
     try {
-      if (!Array.isArray(entries)) throw new Error('not an array');
-      const restored = entries.map((e) => {
+      if (!Array.isArray(dayEntries)) throw new Error('not an array');
+      const restored = dayEntries.map((e) => {
         assertValidTargetKm(e.targetKm);
         return { targetKm: e.targetKm, startKm: 0, endKm: 0, townChoice: e.townChoice ?? null };
       });
@@ -126,6 +195,17 @@ export function createItinerary({ totalKm } = {}) {
       recomputeFrom(0);
     } catch {
       days = [];
+    }
+
+    if (objectForm) {
+      const rawBreaks = Array.isArray(input.breaks) ? input.breaks : [];
+      breaks = [];
+      for (const b of rawBreaks) {
+        if (!isValidBreak(b)) continue; // drop malformed silently
+        if (breaks.some((existing) => breakKey(existing) === breakKey(b))) continue;
+        breaks.push({ ...b });
+      }
+      breaks.sort((a, b) => a.routeDistanceKm - b.routeDistanceKm);
     }
   }
 
@@ -137,6 +217,10 @@ export function createItinerary({ totalKm } = {}) {
     removeLastDay,
     reset,
     totalPlannedKm,
+    addBreak,
+    removeBreak,
+    getBreaks,
+    breaksInRange,
     hydrate,
   };
 }

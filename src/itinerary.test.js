@@ -1,7 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { createItinerary } from './itinerary.js';
+import { createItinerary, breakKey } from './itinerary.js';
 
 const TOTAL_KM = 380; // Hamburg -> Dresden, approx
+
+// A well-formed break place snapshot, per the spec's break record shape.
+function makeBreak(overrides = {}) {
+  return {
+    name: 'Café Deichblick',
+    kind: 'food',
+    category: 'cafe',
+    lat: 53.38,
+    lng: 10.41,
+    routeDistanceKm: 35,
+    offsetKm: 0.3,
+    ...overrides,
+  };
+}
 
 describe('createItinerary - chaining', () => {
   it('chains startKm/endKm across added days', () => {
@@ -131,6 +145,16 @@ describe('createItinerary - removeLastDay / reset', () => {
     expect(itinerary.getDays()).toHaveLength(0);
     expect(itinerary.totalPlannedKm()).toBe(0);
   });
+
+  it('reset clears breaks too', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addBreak(makeBreak());
+
+    itinerary.reset();
+
+    expect(itinerary.getBreaks()).toHaveLength(0);
+  });
 });
 
 describe('createItinerary - totalPlannedKm', () => {
@@ -254,5 +278,191 @@ describe('createItinerary - hydrate', () => {
     itinerary.hydrate([{ targetKm: 80 }]);
 
     expect(itinerary.getDays()[0].townChoice).toBeNull();
+  });
+});
+
+describe('breakKey', () => {
+  it('composes name@routeDistanceKm', () => {
+    expect(breakKey({ name: 'Café X', routeDistanceKm: 42 })).toBe('Café X@42');
+  });
+});
+
+describe('createItinerary - addBreak', () => {
+  it('inserts breaks sorted by routeDistanceKm regardless of add order', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    itinerary.addBreak(makeBreak({ name: 'Third', routeDistanceKm: 120 }));
+    itinerary.addBreak(makeBreak({ name: 'First', routeDistanceKm: 10 }));
+    itinerary.addBreak(makeBreak({ name: 'Second', routeDistanceKm: 70 }));
+
+    expect(itinerary.getBreaks().map((b) => b.name)).toEqual(['First', 'Second', 'Third']);
+  });
+
+  it('throws when routeDistanceKm is missing', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const bad = makeBreak();
+    delete bad.routeDistanceKm;
+    expect(() => itinerary.addBreak(bad)).toThrow();
+  });
+
+  it('throws when routeDistanceKm is negative', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    expect(() => itinerary.addBreak(makeBreak({ routeDistanceKm: -5 }))).toThrow();
+  });
+
+  it('throws when lat is missing', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const bad = makeBreak();
+    delete bad.lat;
+    expect(() => itinerary.addBreak(bad)).toThrow();
+  });
+
+  it('throws when lng is missing', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const bad = makeBreak();
+    delete bad.lng;
+    expect(() => itinerary.addBreak(bad)).toThrow();
+  });
+
+  it('is a no-op when adding an existing key (name@routeDistanceKm), no duplicate', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42 }));
+    itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42, offsetKm: 9.9 }));
+
+    const breaks = itinerary.getBreaks();
+    expect(breaks).toHaveLength(1);
+    expect(breaks[0].offsetKm).toBe(0.3); // first write wins; the duplicate add did nothing
+  });
+
+  it('treats the same name at a different km as a distinct break', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    itinerary.addBreak(makeBreak({ name: 'Bäckerei', routeDistanceKm: 10 }));
+    itinerary.addBreak(makeBreak({ name: 'Bäckerei', routeDistanceKm: 20 }));
+
+    expect(itinerary.getBreaks()).toHaveLength(2);
+  });
+});
+
+describe('createItinerary - removeBreak', () => {
+  it('removes the break matching the key', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42 }));
+    itinerary.addBreak(makeBreak({ name: 'Café Y', routeDistanceKm: 70 }));
+
+    itinerary.removeBreak('Café X@42');
+
+    expect(itinerary.getBreaks().map((b) => b.name)).toEqual(['Café Y']);
+  });
+
+  it('is a no-op for an unknown key', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42 }));
+
+    expect(() => itinerary.removeBreak('Nope@999')).not.toThrow();
+    expect(itinerary.getBreaks()).toHaveLength(1);
+  });
+});
+
+describe('createItinerary - getBreaks defensive copy', () => {
+  it('mutating the returned array/objects does not affect internal state', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42 }));
+
+    const breaks = itinerary.getBreaks();
+    breaks.push(makeBreak({ name: 'Intruder', routeDistanceKm: 1 }));
+    breaks[0].name = 'Mutated';
+
+    const fresh = itinerary.getBreaks();
+    expect(fresh).toHaveLength(1);
+    expect(fresh[0].name).toBe('Café X');
+  });
+});
+
+describe('createItinerary - breaksInRange', () => {
+  it('uses (start, end] semantics: excludes a break exactly at start, includes one exactly at end', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ name: 'AtStart', routeDistanceKm: 80 }));
+    itinerary.addBreak(makeBreak({ name: 'Inside', routeDistanceKm: 120 }));
+    itinerary.addBreak(makeBreak({ name: 'AtEnd', routeDistanceKm: 160 }));
+
+    const names = itinerary.breaksInRange(80, 160).map((b) => b.name);
+    expect(names).toEqual(['Inside', 'AtEnd']);
+  });
+});
+
+describe('createItinerary - hydrate with breaks', () => {
+  it('object form restores both days and breaks', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    itinerary.hydrate({
+      days: [{ targetKm: 80, townChoice: { name: 'A' } }],
+      breaks: [
+        makeBreak({ name: 'Later', routeDistanceKm: 70 }),
+        makeBreak({ name: 'Earlier', routeDistanceKm: 30 }),
+      ],
+    });
+
+    expect(itinerary.getDays()).toHaveLength(1);
+    expect(itinerary.getBreaks().map((b) => b.name)).toEqual(['Earlier', 'Later']);
+  });
+
+  it('drops malformed break entries silently while keeping valid ones', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    itinerary.hydrate({
+      days: [{ targetKm: 80, townChoice: null }],
+      breaks: [
+        makeBreak({ name: 'Good', routeDistanceKm: 40 }),
+        { name: 'NoCoords', routeDistanceKm: 50 }, // missing lat/lng
+        makeBreak({ name: 'NegativeKm', routeDistanceKm: -1 }), // invalid km
+        null,
+      ],
+    });
+
+    expect(itinerary.getBreaks().map((b) => b.name)).toEqual(['Good']);
+    expect(itinerary.getDays()).toHaveLength(1);
+  });
+
+  it('plain-array form hydrates days only (back-compat), leaving breaks empty', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    itinerary.hydrate([{ targetKm: 80, townChoice: null }]);
+
+    expect(itinerary.getDays()).toHaveLength(1);
+    expect(itinerary.getBreaks()).toHaveLength(0);
+  });
+
+  it('object form with an omitted breaks field restores days and clears breaks', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    itinerary.hydrate({ days: [{ targetKm: 80, townChoice: null }] });
+
+    expect(itinerary.getDays()).toHaveLength(1);
+    expect(itinerary.getBreaks()).toHaveLength(0);
+  });
+});
+
+describe('createItinerary - break re-bucketing across day edits', () => {
+  it('re-derives which day a break falls in when a day distance changes', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80); // day0 = (0,80], day1 = (80,160]
+    itinerary.addBreak(makeBreak({ name: 'Stop', routeDistanceKm: 70 }));
+
+    // Initially the break at km 70 falls in day 0's range.
+    expect(itinerary.breaksInRange(0, 80).map((b) => b.name)).toEqual(['Stop']);
+    expect(itinerary.breaksInRange(80, 160)).toHaveLength(0);
+
+    // Shorten day 0 to 60: day0 = (0,60], day1 = (60,140]; the break moves to day 1.
+    itinerary.editDay(0, 60);
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 60 });
+    expect(days[1]).toMatchObject({ startKm: 60, endKm: 140 });
+    expect(itinerary.breaksInRange(days[0].startKm, days[0].endKm)).toHaveLength(0);
+    expect(
+      itinerary.breaksInRange(days[1].startKm, days[1].endKm).map((b) => b.name),
+    ).toEqual(['Stop']);
   });
 });
