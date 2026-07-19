@@ -171,6 +171,7 @@ export function createPlanStore({ storage, routeVersion } = {}) {
       for (const day of legacy.days) {
         const pins = Array.isArray(day?.poiPins) ? day.poiPins : [];
         for (const pin of pins) {
+          if (!pin || typeof pin !== 'object') continue; // skip null/garbage entries
           const key = `${pin.kind}:${pin.name}@${pin.routeDistanceKm}`;
           if (seen.has(key)) continue;
           seen.add(key);
@@ -211,8 +212,19 @@ export function createPlanStore({ storage, routeVersion } = {}) {
   function load() {
     // A valid v2 blob wins outright. Otherwise (absent/corrupt/wrong schema)
     // migrate the legacy payload if present and valid, else start fresh. The
-    // result is always persisted so the store is consistent on the next load.
-    state = readV2() ?? migrateV1() ?? freshState();
+    // migrateV1() call is guarded independently of its own internal try/catch
+    // so that even an unforeseen failure mode falls through to a fresh store
+    // rather than throwing out of boot. The result is always persisted so the
+    // store is consistent on the next load.
+    let next = readV2();
+    if (!next) {
+      try {
+        next = migrateV1();
+      } catch {
+        next = null;
+      }
+    }
+    state = next ?? freshState();
     persist();
     return meta();
   }

@@ -156,6 +156,28 @@ describe('createPlanStore - v1 -> v2 migration', () => {
     ]);
   });
 
+  it('skips null/garbage poiPins entries without throwing, migrating the valid ones', () => {
+    const validPin = { name: 'Café X', kind: 'food', routeDistanceKm: 42 };
+    const seed = {
+      schemaVersion: 1,
+      routeVersion: 'v0',
+      days: [{ targetKm: 80, townChoice: null, poiPins: [null, validPin, 'garbage', 7] }],
+    };
+    const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(seed) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+
+    let result;
+    expect(() => {
+      result = store.load();
+    }).not.toThrow();
+
+    // Migration still succeeded (not a fresh fallback).
+    expect(result.plans).toHaveLength(1);
+    expect(result.plans[0].name).toBe('My plan');
+    expect(store.getActivePlan().routeVersion).toBe('v0');
+    expect(JSON.parse(storage.store[FAVORITES_KEY]).favorites).toEqual([validPin]);
+  });
+
   it('leaves the legacy v1 key untouched (kept as backup)', () => {
     const rawLegacy = JSON.stringify(LEGACY_V1);
     const storage = createFakeStorage({ [LEGACY_KEY]: rawLegacy });
@@ -451,6 +473,17 @@ describe('createPlanStore - saveActivePlan', () => {
   });
 });
 
+describe('createPlanStore - id-taking methods before load()', () => {
+  it('setActivePlan/renamePlan/duplicatePlan return null before load()', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1' });
+
+    expect(store.setActivePlan('any')).toBeNull();
+    expect(store.renamePlan('any', 'X')).toBeNull();
+    expect(store.duplicatePlan('any')).toBeNull();
+  });
+});
+
 describe('createPlanStore - defensive copies', () => {
   it('mutating the record returned by getActivePlan() does not affect internal state', () => {
     const storage = createFakeStorage();
@@ -506,6 +539,42 @@ describe('createPlanStore - corruption and error handling', () => {
     // Mutations that persist must also swallow the throw and keep working in memory.
     expect(() => store.saveActivePlan({ days: [{ targetKm: 50, townChoice: null }], breaks: [] })).not.toThrow();
     expect(store.getActivePlan().days).toEqual([{ targetKm: 50, townChoice: null }]);
+  });
+
+  it('falls through to migration when the v2 key is corrupt but a valid legacy v1 key exists', () => {
+    const storage = createFakeStorage({
+      [PLANS_KEY]: '{not valid json',
+      [LEGACY_KEY]: JSON.stringify(LEGACY_V1),
+    });
+    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+
+    store.load();
+
+    // Migrated (legacy routeVersion carried, days from v1), not a bare fresh plan.
+    const active = store.getActivePlan();
+    expect(active.name).toBe('My plan');
+    expect(active.routeVersion).toBe('v0');
+    expect(active.days).toEqual([{ targetKm: 80, townChoice: { name: 'Lauenburg' } }]);
+    expect(JSON.parse(storage.store[FAVORITES_KEY]).favorites).toHaveLength(1);
+  });
+
+  it('falls back to the most-recently-updated plan when the stored activePlanId is stale', () => {
+    const stored = {
+      schemaVersion: 2,
+      activePlanId: 'no-longer-here',
+      plans: [
+        { id: 'older', name: 'Older', createdAt: 'a', updatedAt: '2026-01-01T00:00:01Z', routeVersion: 'r1', days: [], breaks: [] },
+        { id: 'newer', name: 'Newer', createdAt: 'a', updatedAt: '2026-01-01T00:00:09Z', routeVersion: 'r1', days: [], breaks: [] },
+      ],
+    };
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(stored) });
+    const store = createPlanStore({ storage, routeVersion: 'r1' });
+
+    const result = store.load();
+
+    expect(result.plans).toHaveLength(2);
+    expect(result.activePlanId).toBe('newer');
+    expect(store.getActivePlan().id).toBe('newer');
   });
 });
 
