@@ -1,19 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createItinerary } from './itinerary.js';
 
-const STORAGE_KEY = 'elberadweg-itinerary';
 const TOTAL_KM = 380; // Hamburg -> Dresden, approx
-
-function createFakeStorage() {
-  const store = {};
-  return {
-    store,
-    getItem: (key) => (Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null),
-    setItem: (key, value) => {
-      store[key] = value;
-    },
-  };
-}
 
 describe('createItinerary - chaining', () => {
   it('chains startKm/endKm across added days', () => {
@@ -114,65 +102,6 @@ describe('createItinerary - setTownChoice', () => {
   });
 });
 
-describe('createItinerary - togglePoiPin', () => {
-  it('defaults poiPins to an empty array on a fresh day', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
-    itinerary.addDay(80);
-    expect(itinerary.getDays()[0].poiPins).toEqual([]);
-  });
-
-  it('adds a pin to a day', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
-    itinerary.addDay(80);
-    const poi = { name: 'Café Elbblick', routeDistanceKm: 42 };
-
-    itinerary.togglePoiPin(0, poi);
-
-    expect(itinerary.getDays()[0].poiPins).toEqual([poi]);
-  });
-
-  it('toggling the same identity again removes it', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
-    itinerary.addDay(80);
-    const poi = { name: 'Café Elbblick', routeDistanceKm: 42 };
-
-    itinerary.togglePoiPin(0, poi);
-    itinerary.togglePoiPin(0, poi);
-
-    expect(itinerary.getDays()[0].poiPins).toEqual([]);
-  });
-
-  it('keeps different POIs coexisting as separate pins', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
-    itinerary.addDay(80);
-    const cafe = { name: 'Café Elbblick', routeDistanceKm: 42 };
-    const viewpoint = { name: 'Aussichtspunkt', routeDistanceKm: 55 };
-
-    itinerary.togglePoiPin(0, cafe);
-    itinerary.togglePoiPin(0, viewpoint);
-
-    expect(itinerary.getDays()[0].poiPins).toEqual([cafe, viewpoint]);
-  });
-
-  it('treats POIs with the same name at different km as distinct', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
-    itinerary.addDay(80);
-    const a = { name: 'Bäckerei', routeDistanceKm: 10 };
-    const b = { name: 'Bäckerei', routeDistanceKm: 20 };
-
-    itinerary.togglePoiPin(0, a);
-    itinerary.togglePoiPin(0, b);
-
-    expect(itinerary.getDays()[0].poiPins).toEqual([a, b]);
-  });
-
-  it('throws on an out-of-range index', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
-    itinerary.addDay(80);
-    expect(() => itinerary.togglePoiPin(5, { name: 'X', routeDistanceKm: 1 })).toThrow();
-  });
-});
-
 describe('createItinerary - removeLastDay / reset', () => {
   it('drops the last day', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
@@ -254,206 +183,76 @@ describe('createItinerary - getDays defensive copy', () => {
     expect(freshDays).toHaveLength(1);
     expect(freshDays[0].targetKm).toBe(80);
   });
-
-  it('mutating the returned poiPins array does not affect internal state', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
-    itinerary.addDay(80);
-    itinerary.togglePoiPin(0, { name: 'Café Elbblick', routeDistanceKm: 42 });
-
-    const days = itinerary.getDays();
-    days[0].poiPins.push({ name: 'Intruder', routeDistanceKm: 1 });
-
-    const freshDays = itinerary.getDays();
-    expect(freshDays[0].poiPins).toHaveLength(1);
-  });
 });
 
-describe('createItinerary - persistence', () => {
-  it('writes the exact payload shape to storage: no startKm/endKm leakage', () => {
-    const storage = createFakeStorage();
-    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-    itinerary.addDay(80);
-    itinerary.addDay(100);
-    itinerary.setTownChoice(1, { name: 'Wittenberge' });
+describe('createItinerary - hydrate', () => {
+  it('replays entries into a chained itinerary with town choices', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
 
-    itinerary.save();
-
-    const raw = storage.store[STORAGE_KEY];
-    const parsed = JSON.parse(raw);
-
-    expect(Object.keys(parsed).sort()).toEqual(['days', 'routeVersion', 'schemaVersion'].sort());
-    expect(parsed.schemaVersion).toBe(1);
-    expect(parsed.routeVersion).toBe('v1');
-    expect(parsed.days).toHaveLength(2);
-    for (const dayEntry of parsed.days) {
-      expect(Object.keys(dayEntry).sort()).toEqual(['poiPins', 'targetKm', 'townChoice'].sort());
-    }
-    expect(parsed.days[0]).toEqual({ targetKm: 80, townChoice: null, poiPins: [] });
-    expect(parsed.days[1]).toEqual({ targetKm: 100, townChoice: { name: 'Wittenberge' }, poiPins: [] });
-  });
-
-  it('persists poiPins alongside targetKm/townChoice', () => {
-    const storage = createFakeStorage();
-    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-    itinerary.addDay(80);
-    const poi = { name: 'Café Elbblick', routeDistanceKm: 42 };
-    itinerary.togglePoiPin(0, poi);
-
-    itinerary.save();
-
-    const parsed = JSON.parse(storage.store[STORAGE_KEY]);
-    expect(parsed.days[0].poiPins).toEqual([poi]);
-  });
-
-  it('round-trips through save() and a fresh load()', () => {
-    const storage = createFakeStorage();
-    const original = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-    original.addDay(80);
-    original.addDay(100);
-    original.setTownChoice(1, { name: 'Wittenberge' });
-    original.save();
-
-    const reloaded = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-    const result = reloaded.load();
-
-    expect(result).toEqual({ loaded: true, routeChanged: false });
-    expect(reloaded.getDays()).toEqual(original.getDays());
-  });
-
-  it('round-trips poiPins through save() and a fresh load()', () => {
-    const storage = createFakeStorage();
-    const original = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-    original.addDay(80);
-    original.togglePoiPin(0, { name: 'Café Elbblick', routeDistanceKm: 42 });
-    original.togglePoiPin(0, { name: 'Aussichtspunkt', routeDistanceKm: 55 });
-    original.save();
-
-    const reloaded = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-    reloaded.load();
-
-    expect(reloaded.getDays()[0].poiPins).toEqual([
-      { name: 'Café Elbblick', routeDistanceKm: 42 },
-      { name: 'Aussichtspunkt', routeDistanceKm: 55 },
+    itinerary.hydrate([
+      { targetKm: 80, townChoice: { name: 'A' } },
+      { targetKm: 80, townChoice: null },
     ]);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(2);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80, townChoice: { name: 'A' } });
+    expect(days[1]).toMatchObject({ startKm: 80, endKm: 160, townChoice: null });
   });
 
-  it('loads an old payload without poiPins with poiPins defaulting to []', () => {
-    const storage = createFakeStorage();
-    storage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        schemaVersion: 1,
-        routeVersion: 'v1',
-        days: [{ targetKm: 80, townChoice: null }],
-      }),
-    );
-    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
+  it('replays clamp against the current totalKm', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
 
-    const result = itinerary.load();
+    itinerary.hydrate([
+      { targetKm: 300, townChoice: null },
+      { targetKm: 200, townChoice: { name: 'Meissen' } }, // 300 + 200 = 500, clamp to 380
+    ]);
 
-    expect(result).toEqual({ loaded: true, routeChanged: false });
-    expect(itinerary.getDays()[0].poiPins).toEqual([]);
-  });
-
-  it('treats an absent key as empty', () => {
-    const storage = createFakeStorage();
-    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-
-    const result = itinerary.load();
-
-    expect(result).toEqual({ loaded: false, routeChanged: false });
-    expect(itinerary.getDays()).toHaveLength(0);
-  });
-
-  it('treats invalid JSON as empty, without throwing', () => {
-    const storage = createFakeStorage();
-    storage.setItem(STORAGE_KEY, '{not valid json');
-    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-
-    let result;
-    expect(() => {
-      result = itinerary.load();
-    }).not.toThrow();
-
-    expect(result).toEqual({ loaded: false, routeChanged: false });
-    expect(itinerary.getDays()).toHaveLength(0);
-  });
-
-  it('treats valid JSON with a malformed day (negative targetKm) as empty, without throwing', () => {
-    const storage = createFakeStorage();
-    storage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        schemaVersion: 1,
-        routeVersion: 'v1',
-        days: [{ targetKm: 80, townChoice: null }, { targetKm: -5, townChoice: null }],
-      }),
-    );
-    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-
-    let result;
-    expect(() => {
-      result = itinerary.load();
-    }).not.toThrow();
-
-    expect(result).toEqual({ loaded: false, routeChanged: false });
-    expect(itinerary.getDays()).toHaveLength(0);
-  });
-
-  it('treats a schemaVersion mismatch as empty', () => {
-    const storage = createFakeStorage();
-    storage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        schemaVersion: 2,
-        routeVersion: 'v1',
-        days: [{ targetKm: 80, townChoice: null }],
-      }),
-    );
-    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
-
-    const result = itinerary.load();
-
-    expect(result).toEqual({ loaded: false, routeChanged: false });
-    expect(itinerary.getDays()).toHaveLength(0);
-  });
-
-  it('replays stored days and flags routeChanged when routeVersion differs', () => {
-    const storage = createFakeStorage();
-    storage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        schemaVersion: 1,
-        routeVersion: 'old-version',
-        days: [
-          { targetKm: 300, townChoice: null },
-          { targetKm: 200, townChoice: { name: 'Meissen' } },
-        ],
-      }),
-    );
-    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'new-version', storage });
-
-    const result = itinerary.load();
-
-    expect(result).toEqual({ loaded: true, routeChanged: true });
     const days = itinerary.getDays();
     expect(days[0]).toMatchObject({ startKm: 0, endKm: 300 });
-    // second day's target (200) overshoots the new totalKm (380) from 300 -> clamp
     expect(days[1]).toMatchObject({ startKm: 300, endKm: TOTAL_KM, townChoice: { name: 'Meissen' } });
   });
 
-  it('does not throw on save()/load() when storage is omitted, and leaves days untouched', () => {
+  it('hydrates to empty on a malformed entry (negative targetKm), without throwing', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    expect(() =>
+      itinerary.hydrate([
+        { targetKm: 80, townChoice: null },
+        { targetKm: -5, townChoice: null },
+      ]),
+    ).not.toThrow();
+
+    expect(itinerary.getDays()).toHaveLength(0);
+  });
+
+  it('hydrates to empty when passed a non-array, without throwing', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(80);
 
-    expect(() => itinerary.save()).not.toThrow();
+    expect(() => itinerary.hydrate(null)).not.toThrow();
 
-    let result;
-    expect(() => {
-      result = itinerary.load();
-    }).not.toThrow();
+    expect(itinerary.getDays()).toHaveLength(0);
+  });
 
-    expect(result).toEqual({ loaded: false, routeChanged: false });
-    expect(itinerary.getDays()).toHaveLength(1);
+  it('replaces any existing days', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(50);
+    itinerary.addDay(50);
+    itinerary.addDay(50);
+
+    itinerary.hydrate([{ targetKm: 120, townChoice: null }]);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(1);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 120 });
+  });
+
+  it('defaults townChoice to null when an entry omits it', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    itinerary.hydrate([{ targetKm: 80 }]);
+
+    expect(itinerary.getDays()[0].townChoice).toBeNull();
   });
 });

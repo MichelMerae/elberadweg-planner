@@ -1,16 +1,9 @@
-const STORAGE_KEY = 'elberadweg-itinerary';
-const SCHEMA_VERSION = 1;
-
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
 function isValidTargetKm(targetKm) {
   return typeof targetKm === 'number' && Number.isFinite(targetKm) && targetKm > 0;
-}
-
-function poiPinKey(poi) {
-  return `${poi.name}@${poi.routeDistanceKm}`;
 }
 
 /**
@@ -24,37 +17,31 @@ function toPublicDay(day, index) {
     startKm: day.startKm,
     endKm: day.endKm,
     townChoice: day.townChoice ?? null,
-    poiPins: [...day.poiPins],
   };
 }
 
 /**
  * Creates a multi-day itinerary model for a route running Hamburg (km 0) ->
  * Dresden (km totalKm). Days are 0-indexed: days[0] always starts at km 0,
- * and each day's startKm chains from the previous day's endKm.
+ * and each day's startKm chains from the previous day's endKm. This is pure
+ * trip math; persistence lives in src/storage.js and feeds days back in via
+ * hydrate().
  *
  * @param {Object} opts
  * @param {number} opts.totalKm - total route length in km; every endKm is
  *   clamped to [0, totalKm].
- * @param {string} [opts.routeVersion] - opaque route version/hash (e.g. from
- *   route.meta.json), used by load() to detect a stale persisted plan.
- * @param {{getItem(key: string): string|null, setItem(key: string, value: string): void}} [opts.storage]
- *   - injected storage (e.g. `localStorage`). If omitted, save() is a no-op
- *   and load() always reports nothing loaded, without throwing.
  * @returns {{
- *   getDays: () => Array<{index: number, targetKm: number, startKm: number, endKm: number, townChoice: any|null, poiPins: any[]}>,
+ *   getDays: () => Array<{index: number, targetKm: number, startKm: number, endKm: number, townChoice: any|null}>,
  *   addDay: (targetKm: number) => object,
  *   editDay: (index: number, targetKm: number) => object,
  *   setTownChoice: (index: number, town: any) => object,
- *   togglePoiPin: (index: number, poi: any) => object,
  *   removeLastDay: () => void,
  *   reset: () => void,
  *   totalPlannedKm: () => number,
- *   save: () => void,
- *   load: () => {loaded: boolean, routeChanged: boolean},
+ *   hydrate: (entries: Array<{targetKm: number, townChoice?: any}>) => void,
  * }}
  */
-export function createItinerary({ totalKm, routeVersion, storage } = {}) {
+export function createItinerary({ totalKm } = {}) {
   const total = typeof totalKm === 'number' && Number.isFinite(totalKm) ? totalKm : Infinity;
 
   /** @type {Array<{targetKm: number, startKm: number, endKm: number, townChoice: any|null}>} */
@@ -93,7 +80,7 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
     assertValidTargetKm(targetKm);
     const startKm = days.length ? days[days.length - 1].endKm : 0;
     const endKm = clamp(startKm + targetKm, 0, total);
-    days.push({ targetKm, startKm, endKm, townChoice: null, poiPins: [] });
+    days.push({ targetKm, startKm, endKm, townChoice: null });
     return toPublicDay(days[days.length - 1], days.length - 1);
   }
 
@@ -111,16 +98,6 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
     return toPublicDay(days[index], index);
   }
 
-  function togglePoiPin(index, poi) {
-    assertValidIndex(index);
-    const pins = days[index].poiPins;
-    const key = poiPinKey(poi);
-    const existing = pins.findIndex((p) => poiPinKey(p) === key);
-    if (existing >= 0) pins.splice(existing, 1);
-    else pins.push(poi);
-    return toPublicDay(days[index], index);
-  }
-
   function removeLastDay() {
     days.pop();
   }
@@ -133,68 +110,22 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
     return days.length ? days[days.length - 1].endKm : 0;
   }
 
-  // Persisting is best-effort: a throwing setItem (private mode, quota,
-  // storage disabled by policy) must never break the in-memory plan or the
-  // render that follows a mutation.
-  function save() {
-    if (!storage) return;
-    const payload = {
-      schemaVersion: SCHEMA_VERSION,
-      routeVersion,
-      days: days.map((day) => ({
-        targetKm: day.targetKm,
-        townChoice: day.townChoice ?? null,
-        poiPins: day.poiPins,
-      })),
-    };
+  // Replaces all days by replaying persisted entries through the same
+  // chain/clamp math (recomputeFrom) that editDay() uses, rather than
+  // duplicating that derivation here. Validation matches addDay/editDay so
+  // hydrate can never build a day those couldn't. Malformed input (not an
+  // array, or any bad targetKm) hydrates to an empty itinerary, never throws.
+  function hydrate(entries) {
     try {
-      storage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch {
-      // Swallow - the plan lives in memory; persistence just won't survive reload.
-    }
-  }
-
-  // Reads the persisted plan and replays it against the *current* totalKm.
-  // Any failure (missing key, invalid JSON, wrong schema, malformed entries)
-  // is swallowed and treated as "nothing to load" - it never throws.
-  function load() {
-    if (!storage) {
-      return { loaded: false, routeChanged: false };
-    }
-
-    try {
-      const raw = storage.getItem(STORAGE_KEY);
-      if (!raw) {
-        days = [];
-        return { loaded: false, routeChanged: false };
-      }
-
-      const parsed = JSON.parse(raw);
-      if (!parsed || parsed.schemaVersion !== SCHEMA_VERSION || !Array.isArray(parsed.days)) {
-        days = [];
-        return { loaded: false, routeChanged: false };
-      }
-
-      // Build bare records (targetKm + townChoice only) and let recomputeFrom()
-      // - the same chain/clamp logic editDay() uses - derive startKm/endKm,
-      // rather than duplicating that math here.
-      const restored = parsed.days.map((entry) => {
-        assertValidTargetKm(entry.targetKm);
-        return {
-          targetKm: entry.targetKm,
-          startKm: 0,
-          endKm: 0,
-          townChoice: entry.townChoice ?? null,
-          poiPins: entry.poiPins ?? [],
-        };
+      if (!Array.isArray(entries)) throw new Error('not an array');
+      const restored = entries.map((e) => {
+        assertValidTargetKm(e.targetKm);
+        return { targetKm: e.targetKm, startKm: 0, endKm: 0, townChoice: e.townChoice ?? null };
       });
-
       days = restored;
       recomputeFrom(0);
-      return { loaded: true, routeChanged: parsed.routeVersion !== routeVersion };
     } catch {
       days = [];
-      return { loaded: false, routeChanged: false };
     }
   }
 
@@ -203,11 +134,9 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
     addDay,
     editDay,
     setTownChoice,
-    togglePoiPin,
     removeLastDay,
     reset,
     totalPlannedKm,
-    save,
-    load,
+    hydrate,
   };
 }
