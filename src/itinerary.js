@@ -9,6 +9,10 @@ function isValidTargetKm(targetKm) {
   return typeof targetKm === 'number' && Number.isFinite(targetKm) && targetKm > 0;
 }
 
+function poiPinKey(poi) {
+  return `${poi.name}@${poi.routeDistanceKm}`;
+}
+
 /**
  * Shapes an internal day record into the public, defensive-copy form
  * returned by getDays()/addDay()/editDay()/setTownChoice().
@@ -20,6 +24,7 @@ function toPublicDay(day, index) {
     startKm: day.startKm,
     endKm: day.endKm,
     townChoice: day.townChoice ?? null,
+    poiPins: [...day.poiPins],
   };
 }
 
@@ -37,10 +42,11 @@ function toPublicDay(day, index) {
  *   - injected storage (e.g. `localStorage`). If omitted, save() is a no-op
  *   and load() always reports nothing loaded, without throwing.
  * @returns {{
- *   getDays: () => Array<{index: number, targetKm: number, startKm: number, endKm: number, townChoice: any|null}>,
+ *   getDays: () => Array<{index: number, targetKm: number, startKm: number, endKm: number, townChoice: any|null, poiPins: any[]}>,
  *   addDay: (targetKm: number) => object,
  *   editDay: (index: number, targetKm: number) => object,
  *   setTownChoice: (index: number, town: any) => object,
+ *   togglePoiPin: (index: number, poi: any) => object,
  *   removeLastDay: () => void,
  *   reset: () => void,
  *   totalPlannedKm: () => number,
@@ -87,7 +93,7 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
     assertValidTargetKm(targetKm);
     const startKm = days.length ? days[days.length - 1].endKm : 0;
     const endKm = clamp(startKm + targetKm, 0, total);
-    days.push({ targetKm, startKm, endKm, townChoice: null });
+    days.push({ targetKm, startKm, endKm, townChoice: null, poiPins: [] });
     return toPublicDay(days[days.length - 1], days.length - 1);
   }
 
@@ -102,6 +108,16 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
   function setTownChoice(index, town) {
     assertValidIndex(index);
     days[index].townChoice = town ?? null;
+    return toPublicDay(days[index], index);
+  }
+
+  function togglePoiPin(index, poi) {
+    assertValidIndex(index);
+    const pins = days[index].poiPins;
+    const key = poiPinKey(poi);
+    const existing = pins.findIndex((p) => poiPinKey(p) === key);
+    if (existing >= 0) pins.splice(existing, 1);
+    else pins.push(poi);
     return toPublicDay(days[index], index);
   }
 
@@ -125,7 +141,11 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
     const payload = {
       schemaVersion: SCHEMA_VERSION,
       routeVersion,
-      days: days.map((day) => ({ targetKm: day.targetKm, townChoice: day.townChoice ?? null })),
+      days: days.map((day) => ({
+        targetKm: day.targetKm,
+        townChoice: day.townChoice ?? null,
+        poiPins: day.poiPins,
+      })),
     };
     try {
       storage.setItem(STORAGE_KEY, JSON.stringify(payload));
@@ -160,7 +180,13 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
       // rather than duplicating that math here.
       const restored = parsed.days.map((entry) => {
         assertValidTargetKm(entry.targetKm);
-        return { targetKm: entry.targetKm, startKm: 0, endKm: 0, townChoice: entry.townChoice ?? null };
+        return {
+          targetKm: entry.targetKm,
+          startKm: 0,
+          endKm: 0,
+          townChoice: entry.townChoice ?? null,
+          poiPins: entry.poiPins ?? [],
+        };
       });
 
       days = restored;
@@ -177,6 +203,7 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
     addDay,
     editDay,
     setTownChoice,
+    togglePoiPin,
     removeLastDay,
     reset,
     totalPlannedKm,
