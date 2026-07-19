@@ -103,8 +103,10 @@ async function boot() {
 
   function handleSelectTown(town) {
     pendingTown = town;
-    ui.renderTowns(townsNear(towns, Math.min(pendingStartKm() + pendingTarget, totalKm)), townKey(town));
-    map.setTownHighlight([town.lng, town.lat]);
+    // renderPending() already redraws the towns list (with this town selected),
+    // the ghost, and the town highlight from pendingTown — reuse it instead of
+    // duplicating the ghostKm formula here. We only add the pan-to-town.
+    renderPending();
     map.panTo([town.lng, town.lat]);
   }
 

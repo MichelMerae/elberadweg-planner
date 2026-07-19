@@ -167,11 +167,17 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
   function renderItinerary({ days, totalKm, reached }) {
     const plannedKm = days.length ? days[days.length - 1].endKm : 0;
     const remaining = Math.max(0, totalKm - plannedKm);
+    const pct = totalKm > 0 ? Math.min(100, Math.max(0, (plannedKm / totalKm) * 100)) : 0;
 
     const summary = `
       <div class="summary${reached ? ' summary--done' : ''}">
-        <span>${round1(plannedKm)} / ${round1(totalKm)} km planned</span>
-        <span>${round1(remaining)} km to Dresden</span>
+        <div class="summary__head">
+          <span>${round1(plannedKm)} / ${round1(totalKm)} km planned</span>
+          <span>${round1(remaining)} km to Dresden</span>
+        </div>
+        <div class="summary__track">
+          <div class="summary__fill" style="width: ${round1(pct)}%"></div>
+        </div>
       </div>`;
 
     if (!days.length) {
@@ -181,10 +187,12 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
     }
 
     const cards = days
-      .map((day) => {
+      .map((day, i) => {
+        const isFinish = reached && i === days.length - 1;
         const town = day.townChoice ? day.townChoice.name : 'no town chosen';
+        const townClass = day.townChoice ? 'day-card__town' : 'day-card__town day-card__town--none';
         return `
-          <div class="day-card">
+          <div class="day-card${isFinish ? ' day-card--finish' : ''}">
             <div class="day-card__title">Day ${day.index + 1}</div>
             <div class="day-card__body">
               <label class="day-card__edit">
@@ -192,13 +200,13 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
                        data-day-index="${day.index}" /> km
               </label>
               <span class="day-card__range">km ${round1(day.startKm)} → ${round1(day.endKm)}</span>
-              <span class="day-card__town">${town}</span>
+              <span class="${townClass}">${town}</span>
             </div>
           </div>`;
       })
       .join('');
 
-    itineraryEl.innerHTML = `<h2 class="itinerary__heading">Itinerary</h2>${summary}${cards}`;
+    itineraryEl.innerHTML = `<h2 class="itinerary__heading">Itinerary</h2>${summary}<div class="day-list">${cards}</div>`;
   }
 
   function showBanner(message) {
