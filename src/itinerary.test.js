@@ -390,6 +390,15 @@ describe('createItinerary - breaksInRange', () => {
     const names = itinerary.breaksInRange(80, 160).map((b) => b.name);
     expect(names).toEqual(['Inside', 'AtEnd']);
   });
+
+  it('returns [] for equal or reversed bounds (empty range)', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ name: 'A', routeDistanceKm: 100 }));
+    itinerary.addBreak(makeBreak({ name: 'B', routeDistanceKm: 120 }));
+
+    expect(itinerary.breaksInRange(100, 100)).toEqual([]);
+    expect(itinerary.breaksInRange(160, 80)).toEqual([]);
+  });
 });
 
 describe('createItinerary - hydrate with breaks', () => {
@@ -425,22 +434,38 @@ describe('createItinerary - hydrate with breaks', () => {
     expect(itinerary.getDays()).toHaveLength(1);
   });
 
-  it('plain-array form hydrates days only (back-compat), leaving breaks empty', () => {
+  it('plain-array form hydrates days only (back-compat), leaving existing breaks intact', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ name: 'Kept', routeDistanceKm: 40 }));
 
     itinerary.hydrate([{ targetKm: 80, townChoice: null }]);
 
     expect(itinerary.getDays()).toHaveLength(1);
-    expect(itinerary.getBreaks()).toHaveLength(0);
+    // The array form manages days only; breaks seeded beforehand survive.
+    expect(itinerary.getBreaks().map((b) => b.name)).toEqual(['Kept']);
   });
 
-  it('object form with an omitted breaks field restores days and clears breaks', () => {
+  it('object form with an omitted breaks field restores days and clears existing breaks', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ name: 'Wiped', routeDistanceKm: 40 }));
 
     itinerary.hydrate({ days: [{ targetKm: 80, townChoice: null }] });
 
     expect(itinerary.getDays()).toHaveLength(1);
+    // The object form restores breaks wholesale; an omitted field means none.
     expect(itinerary.getBreaks()).toHaveLength(0);
+  });
+
+  it('collapses malformed days to empty yet still restores valid breaks (breaks independent of days)', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+
+    itinerary.hydrate({
+      days: [{ targetKm: 80, townChoice: null }, { targetKm: -5, townChoice: null }],
+      breaks: [makeBreak({ name: 'Survivor', routeDistanceKm: 40 })],
+    });
+
+    expect(itinerary.getDays()).toHaveLength(0);
+    expect(itinerary.getBreaks().map((b) => b.name)).toEqual(['Survivor']);
   });
 });
 
