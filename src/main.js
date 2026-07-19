@@ -4,6 +4,7 @@ import { loadTowns, townsNear } from './towns.js';
 import { loadPois, poisInRange } from './pois.js';
 import { createItinerary, breakKey } from './itinerary.js';
 import { createPlanStore } from './storage.js';
+import { createFavorites, favKey } from './favorites.js';
 import { createMap } from './map.js';
 import { createUI, townKey, poiKey } from './ui.js';
 import meta from './data/route.meta.json';
@@ -42,6 +43,10 @@ async function boot() {
   const bootPlan = store.getActivePlan();
   itinerary.hydrate({ days: bootPlan.days, breaks: bootPlan.breaks ?? [] });
 
+  // Favorites are a single global list, persisted independently of plans (its
+  // key already holds any pins migrated from the v1 schema in sub-project 1).
+  const favorites = createFavorites({ storage: window.localStorage });
+
   // Local mirror of the plans list ({id, name}) + active id for renderPlans.
   // Kept in sync from each mutation's return value rather than re-reading the
   // store, so a quota-failed persist doesn't drop an in-memory plan on reload.
@@ -65,6 +70,7 @@ async function boot() {
     plansEl: document.getElementById('plans'),
     townsEl: document.getElementById('towns'),
     poisEl: document.getElementById('pois'),
+    favoritesEl: document.getElementById('favorites'),
     itineraryEl: document.getElementById('itinerary'),
     bannerEl: document.getElementById('banner'),
     callbacks: {
@@ -76,6 +82,10 @@ async function boot() {
       onSelectPoi: handleSelectPoi,
       onToggleBreak: handleToggleBreak,
       onRemoveBreak: handleRemoveBreak,
+      onToggleFavorite: handleToggleFavorite,
+      // A favorite row's body click and a fav map-marker click both pan/highlight
+      // — identical to a POI select, so reuse it.
+      onSelectFavorite: handleSelectPoi,
       // Panel-row hover highlights the matching marker on the map.
       onPoiRowHover: (poi) => map.setPoiHighlight(poi),
       onEditDay: handleEditDay,
@@ -166,15 +176,27 @@ async function boot() {
     ui.renderItinerary({ days, totalKm, reached: hasReachedDresden(), breaksForDay });
   }
 
+  // Renders the (global) favorites list + its always-visible map markers. The
+  // list is plan-independent, but the day tags depend on the active plan's days,
+  // so this re-runs on every renderAll (boot, mutations, plan switches).
+  function renderFavoritesSection() {
+    const favs = favorites.list();
+    // Non-prefixed break keys (name@km) so a favorite that's also a committed
+    // break shows its ☕ filled here too — same shape origin rows check against.
+    const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
+    ui.renderFavorites({ favorites: favs, days: itinerary.getDays(), breakKeys });
+    map.setFavoriteMarkers(favs);
+  }
+
   // Drives both POI panel sections and the map markers for a given stretch.
   // When POI data is missing, shows the boot note instead and clears markers.
-  function drawPois(food, sights, startKm, fromName, breakKeys) {
+  function drawPois(food, sights, startKm, fromName, breakKeys, favoriteKeys) {
     if (poisMissing) {
       ui.renderPoisNote('No POI data — run npm run build:data');
       map.setPoiMarkers([]);
       return;
     }
-    ui.renderPois({ food, sights, dayStartKm: startKm, fromName, breakKeys });
+    ui.renderPois({ food, sights, dayStartKm: startKm, fromName, breakKeys, favoriteKeys });
     map.setPoiMarkers([...food, ...sights]);
   }
 
@@ -186,6 +208,9 @@ async function boot() {
     // breakKeys drives the active state of the ☕ row actions; pendingBreaks are
     // the breaks past the last committed day (shown in the controls block).
     const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
+    // favoriteKeys are kind-prefixed (favKey: `${kind}:${name}@${km}`) so ui can
+    // mark the ⭐ active on town/food/sight rows; it's global, not per-stretch.
+    const favoriteKeys = new Set(favorites.list().map(favKey));
     // Same km-0 constraint as breaksForDay: before any day is committed the
     // pending stretch starts at 0, so widen the lower bound to keep a km-0 break
     // in this list rather than orphaning its pin.
@@ -202,8 +227,8 @@ async function boot() {
     if (reached) {
       map.setGhost(null);
       map.setTownHighlight(null);
-      ui.renderTowns([], null, { dayStartKm: startKm, fromName, breakKeys });
-      drawPois([], [], startKm, fromName, breakKeys);
+      ui.renderTowns([], null, { dayStartKm: startKm, fromName, breakKeys, favoriteKeys });
+      drawPois([], [], startKm, fromName, breakKeys, favoriteKeys);
       return;
     }
 
@@ -211,17 +236,18 @@ async function boot() {
     map.setGhost(pointAtDistance(route, ghostKm));
 
     const candidates = townsNear(towns, ghostKm);
-    ui.renderTowns(candidates, townKey(pendingTown), { dayStartKm: startKm, fromName, breakKeys });
+    ui.renderTowns(candidates, townKey(pendingTown), { dayStartKm: startKm, fromName, breakKeys, favoriteKeys });
     map.setTownHighlight(pendingTown ? [pendingTown.lng, pendingTown.lat] : null);
 
     const food = poisInRange(poiData, startKm, ghostKm, { kind: 'food' });
     const sights = poisInRange(poiData, startKm, ghostKm, { kind: 'sight' });
-    drawPois(food, sights, startKm, fromName, breakKeys);
+    drawPois(food, sights, startKm, fromName, breakKeys, favoriteKeys);
   }
 
   function renderAll() {
     renderCommitted();
     renderPending();
+    renderFavoritesSection();
   }
 
   // --- Callbacks ---------------------------------------------------------
@@ -242,8 +268,9 @@ async function boot() {
     persistPlan();
   }
 
-  // Row/marker click on a POI: highlight the matching row and pan the map to it.
-  // Pins are gone (favorites arrive in sub-project 3); this is view-only now.
+  // Row/marker click on a POI (also reused for favorite rows/markers): highlight
+  // the matching panel row and pan the map to it — view-only. Committing happens
+  // through the explicit ☕ break / ⭐ favorite actions, never a plain click.
   function handleSelectPoi(poi) {
     ui.highlightPoiRow(poiKey(poi));
     map.panTo([poi.lng, poi.lat]);
@@ -264,6 +291,15 @@ async function boot() {
   function handleRemoveBreak(key) {
     itinerary.removeBreak(key);
     persistPlan();
+    renderAll();
+  }
+
+  // ⭐ on any row toggles the place in the global favorites list. Towns carry no
+  // kind, so snapshot them as 'town' (matching the break snapshot). Favorites
+  // are their OWN store — this must NOT persistPlan. renderAll refreshes the
+  // origin-list stars, the favorites section, and the gold markers.
+  function handleToggleFavorite(place) {
+    favorites.toggle({ ...place, kind: place.kind ?? 'town' });
     renderAll();
   }
 

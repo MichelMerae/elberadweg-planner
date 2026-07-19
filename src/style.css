@@ -178,8 +178,12 @@ body {
 #controls,
 #towns,
 #pois,
+#favorites,
 #itinerary {
   padding: 0 var(--pad);
+}
+#favorites {
+  margin-top: 16px;
 }
 #controls {
   margin-top: 16px;
@@ -729,29 +733,6 @@ input[type="number"]:disabled {
   box-shadow: 0 0 0 3px rgba(91, 147, 255, 0.3);
 }
 
-.poi--pinned::before {
-  opacity: 1;
-}
-.poi--food.poi--pinned {
-  border-color: #e07b39;
-  background: rgba(224, 123, 57, 0.1);
-}
-.poi--food.poi--pinned::before {
-  box-shadow: 0 0 0 4px rgba(224, 123, 57, 0.22);
-}
-.poi--sight.poi--pinned {
-  border-color: #2a9d8f;
-  background: rgba(42, 157, 143, 0.1);
-}
-.poi--sight.poi--pinned::before {
-  box-shadow: 0 0 0 4px rgba(42, 157, 143, 0.22);
-}
-/* Filled pin marker on the pinned row. */
-.poi--pinned .poi__name::after {
-  content: " 📌";
-  font-size: 0.8em;
-}
-
 .poi__name {
   min-width: 0;
   font-weight: 600;
@@ -791,13 +772,17 @@ input[type="number"]:disabled {
   content: "🕒 ";
 }
 
-/* --- Row actions: ☕ add-break (towns/POIs) and × remove-break ----------- */
-/* The ☕ toggle occupies the right column of a town/POI row grid; the × remove
-   is used on day-card legs and pending-break rows. */
-.row-action {
+/* --- Row actions: ☕ add-break + ⭐ favorite (towns/POIs/favorites) -------- */
+/* Both action buttons share a flex cell in the right column of a row grid; the
+   × remove (row-remove) is used on day-card legs and pending-break rows. */
+.row-actions {
   grid-column: 3;
   align-self: center;
   justify-self: end;
+  display: inline-flex;
+  gap: 4px;
+}
+.row-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -812,10 +797,6 @@ input[type="number"]:disabled {
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.05s ease;
 }
-.row-action:hover {
-  border-color: var(--town);
-  background: rgba(246, 167, 35, 0.16);
-}
 .row-action:active {
   transform: translateY(1px);
 }
@@ -823,11 +804,28 @@ input[type="number"]:disabled {
   outline: none;
   box-shadow: 0 0 0 3px rgba(246, 167, 35, 0.35);
 }
-/* Active = this place is already a committed break. */
-.row-action--active {
+/* Break ☕ — amber, matching the town/break accents. Active = already a break. */
+.row-action--break:hover {
+  border-color: var(--town);
+  background: rgba(246, 167, 35, 0.16);
+}
+.row-action--break.row-action--active {
   border-color: var(--town);
   background: rgba(246, 167, 35, 0.22);
   box-shadow: inset 0 0 0 1px rgba(246, 167, 35, 0.3);
+}
+/* Favorite ⭐ — gold. Active = already starred (always active in the list). */
+.row-action--fav:hover {
+  border-color: #e0b83a;
+  background: rgba(224, 184, 58, 0.16);
+}
+.row-action--fav:focus-visible {
+  box-shadow: 0 0 0 3px rgba(224, 184, 58, 0.4);
+}
+.row-action--fav.row-action--active {
+  border-color: #e0b83a;
+  background: rgba(224, 184, 58, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(224, 184, 58, 0.35);
 }
 
 .row-remove {
@@ -871,6 +869,37 @@ input[type="number"]:disabled {
   line-height: 1.5;
   color: var(--text-faint);
   padding: 2px 0 8px;
+}
+
+/* --- Favorites section (top of the left panel) -------------------------- */
+/* Reuses the .pois/.poi anatomy; the ⭐ glyph in the summary is the section's
+   marker, so drop the coloured legend dot the food/sight sections carry. */
+.pois--fav .pois__summary::before {
+  display: none;
+}
+/* A favorite row shows its kind glyph inline in the name, so the left accent
+   dot the stretch POI rows carry is dropped and the padding tightened. */
+.poi.favorite {
+  padding-left: 11px;
+}
+.poi.favorite::before {
+  display: none;
+}
+/* Day tag chip: which planned day covers the favorite (or "beyond plan"). */
+.fav-day {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(240, 112, 95, 0.16);
+  color: #f0a596;
+}
+.fav-day--beyond {
+  background: var(--surface-hi);
+  color: var(--text-faint);
 }
 
 /* --- Itinerary summary (the river filling toward Dresden) --------------- */
@@ -1087,36 +1116,6 @@ input[type="number"]:disabled {
   font-weight: 400;
 }
 
-/* Pinned POIs on a committed day — small chips under the town line. */
-.day-card__pins {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 8px;
-}
-.day-pin {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface-hi);
-  color: var(--text-dim);
-  overflow-wrap: anywhere;
-}
-.day-pin--food {
-  border-color: rgba(224, 123, 57, 0.4);
-  color: #f0b184;
-}
-.day-pin--sight {
-  border-color: rgba(42, 157, 143, 0.45);
-  color: #7fd0c4;
-}
-
 /* --- Footer / attribution ------------------------------------------------ */
 #panel-footer {
   margin-top: auto;
@@ -1209,6 +1208,25 @@ input[type="number"]:disabled {
   font-size: 10px;
   line-height: 1;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(245, 158, 11, 0.28);
+}
+
+/* Favorite marker: a gold ⭐ with a soft white halo so it reads on the tiles.
+   No disc — the star shape itself is the marker. */
+.fav-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fav-marker__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 13px;
+  line-height: 1;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 /* Ghost marker: the proposed day-end — distinct, outlined, pulsing, non-interactive. */

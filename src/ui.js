@@ -42,6 +42,10 @@ function poiMeta(poi, dayStartKm, fromName) {
 // coffee ☕ stop, a sight 📷, a town waypoint 🛏 — matching the day-end marker).
 const BREAK_GLYPH = { food: '☕', sight: '📷', town: '🛏' };
 
+// Glyph per kind in the favorites list — here a food place reads literally as a
+// fork 🍴 (not the coffee ☕ used for break legs), a sight 📷, a town 🛏.
+const FAV_GLYPH = { town: '🛏', food: '🍴', sight: '📷' };
+
 // Escape user-facing data (OSM town names) before innerHTML interpolation.
 // None of the current dataset needs it, but a data rebuild could introduce
 // names containing & or < and must not become markup.
@@ -85,6 +89,7 @@ function debounce(fn, ms) {
  * @param {HTMLElement} opts.plansEl
  * @param {HTMLElement} opts.townsEl
  * @param {HTMLElement} opts.poisEl
+ * @param {HTMLElement} opts.favoritesEl
  * @param {HTMLElement} opts.itineraryEl
  * @param {HTMLElement} opts.bannerEl
  * @param {Object} opts.callbacks
@@ -96,6 +101,8 @@ function debounce(fn, ms) {
  * @param {(poi: object) => void} opts.callbacks.onSelectPoi
  * @param {(place: object) => void} opts.callbacks.onToggleBreak
  * @param {(key: string) => void} opts.callbacks.onRemoveBreak
+ * @param {(place: object) => void} opts.callbacks.onToggleFavorite
+ * @param {(place: object) => void} opts.callbacks.onSelectFavorite
  * @param {(poi: object|null) => void} opts.callbacks.onPoiRowHover
  * @param {(index: number, target: number) => void} opts.callbacks.onEditDay
  * @param {(id: string) => void} opts.callbacks.onSelectPlan
@@ -104,7 +111,7 @@ function debounce(fn, ms) {
  * @param {() => void} opts.callbacks.onDuplicatePlan
  * @param {() => void} opts.callbacks.onDeletePlan
  */
-export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, bannerEl, callbacks = {} }) {
+export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, itineraryEl, bannerEl, callbacks = {} }) {
   // --- Controls (built once) --------------------------------------------
   controlsEl.innerHTML = `
     <h2 class="controls__heading" id="pending-heading">Day 1 — start at km 0</h2>
@@ -215,60 +222,66 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
     }
   });
 
-  // --- Towns (event-delegated) ------------------------------------------
-  // Rows are role="button" divs (not <button>) so the ☕ break action can nest
-  // as a real button inside; keyboard activation of the row is wired below.
+  // --- Place lists: towns, POIs, favorites (event-delegated) ------------
+  // Rows are role="button" divs (not <button>) so the ☕/⭐ action buttons can
+  // nest as real buttons inside. wireRowList centralizes the shared behavior for
+  // all three lists: a body click (or Enter/Space on the row) runs onBody(place);
+  // a click on a nested [data-action] button runs onBreak/onFav with
+  // stopPropagation so the body action doesn't also fire; the inner buttons
+  // handle their own keyboard activation natively.
   let currentTowns = [];
-  townsEl.addEventListener('click', (e) => {
-    const row = e.target.closest('[data-town-index]');
-    if (!row) return;
-    const town = currentTowns[Number(row.dataset.townIndex)];
-    if (!town) return;
-    if (e.target.closest('[data-action="break"]')) {
-      // ☕ toggles the town as a break; it must not also pick it as overnight.
-      e.stopPropagation();
-      if (callbacks.onToggleBreak) callbacks.onToggleBreak(town);
-      return;
-    }
-    if (callbacks.onSelectTown) callbacks.onSelectTown(town);
-  });
-  townsEl.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const row = e.target.closest('[data-town-index]');
-    if (!row || e.target !== row) return; // inner ☕ button handles its own keys
-    e.preventDefault();
-    const town = currentTowns[Number(row.dataset.townIndex)];
-    if (town && callbacks.onSelectTown) callbacks.onSelectTown(town);
-  });
-
-  // --- POIs (event-delegated) -------------------------------------------
-  // Two lists share one container; the row's kind selects which to index into.
   let currentFood = [];
   let currentSights = [];
+  let currentFavorites = [];
+
   function poiFromRow(row) {
     const list = row.dataset.poiKind === 'food' ? currentFood : currentSights;
     return list[Number(row.dataset.poiIndex)] || null;
   }
-  poisEl.addEventListener('click', (e) => {
-    const row = e.target.closest('[data-poi-index]');
-    if (!row) return;
-    const poi = poiFromRow(row);
-    if (!poi) return;
-    if (e.target.closest('[data-action="break"]')) {
-      // ☕ toggles the POI as a break; row-body click stays pan/highlight only.
-      e.stopPropagation();
-      if (callbacks.onToggleBreak) callbacks.onToggleBreak(poi);
-      return;
-    }
-    if (callbacks.onSelectPoi) callbacks.onSelectPoi(poi);
+
+  function wireRowList(container, rowSelector, { resolve, onBody, onBreak, onFav }) {
+    if (!container) return;
+    container.addEventListener('click', (e) => {
+      const row = e.target.closest(rowSelector);
+      if (!row) return;
+      const place = resolve(row);
+      if (!place) return;
+      const action = e.target.closest('[data-action]');
+      if (action) {
+        e.stopPropagation();
+        if (action.dataset.action === 'break') onBreak?.(place);
+        else if (action.dataset.action === 'fav') onFav?.(place);
+        return;
+      }
+      onBody?.(place);
+    });
+    container.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const row = e.target.closest(rowSelector);
+      if (!row || e.target !== row) return; // inner action buttons handle their own keys
+      e.preventDefault();
+      const place = resolve(row);
+      if (place) onBody?.(place);
+    });
+  }
+
+  wireRowList(townsEl, '[data-town-index]', {
+    resolve: (row) => currentTowns[Number(row.dataset.townIndex)] || null,
+    onBody: (town) => callbacks.onSelectTown?.(town),
+    onBreak: (town) => callbacks.onToggleBreak?.(town),
+    onFav: (town) => callbacks.onToggleFavorite?.(town),
   });
-  poisEl.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    const row = e.target.closest('[data-poi-index]');
-    if (!row || e.target !== row) return; // inner ☕ button handles its own keys
-    e.preventDefault();
-    const poi = poiFromRow(row);
-    if (poi && callbacks.onSelectPoi) callbacks.onSelectPoi(poi);
+  wireRowList(poisEl, '[data-poi-index]', {
+    resolve: poiFromRow,
+    onBody: (poi) => callbacks.onSelectPoi?.(poi),
+    onBreak: (poi) => callbacks.onToggleBreak?.(poi),
+    onFav: (poi) => callbacks.onToggleFavorite?.(poi),
+  });
+  wireRowList(favoritesEl, '[data-fav-index]', {
+    resolve: (row) => currentFavorites[Number(row.dataset.favIndex)] || null,
+    onBody: (fav) => callbacks.onSelectFavorite?.(fav),
+    onBreak: (fav) => callbacks.onToggleBreak?.(fav),
+    onFav: (fav) => callbacks.onToggleFavorite?.(fav),
   });
 
   // Hovering a row reports the POI (or null on leave) so the map can highlight
@@ -356,25 +369,43 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
       `<div class="controls__breaks-label">Breaks this day</div><ul class="pending-break-list">${items}</ul>`;
   }
 
-  function renderTowns(towns, selectedKey, { dayStartKm = 0, fromName = 'your last stop', breakKeys } = {}) {
+  // The ☕ break + ⭐ favorite actions shared by every place row (towns, POIs,
+  // favorites). Both are real <button>s nested in the role="button" row (valid:
+  // button-in-div); state is reflected in the --active class + aria-pressed and
+  // the dynamic title/aria-label.
+  function rowActions(name, isBreak, isFav) {
+    const safeName = esc(name);
+    const breakLabel = isBreak ? 'Remove break' : 'Add as break';
+    const favLabel = isFav ? 'Remove favorite' : 'Favorite';
+    return `
+      <span class="row-actions">
+        <button type="button" class="row-action row-action--break${isBreak ? ' row-action--active' : ''}"
+                data-action="break" aria-pressed="${isBreak}" title="${breakLabel}" aria-label="${breakLabel}: ${safeName}">☕</button>
+        <button type="button" class="row-action row-action--fav${isFav ? ' row-action--active' : ''}"
+                data-action="fav" aria-pressed="${isFav}" title="${favLabel}" aria-label="${favLabel}: ${safeName}">⭐</button>
+      </span>`;
+  }
+
+  function renderTowns(towns, selectedKey, { dayStartKm = 0, fromName = 'your last stop', breakKeys, favoriteKeys } = {}) {
     currentTowns = towns || [];
     if (!currentTowns.length) {
       townsEl.innerHTML = '<p class="towns__empty">No towns near this stretch.</p>';
       return;
     }
     const breakSet = breakKeys instanceof Set ? breakKeys : new Set(breakKeys || []);
+    const favSet = favoriteKeys instanceof Set ? favoriteKeys : new Set(favoriteKeys || []);
     const items = currentTowns
       .map((town, i) => {
         const selected = townKey(town) === selectedKey ? ' town--selected' : '';
         const isBreak = breakSet.has(townKey(town));
-        const active = isBreak ? ' row-action--active' : '';
-        const label = isBreak ? 'Remove break' : 'Add as break';
+        // Favorites use a kind-prefixed key (favKey.js: `${kind}:${name}@${km}`);
+        // main.js passes the Set already prefixed, ui builds the town lookup here.
+        const isFav = favSet.has(`town:${townKey(town)}`);
         return `
           <div class="town${selected}" role="button" tabindex="0" data-town-index="${i}">
             <span class="town__name">${esc(town.name)}</span>
             <span class="town__place">${esc(town.place)}</span>
-            <button type="button" class="row-action row-action--break${active}" data-action="break"
-                    aria-pressed="${isBreak}" title="${label}" aria-label="${label}: ${esc(town.name)}">☕</button>
+            ${rowActions(town.name, isBreak, isFav)}
             <span class="town__meta">${townMeta(town, dayStartKm, fromName)}</span>
           </div>`;
       })
@@ -382,27 +413,30 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
     townsEl.innerHTML = `<h2 class="towns__heading">Overnight options</h2>${items}`;
   }
 
-  function poiRow(poi, index, kind, dayStartKm, fromName, isBreak) {
+  function poiRow(poi, index, kind, dayStartKm, fromName, isBreak, isFav) {
     const hours = poi.openingHours
       ? `<span class="poi__hours">${esc(poi.openingHours)}</span>`
       : '';
-    const active = isBreak ? ' row-action--active' : '';
-    const label = isBreak ? 'Remove break' : 'Add as break';
     return `
       <div class="poi poi--${kind}" role="button" tabindex="0"
            data-poi-kind="${kind}" data-poi-index="${index}" data-poi-key="${esc(poiKey(poi))}">
         <span class="poi__name">${esc(poi.name)}</span>
         <span class="poi__cat">${esc(poi.category.replace(/_/g, ' '))}</span>
-        <button type="button" class="row-action row-action--break${active}" data-action="break"
-                aria-pressed="${isBreak}" title="${label}" aria-label="${label}: ${esc(poi.name)}">☕</button>
+        ${rowActions(poi.name, isBreak, isFav)}
         <span class="poi__meta">${poiMeta(poi, dayStartKm, fromName)}</span>
         ${hours}
       </div>`;
   }
 
-  function poiSection(kind, label, emptyText, items, dayStartKm, fromName, breakSet) {
+  function poiSection(kind, label, emptyText, items, dayStartKm, fromName, breakSet, favSet) {
     const body = items.length
-      ? items.map((poi, i) => poiRow(poi, i, kind, dayStartKm, fromName, breakSet.has(poiKey(poi)))).join('')
+      ? items
+          .map((poi, i) =>
+            // fav lookup is kind-prefixed (`${kind}:${name}@${km}`); the row's
+            // kind is known per section, so build the same key main.js used.
+            poiRow(poi, i, kind, dayStartKm, fromName, breakSet.has(poiKey(poi)), favSet.has(`${kind}:${poiKey(poi)}`)),
+          )
+          .join('')
       : `<p class="pois__empty">${emptyText}</p>`;
     return `
       <details class="pois pois--${kind}" open>
@@ -411,13 +445,61 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
       </details>`;
   }
 
-  function renderPois({ food = [], sights = [], dayStartKm = 0, fromName = 'your last stop', breakKeys } = {}) {
+  function renderPois({ food = [], sights = [], dayStartKm = 0, fromName = 'your last stop', breakKeys, favoriteKeys } = {}) {
     currentFood = food;
     currentSights = sights;
     const breakSet = breakKeys instanceof Set ? breakKeys : new Set(breakKeys || []);
+    const favSet = favoriteKeys instanceof Set ? favoriteKeys : new Set(favoriteKeys || []);
     poisEl.innerHTML =
-      poiSection('food', 'Food on the way', 'No food stops on this stretch.', food, dayStartKm, fromName, breakSet) +
-      poiSection('sight', 'Worth seeing', 'No sights on this stretch.', sights, dayStartKm, fromName, breakSet);
+      poiSection('food', 'Food on the way', 'No food stops on this stretch.', food, dayStartKm, fromName, breakSet, favSet) +
+      poiSection('sight', 'Worth seeing', 'No sights on this stretch.', sights, dayStartKm, fromName, breakSet, favSet);
+  }
+
+  // The favorites section (top of the left panel): a user-curated, global list
+  // shown regardless of the pending stretch. Every ⭐ here is filled (each row is
+  // a favorite; clicking it unfavorites). Each row keeps a ☕ to commit it as a
+  // break. The day tag names the first committed day whose (startKm, endKm]
+  // covers the favorite's km, else "beyond plan".
+  function renderFavorites({ favorites = [], days = [], breakKeys } = {}) {
+    currentFavorites = favorites;
+    // Break lookups use the NON-prefixed key shape (name@km, = poiKey) — the
+    // same shape the origin rows check, not the kind-prefixed favorite key.
+    const breakSet = breakKeys instanceof Set ? breakKeys : new Set(breakKeys || []);
+    const count = favorites.length;
+    const body = count
+      ? favorites.map((fav, i) => favoriteRow(fav, i, days, breakSet)).join('')
+      : '<p class="pois__empty">Nothing starred yet — hit ⭐ on any place.</p>';
+    favoritesEl.innerHTML = `
+      <details class="pois pois--fav" open>
+        <summary class="pois__summary">⭐ Favorites <span class="pois__count">(${count})</span></summary>
+        <div class="pois__body">${body}</div>
+      </details>`;
+  }
+
+  function dayTagFor(fav, days) {
+    // Same (startKm, endKm] convention as breaks: a favorite at a day's endKm
+    // belongs to that day, at its startKm to the previous one.
+    const day = days.find((d) => fav.routeDistanceKm > d.startKm && fav.routeDistanceKm <= d.endKm);
+    return day ? `Day ${day.index + 1}` : 'beyond plan';
+  }
+
+  function favoriteRow(fav, index, days, breakSet) {
+    const glyph = FAV_GLYPH[fav.kind] || '⭐';
+    const cat = fav.category
+      ? `<span class="poi__cat">${esc(fav.category.replace(/_/g, ' '))}</span>`
+      : '';
+    const tag = dayTagFor(fav, days);
+    const beyond = tag === 'beyond plan' ? ' fav-day--beyond' : '';
+    // Rows carry the stored snapshot; ⭐ is always active (it's a favorite). ☕
+    // reflects whether this place is currently a committed break in the plan.
+    const isBreak = breakSet.has(poiKey(fav));
+    return `
+      <div class="poi favorite" role="button" tabindex="0" data-fav-index="${index}">
+        <span class="poi__name">${glyph} ${esc(fav.name)}</span>
+        ${cat}
+        ${rowActions(fav.name, isBreak, true)}
+        <span class="poi__meta">km ${round1(fav.routeDistanceKm)} <span class="fav-day${beyond}">${tag}</span></span>
+      </div>`;
   }
 
   // Renders the plans bar: a dropdown of every plan (active one selected), a
@@ -579,6 +661,7 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
     renderPlans,
     renderTowns,
     renderPois,
+    renderFavorites,
     renderPoisNote,
     highlightPoiRow,
     renderItinerary,

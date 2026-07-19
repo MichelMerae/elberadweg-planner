@@ -8,17 +8,29 @@ evening, you set a daily riding distance and the planner measures that distance
 
 - Drag the slider (or type a distance, or click a point on the map) to set the
   next day's target. A pulsing ghost marker shows where you'd end up.
-- Pick an overnight town from the nearby list; commit the day to lock it in.
-- **Food on the way & Worth seeing:** the panel also lists cafés, bakeries and
+- Pick an overnight town from the nearby list, then commit the day to lock it in.
+- **Multiple named plans:** keep an "8 days sporty" and a "10 days relaxed" side
+  by side — create, rename, duplicate, switch, or delete plans from the bar at
+  the top of the right panel. Each plan carries its own days and breaks; the list
+  itself is your history (no separate undo).
+- **Breaks as day legs:** hit **☕** on any town, food stop, or sight to commit it
+  as a break. Day cards then read as legs — "35 km → ☕ Café · 45 km → 🛏 Lenzen"
+  — and editing a day's distance re-buckets its breaks between days automatically.
+- **Day-relative distances:** distances read from your last overnight stop
+  ("45 km from Boizenburg/Elbe"), with the absolute route km shown alongside — so
+  you see how far you'll actually ride that day, not raw kilometre marks.
+- **Food on the way & Worth seeing:** the left panel lists cafés, bakeries and
   restaurants (with opening hours where OSM knows them) plus viewpoints, castles
-  and notable bridges along the day you're planning — each labelled with how far
-  into your day it falls. Pin the ones you don't want to miss; pins are saved on
-  the day's card.
+  and notable bridges along the day you're planning.
+- **Favorites:** star **⭐** any place to a global save-for-later list, shared
+  across every plan. It sits at the top of the left panel, drops a gold pin on
+  the map, and tags which planned day (if any) currently covers it.
 - Committed days stack up as numbered pins on the map and cards in the panel,
   with a progress bar tracking how far along the ~650 km route you've planned.
-- Everything is saved to `localStorage`, so your plan is still there next visit.
+- Everything — plans, breaks, and favorites — is saved to `localStorage`, so your
+  work is still there next visit.
 
-![Screenshot of the Elberadweg Day Planner — map on the left, planning panel on the right](docs/screenshot.png)
+![Screenshot of the Elberadweg Day Planner — map in the centre, favorites and places along the day on the left, plans and itinerary on the right](docs/screenshot.png)
 
 _Screenshot placeholder — drop a `docs/screenshot.png` here._
 
@@ -42,10 +54,14 @@ npm test           # run the unit tests (Vitest)
 
 ## How it works
 
-The map (left) is the hero: OpenStreetMap tiles with the Elberadweg drawn as a
+The map (centre) is the hero: OpenStreetMap tiles with the Elberadweg drawn as a
 blue line, a green **H** pin at the Hamburg start, red numbered pins for each
-committed day, amber dots for candidate towns, and a pulsing blue ghost marker
-for the pending day's endpoint. The panel (right) is the planning companion.
+committed day, amber dots for candidate towns, ☕ pins for committed breaks, gold
+⭐ pins for favorites, and a pulsing blue ghost marker for the pending day's
+endpoint. The two side panels are the planning companions: the **right** panel
+holds the plans bar, the day controls, overnight options and the itinerary; the
+**left** panel holds your favorites and the food stops and sights along the day
+you're planning.
 
 The route and towns are **generated from OpenStreetMap**, not hand-drawn:
 

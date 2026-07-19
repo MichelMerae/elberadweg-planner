@@ -16,6 +16,15 @@ function toLatLng([lng, lat]) {
   return [lat, lng];
 }
 
+// Leaflet renders a string tooltip as HTML, and place names come from OSM
+// (untrusted). Escape before binding so a crafted name can't inject markup.
+function escapeHtml(value) {
+  return String(value).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+}
+
 function numberedPinIcon(text, variant) {
   return L.divIcon({
     className: `pin-icon pin-icon--${variant}`,
@@ -60,6 +69,15 @@ const BREAK_ICON = L.divIcon({
   iconAnchor: [9, 9],
 });
 
+// A favorited place: a gold ⭐ with a soft white halo. Shown for every favorite
+// across the whole route (the list is user-curated and small — no density cap).
+const FAV_ICON = L.divIcon({
+  className: 'fav-marker',
+  html: '<span class="fav-marker__glyph">⭐</span>',
+  iconSize: [16, 16],
+  iconAnchor: [8, 8],
+});
+
 // The map only ever shows the nearest-to-route POIs of a kind; dense city
 // stretches can hold hundreds of food POIs and the panel list stays complete.
 const POI_MAP_CAP = 40;
@@ -88,6 +106,7 @@ function cappedByKind(pois, kind) {
  *   setTownHighlight: (lngLat: [number, number]|null) => void,
  *   setPoiMarkers: (pois: Array<object>) => void,
  *   setBreakMarkers: (breaks: Array<object>) => void,
+ *   setFavoriteMarkers: (favorites: Array<object>) => void,
  *   panTo: (lngLat: [number, number]) => void,
  *   invalidate: () => void,
  * }}
@@ -121,6 +140,7 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
   const dayPinLayer = L.layerGroup().addTo(map);
   const poiLayer = L.layerGroup().addTo(map);
   const breakLayer = L.layerGroup().addTo(map);
+  const favLayer = L.layerGroup().addTo(map);
   let ghostMarker = null;
   let townMarker = null;
 
@@ -160,11 +180,29 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
         icon: BREAK_ICON,
         keyboard: false,
         zIndexOffset: 450,
-      }).bindTooltip(b.name);
+      }).bindTooltip(escapeHtml(b.name));
       marker.on('click', () => {
         if (typeof onPoiClick === 'function') onPoiClick(b);
       });
       marker.addTo(breakLayer);
+    });
+  }
+
+  // Every favorite gets a gold star, always visible across the whole route (no
+  // density cap — the list is user-curated and small). A click routes through
+  // the same highlight/pan path as POI and break markers.
+  function setFavoriteMarkers(favorites) {
+    favLayer.clearLayers();
+    (favorites || []).forEach((fav) => {
+      const marker = L.marker([fav.lat, fav.lng], {
+        icon: FAV_ICON,
+        keyboard: false,
+        zIndexOffset: 350,
+      }).bindTooltip(escapeHtml(fav.name));
+      marker.on('click', () => {
+        if (typeof onPoiClick === 'function') onPoiClick(fav);
+      });
+      marker.addTo(favLayer);
     });
   }
 
@@ -204,7 +242,7 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
         icon: poiIcon(poi.kind),
         keyboard: false,
         zIndexOffset: 300,
-      }).bindTooltip(poi.name);
+      }).bindTooltip(escapeHtml(poi.name));
       marker.on('click', () => {
         if (typeof onPoiClick === 'function') onPoiClick(poi);
       });
@@ -242,7 +280,7 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
         interactive: false,
         zIndexOffset: 400,
       })
-        .bindTooltip(poi.name)
+        .bindTooltip(escapeHtml(poi.name))
         .addTo(map);
       marker = tempPoiMarker;
     }
@@ -263,6 +301,7 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
     setGhost,
     setDayPins,
     setBreakMarkers,
+    setFavoriteMarkers,
     setTownHighlight,
     setPoiMarkers,
     setPoiHighlight,
