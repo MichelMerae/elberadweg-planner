@@ -160,7 +160,6 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
         icon: BREAK_ICON,
         keyboard: false,
         zIndexOffset: 450,
-        title: b.name,
       }).bindTooltip(b.name);
       marker.on('click', () => {
         if (typeof onPoiClick === 'function') onPoiClick(b);

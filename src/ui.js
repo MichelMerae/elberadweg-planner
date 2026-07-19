@@ -366,13 +366,15 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
     const items = currentTowns
       .map((town, i) => {
         const selected = townKey(town) === selectedKey ? ' town--selected' : '';
-        const active = breakSet.has(townKey(town)) ? ' row-action--active' : '';
+        const isBreak = breakSet.has(townKey(town));
+        const active = isBreak ? ' row-action--active' : '';
+        const label = isBreak ? 'Remove break' : 'Add as break';
         return `
           <div class="town${selected}" role="button" tabindex="0" data-town-index="${i}">
             <span class="town__name">${esc(town.name)}</span>
             <span class="town__place">${esc(town.place)}</span>
             <button type="button" class="row-action row-action--break${active}" data-action="break"
-                    title="Add as break" aria-label="Add ${esc(town.name)} as a break">☕</button>
+                    aria-pressed="${isBreak}" title="${label}" aria-label="${label}: ${esc(town.name)}">☕</button>
             <span class="town__meta">${townMeta(town, dayStartKm, fromName)}</span>
           </div>`;
       })
@@ -385,13 +387,14 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
       ? `<span class="poi__hours">${esc(poi.openingHours)}</span>`
       : '';
     const active = isBreak ? ' row-action--active' : '';
+    const label = isBreak ? 'Remove break' : 'Add as break';
     return `
       <div class="poi poi--${kind}" role="button" tabindex="0"
            data-poi-kind="${kind}" data-poi-index="${index}" data-poi-key="${esc(poiKey(poi))}">
         <span class="poi__name">${esc(poi.name)}</span>
         <span class="poi__cat">${esc(poi.category.replace(/_/g, ' '))}</span>
         <button type="button" class="row-action row-action--break${active}" data-action="break"
-                title="Add as break" aria-label="Add ${esc(poi.name)} as a break">☕</button>
+                aria-pressed="${isBreak}" title="${label}" aria-label="${label}: ${esc(poi.name)}">☕</button>
         <span class="poi__meta">${poiMeta(poi, dayStartKm, fromName)}</span>
         ${hours}
       </div>`;
@@ -470,7 +473,8 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
   }
 
   // "from X" lead for a day card: previous day's overnight town, "Hamburg" for
-  // day 0, or "your last stop" when the previous day has no town chosen.
+  // day 0, or "your last stop" when the previous day has no town chosen. Twin of
+  // main.js pendingFromName (pending day) — keep these literals in sync.
   function dayFromName(days, i) {
     if (i === 0) return 'Hamburg';
     return days[i - 1].townChoice?.name ?? 'your last stop';

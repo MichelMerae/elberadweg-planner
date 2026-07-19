@@ -140,7 +140,8 @@ async function boot() {
 
   // The pending day's reference for day-relative distances: the last committed
   // day's overnight town, "Hamburg" before any day is committed, or "your last
-  // stop" when the last committed day has no town chosen.
+  // stop" when the last committed day has no town chosen. Twin of ui.js
+  // dayFromName (day cards) — keep the Hamburg / "your last stop" literals in sync.
   function pendingFromName() {
     const days = itinerary.getDays();
     if (!days.length) return 'Hamburg';
@@ -148,9 +149,13 @@ async function boot() {
   }
 
   // Passed into renderItinerary so each day card derives its own break legs by
-  // km range (editing a day re-buckets breaks automatically).
+  // km range (editing a day re-buckets breaks automatically). Constraint: a
+  // km-0 break must own a leg somewhere — the (start, end] rule would exclude it
+  // from day 1 (startKm 0) with no removal path, so widen the lower bound for
+  // the first day. Later days start > 0 and are unaffected.
   function breaksForDay(day) {
-    return itinerary.breaksInRange(day.startKm, day.endKm);
+    const start = day.startKm === 0 ? -1 : day.startKm;
+    return itinerary.breaksInRange(start, day.endKm);
   }
 
   // Renders committed days: numbered map pins, break markers, itinerary cards.
@@ -181,7 +186,11 @@ async function boot() {
     // breakKeys drives the active state of the ☕ row actions; pendingBreaks are
     // the breaks past the last committed day (shown in the controls block).
     const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
-    const pendingBreaks = itinerary.breaksInRange(startKm, Infinity);
+    // Same km-0 constraint as breaksForDay: before any day is committed the
+    // pending stretch starts at 0, so widen the lower bound to keep a km-0 break
+    // in this list rather than orphaning its pin.
+    const pendingStart = startKm === 0 ? -1 : startKm;
+    const pendingBreaks = itinerary.breaksInRange(pendingStart, Infinity);
 
     ui.renderControls({
       dayNumber: itinerary.getDays().length + 1,
