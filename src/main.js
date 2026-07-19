@@ -2,7 +2,7 @@ import './style.css';
 import { loadRoute, pointAtDistance, snap } from './route.js';
 import { loadTowns, townsNear } from './towns.js';
 import { loadPois, poisInRange } from './pois.js';
-import { createItinerary } from './itinerary.js';
+import { createItinerary, breakKey } from './itinerary.js';
 import { createPlanStore } from './storage.js';
 import { createMap } from './map.js';
 import { createUI, townKey, poiKey } from './ui.js';
@@ -37,7 +37,10 @@ async function boot() {
   const store = createPlanStore({ storage: window.localStorage, routeVersion: meta.builtAt });
   const initial = store.load();
   const itinerary = createItinerary({ totalKm });
-  itinerary.hydrate(store.getActivePlan().days);
+  // Object form restores days AND breaks; a stored plan may predate breaks, so
+  // default the field. Using the array form here would leave breaks untouched.
+  const bootPlan = store.getActivePlan();
+  itinerary.hydrate({ days: bootPlan.days, breaks: bootPlan.breaks ?? [] });
 
   // Local mirror of the plans list ({id, name}) + active id for renderPlans.
   // Kept in sync from each mutation's return value rather than re-reading the
@@ -71,6 +74,8 @@ async function boot() {
       onReset: handleReset,
       onSelectTown: handleSelectTown,
       onSelectPoi: handleSelectPoi,
+      onToggleBreak: handleToggleBreak,
+      onRemoveBreak: handleRemoveBreak,
       // Panel-row hover highlights the matching marker on the map.
       onPoiRowHover: (poi) => map.setPoiHighlight(poi),
       onEditDay: handleEditDay,
@@ -89,7 +94,7 @@ async function boot() {
   function persistPlan() {
     store.saveActivePlan({
       days: itinerary.getDays().map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice })),
-      breaks: [], // sub-project 2 fills this
+      breaks: itinerary.getBreaks(),
     });
     // Saving stamps the plan with the current route version, so a stale
     // route-changed banner must clear now, not on the next plan switch.
@@ -100,7 +105,9 @@ async function boot() {
   // boot and on every plan switch — hydrate + render only, no persist.
   function hydrateActivePlan() {
     const active = store.getActivePlan();
-    itinerary.hydrate(active ? active.days : []);
+    // Object form so the new plan's breaks replace the previous plan's — the
+    // array form would leak breaks across a plan switch.
+    itinerary.hydrate({ days: active?.days ?? [], breaks: active?.breaks ?? [] });
     pendingTarget = DEFAULT_TARGET_KM;
     pendingTown = null;
     ui.setPendingTarget(pendingTarget);
@@ -131,53 +138,76 @@ async function boot() {
     return pendingStartKm() >= totalKm - DRESDEN_EPSILON_KM;
   }
 
-  // Renders committed days: numbered map pins + itinerary cards.
+  // The pending day's reference for day-relative distances: the last committed
+  // day's overnight town, "Hamburg" before any day is committed, or "your last
+  // stop" when the last committed day has no town chosen.
+  function pendingFromName() {
+    const days = itinerary.getDays();
+    if (!days.length) return 'Hamburg';
+    return days[days.length - 1].townChoice?.name ?? 'your last stop';
+  }
+
+  // Passed into renderItinerary so each day card derives its own break legs by
+  // km range (editing a day re-buckets breaks automatically).
+  function breaksForDay(day) {
+    return itinerary.breaksInRange(day.startKm, day.endKm);
+  }
+
+  // Renders committed days: numbered map pins, break markers, itinerary cards.
   function renderCommitted() {
     const days = itinerary.getDays();
     map.setDayPins(days.map((day) => ({ index: day.index, coord: pointAtDistance(route, day.endKm) })));
-    ui.renderItinerary({ days, totalKm, reached: hasReachedDresden() });
+    map.setBreakMarkers(itinerary.getBreaks());
+    ui.renderItinerary({ days, totalKm, reached: hasReachedDresden(), breaksForDay });
   }
 
   // Drives both POI panel sections and the map markers for a given stretch.
   // When POI data is missing, shows the boot note instead and clears markers.
-  function drawPois(food, sights, startKm) {
+  function drawPois(food, sights, startKm, fromName, breakKeys) {
     if (poisMissing) {
       ui.renderPoisNote('No POI data — run npm run build:data');
       map.setPoiMarkers([]);
       return;
     }
-    ui.renderPois({ food, sights, dayStartKm: startKm });
+    ui.renderPois({ food, sights, dayStartKm: startKm, fromName, breakKeys });
     map.setPoiMarkers([...food, ...sights]);
   }
 
   // Renders the pending day: ghost marker, candidate towns, POIs, control state.
   function renderPending() {
     const reached = hasReachedDresden();
+    const startKm = pendingStartKm();
+    const fromName = pendingFromName();
+    // breakKeys drives the active state of the ☕ row actions; pendingBreaks are
+    // the breaks past the last committed day (shown in the controls block).
+    const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
+    const pendingBreaks = itinerary.breaksInRange(startKm, Infinity);
+
     ui.renderControls({
       dayNumber: itinerary.getDays().length + 1,
-      startKm: pendingStartKm(),
+      startKm,
       reached,
+      pendingBreaks,
     });
 
     if (reached) {
       map.setGhost(null);
       map.setTownHighlight(null);
-      ui.renderTowns([]);
-      drawPois([], [], pendingStartKm());
+      ui.renderTowns([], null, { dayStartKm: startKm, fromName, breakKeys });
+      drawPois([], [], startKm, fromName, breakKeys);
       return;
     }
 
-    const startKm = pendingStartKm();
     const ghostKm = Math.min(startKm + pendingTarget, totalKm);
     map.setGhost(pointAtDistance(route, ghostKm));
 
     const candidates = townsNear(towns, ghostKm);
-    ui.renderTowns(candidates, townKey(pendingTown));
+    ui.renderTowns(candidates, townKey(pendingTown), { dayStartKm: startKm, fromName, breakKeys });
     map.setTownHighlight(pendingTown ? [pendingTown.lng, pendingTown.lat] : null);
 
     const food = poisInRange(poiData, startKm, ghostKm, { kind: 'food' });
     const sights = poisInRange(poiData, startKm, ghostKm, { kind: 'sight' });
-    drawPois(food, sights, startKm);
+    drawPois(food, sights, startKm, fromName, breakKeys);
   }
 
   function renderAll() {
@@ -208,6 +238,24 @@ async function boot() {
   function handleSelectPoi(poi) {
     ui.highlightPoiRow(poiKey(poi));
     map.panTo([poi.lng, poi.lat]);
+  }
+
+  // ☕ on a town/food/sight row toggles that place as a plan-level break. Towns
+  // carry no kind of their own, so snapshot them as 'town' for the leg glyph.
+  function handleToggleBreak(place) {
+    const key = breakKey(place);
+    const isBreak = itinerary.getBreaks().some((b) => breakKey(b) === key);
+    if (isBreak) itinerary.removeBreak(key);
+    else itinerary.addBreak({ ...place, kind: place.kind ?? 'town' });
+    persistPlan();
+    renderAll();
+  }
+
+  // × on a day-card leg or a pending-break row removes that break by key.
+  function handleRemoveBreak(key) {
+    itinerary.removeBreak(key);
+    persistPlan();
+    renderAll();
   }
 
   function handleCommit() {

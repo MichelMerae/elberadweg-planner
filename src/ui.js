@@ -17,8 +17,12 @@ export function townKey(town) {
   return town ? `${town.name}@${town.routeDistanceKm}` : null;
 }
 
-function townMeta(town) {
-  return `${round1(town.routeDistanceKm)} km along · ${town.offsetKm} km off route`;
+// Day-relative wording (spec §4): distance from the day's reference point (the
+// last overnight stop), absolute route km shown small in a .meta__abs span.
+// fromName is an OSM-derived town name, so escape it before innerHTML use.
+function townMeta(town, dayStartKm, fromName) {
+  const rel = round1(town.routeDistanceKm - dayStartKm);
+  return `${rel} km from ${esc(fromName)} · ${town.offsetKm} km off route <span class="meta__abs">km ${round1(town.routeDistanceKm)}</span>`;
 }
 
 // Stable identity for a POI, mirroring townKey — used to match a pending pin to
@@ -27,10 +31,16 @@ export function poiKey(poi) {
   return poi ? `${poi.name}@${poi.routeDistanceKm}` : null;
 }
 
-function poiMeta(poi, dayStartKm) {
-  const into = round1(poi.routeDistanceKm - dayStartKm);
-  return `${into} km into your day (km ${round1(poi.routeDistanceKm)}) · ${poi.offsetKm} km off route`;
+// Same day-relative wording as towns, but the absolute km sits inline in
+// parentheses (spec §4) rather than in a trailing .meta__abs span.
+function poiMeta(poi, dayStartKm, fromName) {
+  const rel = round1(poi.routeDistanceKm - dayStartKm);
+  return `${rel} km from ${esc(fromName)} (km ${round1(poi.routeDistanceKm)}) · ${poi.offsetKm} km off route`;
 }
+
+// Glyph per break kind for day-card legs (spec §2: a food break reads as a
+// coffee ☕ stop, a sight 📷, a town waypoint 🛏 — matching the day-end marker).
+const BREAK_GLYPH = { food: '☕', sight: '📷', town: '🛏' };
 
 // Escape user-facing data (OSM town names) before innerHTML interpolation.
 // None of the current dataset needs it, but a data rebuild could introduce
@@ -84,6 +94,8 @@ function debounce(fn, ms) {
  * @param {() => void} opts.callbacks.onReset
  * @param {(town: object) => void} opts.callbacks.onSelectTown
  * @param {(poi: object) => void} opts.callbacks.onSelectPoi
+ * @param {(place: object) => void} opts.callbacks.onToggleBreak
+ * @param {(key: string) => void} opts.callbacks.onRemoveBreak
  * @param {(poi: object|null) => void} opts.callbacks.onPoiRowHover
  * @param {(index: number, target: number) => void} opts.callbacks.onEditDay
  * @param {(id: string) => void} opts.callbacks.onSelectPlan
@@ -108,9 +120,11 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
       <button type="button" id="commit-btn" class="btn btn--primary">Commit day</button>
       <button type="button" id="remove-btn" class="btn">Remove last day</button>
       <button type="button" id="reset-btn" class="btn btn--danger">Reset trip</button>
-    </div>`;
+    </div>
+    <div class="controls__breaks" id="pending-breaks"></div>`;
 
   const heading = controlsEl.querySelector('#pending-heading');
+  const pendingBreaksEl = controlsEl.querySelector('#pending-breaks');
   const range = controlsEl.querySelector('#pending-range');
   const number = controlsEl.querySelector('#pending-number');
   const commitBtn = controlsEl.querySelector('#commit-btn');
@@ -148,6 +162,13 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
     if (window.confirm('Reset the whole trip? This clears every planned day.')) {
       if (callbacks.onReset) callbacks.onReset();
     }
+  });
+  // The pending-stretch breaks list lives inside the controls block; its ×
+  // buttons remove a plan-level break (same callback as the day-card legs).
+  controlsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="remove-break"]');
+    if (!btn) return;
+    if (callbacks.onRemoveBreak) callbacks.onRemoveBreak(btn.dataset.breakKey);
   });
 
   // --- Plans bar (event-delegated) --------------------------------------
@@ -195,11 +216,28 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
   });
 
   // --- Towns (event-delegated) ------------------------------------------
+  // Rows are role="button" divs (not <button>) so the ☕ break action can nest
+  // as a real button inside; keyboard activation of the row is wired below.
   let currentTowns = [];
   townsEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-town-index]');
-    if (!btn) return;
-    const town = currentTowns[Number(btn.dataset.townIndex)];
+    const row = e.target.closest('[data-town-index]');
+    if (!row) return;
+    const town = currentTowns[Number(row.dataset.townIndex)];
+    if (!town) return;
+    if (e.target.closest('[data-action="break"]')) {
+      // ☕ toggles the town as a break; it must not also pick it as overnight.
+      e.stopPropagation();
+      if (callbacks.onToggleBreak) callbacks.onToggleBreak(town);
+      return;
+    }
+    if (callbacks.onSelectTown) callbacks.onSelectTown(town);
+  });
+  townsEl.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const row = e.target.closest('[data-town-index]');
+    if (!row || e.target !== row) return; // inner ☕ button handles its own keys
+    e.preventDefault();
+    const town = currentTowns[Number(row.dataset.townIndex)];
     if (town && callbacks.onSelectTown) callbacks.onSelectTown(town);
   });
 
@@ -207,11 +245,29 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
   // Two lists share one container; the row's kind selects which to index into.
   let currentFood = [];
   let currentSights = [];
+  function poiFromRow(row) {
+    const list = row.dataset.poiKind === 'food' ? currentFood : currentSights;
+    return list[Number(row.dataset.poiIndex)] || null;
+  }
   poisEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-poi-index]');
-    if (!btn) return;
-    const list = btn.dataset.poiKind === 'food' ? currentFood : currentSights;
-    const poi = list[Number(btn.dataset.poiIndex)];
+    const row = e.target.closest('[data-poi-index]');
+    if (!row) return;
+    const poi = poiFromRow(row);
+    if (!poi) return;
+    if (e.target.closest('[data-action="break"]')) {
+      // ☕ toggles the POI as a break; row-body click stays pan/highlight only.
+      e.stopPropagation();
+      if (callbacks.onToggleBreak) callbacks.onToggleBreak(poi);
+      return;
+    }
+    if (callbacks.onSelectPoi) callbacks.onSelectPoi(poi);
+  });
+  poisEl.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const row = e.target.closest('[data-poi-index]');
+    if (!row || e.target !== row) return; // inner ☕ button handles its own keys
+    e.preventDefault();
+    const poi = poiFromRow(row);
     if (poi && callbacks.onSelectPoi) callbacks.onSelectPoi(poi);
   });
 
@@ -245,6 +301,11 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
     if (!Number.isFinite(value) || value <= 0) return;
     if (callbacks.onEditDay) callbacks.onEditDay(Number(input.dataset.dayIndex), value);
   });
+  itineraryEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="remove-break"]');
+    if (!btn) return;
+    if (callbacks.onRemoveBreak) callbacks.onRemoveBreak(btn.dataset.breakKey);
+  });
 
   // --- Public render API -------------------------------------------------
 
@@ -255,7 +316,7 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
     range.value = String(Math.min(Math.max(v, SLIDER_MIN), SLIDER_MAX));
   }
 
-  function renderControls({ dayNumber, startKm, reached }) {
+  function renderControls({ dayNumber, startKm, reached, pendingBreaks = [] }) {
     const disabled = Boolean(reached);
     range.disabled = disabled;
     number.disabled = disabled;
@@ -267,45 +328,78 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
       heading.textContent = `Day ${dayNumber} — start at km ${round1(startKm)}`;
       heading.classList.remove('controls__heading--done');
     }
+    renderPendingBreaks(pendingBreaks, startKm);
   }
 
-  function renderTowns(towns, selectedKey) {
+  // Breaks committed beyond the last planned day (no day covers them yet), shown
+  // in the controls block with the same × remove control as the day-card legs.
+  // Distances are relative to the pending day's start (the last committed endKm).
+  function renderPendingBreaks(list, startKm) {
+    if (!list.length) {
+      pendingBreaksEl.innerHTML = '';
+      return;
+    }
+    const items = list
+      .map((b) => {
+        const glyph = BREAK_GLYPH[b.kind] || '☕';
+        const rel = round1(b.routeDistanceKm - startKm);
+        return `
+          <li class="pending-break">
+            <span class="pending-break__name">${glyph} ${esc(b.name)}</span>
+            <span class="pending-break__dist">${rel} km from start</span>
+            <button type="button" class="row-remove" data-action="remove-break"
+                    data-break-key="${esc(poiKey(b))}" title="Remove break" aria-label="Remove break">×</button>
+          </li>`;
+      })
+      .join('');
+    pendingBreaksEl.innerHTML =
+      `<div class="controls__breaks-label">Breaks this day</div><ul class="pending-break-list">${items}</ul>`;
+  }
+
+  function renderTowns(towns, selectedKey, { dayStartKm = 0, fromName = 'your last stop', breakKeys } = {}) {
     currentTowns = towns || [];
     if (!currentTowns.length) {
       townsEl.innerHTML = '<p class="towns__empty">No towns near this stretch.</p>';
       return;
     }
+    const breakSet = breakKeys instanceof Set ? breakKeys : new Set(breakKeys || []);
     const items = currentTowns
       .map((town, i) => {
         const selected = townKey(town) === selectedKey ? ' town--selected' : '';
+        const active = breakSet.has(townKey(town)) ? ' row-action--active' : '';
         return `
-          <button type="button" class="town${selected}" data-town-index="${i}">
+          <div class="town${selected}" role="button" tabindex="0" data-town-index="${i}">
             <span class="town__name">${esc(town.name)}</span>
             <span class="town__place">${esc(town.place)}</span>
-            <span class="town__meta">${townMeta(town)}</span>
-          </button>`;
+            <button type="button" class="row-action row-action--break${active}" data-action="break"
+                    title="Add as break" aria-label="Add ${esc(town.name)} as a break">☕</button>
+            <span class="town__meta">${townMeta(town, dayStartKm, fromName)}</span>
+          </div>`;
       })
       .join('');
     townsEl.innerHTML = `<h2 class="towns__heading">Overnight options</h2>${items}`;
   }
 
-  function poiRow(poi, index, kind, dayStartKm) {
+  function poiRow(poi, index, kind, dayStartKm, fromName, isBreak) {
     const hours = poi.openingHours
       ? `<span class="poi__hours">${esc(poi.openingHours)}</span>`
       : '';
+    const active = isBreak ? ' row-action--active' : '';
     return `
-      <button type="button" class="poi poi--${kind}"
-              data-poi-kind="${kind}" data-poi-index="${index}" data-poi-key="${esc(poiKey(poi))}">
+      <div class="poi poi--${kind}" role="button" tabindex="0"
+           data-poi-kind="${kind}" data-poi-index="${index}" data-poi-key="${esc(poiKey(poi))}">
         <span class="poi__name">${esc(poi.name)}</span>
         <span class="poi__cat">${esc(poi.category.replace(/_/g, ' '))}</span>
-        <span class="poi__meta">${poiMeta(poi, dayStartKm)}</span>
+        <button type="button" class="row-action row-action--break${active}" data-action="break"
+                title="Add as break" aria-label="Add ${esc(poi.name)} as a break">☕</button>
+        <span class="poi__meta">${poiMeta(poi, dayStartKm, fromName)}</span>
         ${hours}
-      </button>`;
+      </div>`;
   }
 
-  function poiSection(kind, label, emptyText, items, dayStartKm) {
+  function poiSection(kind, label, emptyText, items, dayStartKm, fromName, breakSet) {
     const body = items.length
-      ? items.map((poi, i) => poiRow(poi, i, kind, dayStartKm)).join('')
+      ? items.map((poi, i) => poiRow(poi, i, kind, dayStartKm, fromName, breakSet.has(poiKey(poi)))).join('')
       : `<p class="pois__empty">${emptyText}</p>`;
     return `
       <details class="pois pois--${kind}" open>
@@ -314,12 +408,13 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
       </details>`;
   }
 
-  function renderPois({ food = [], sights = [], dayStartKm = 0 } = {}) {
+  function renderPois({ food = [], sights = [], dayStartKm = 0, fromName = 'your last stop', breakKeys } = {}) {
     currentFood = food;
     currentSights = sights;
+    const breakSet = breakKeys instanceof Set ? breakKeys : new Set(breakKeys || []);
     poisEl.innerHTML =
-      poiSection('food', 'Food on the way', 'No food stops on this stretch.', food, dayStartKm) +
-      poiSection('sight', 'Worth seeing', 'No sights on this stretch.', sights, dayStartKm);
+      poiSection('food', 'Food on the way', 'No food stops on this stretch.', food, dayStartKm, fromName, breakSet) +
+      poiSection('sight', 'Worth seeing', 'No sights on this stretch.', sights, dayStartKm, fromName, breakSet);
   }
 
   // Renders the plans bar: a dropdown of every plan (active one selected), a
@@ -374,7 +469,41 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
     }
   }
 
-  function renderItinerary({ days, totalKm, reached }) {
+  // "from X" lead for a day card: previous day's overnight town, "Hamburg" for
+  // day 0, or "your last stop" when the previous day has no town chosen.
+  function dayFromName(days, i) {
+    if (i === 0) return 'Hamburg';
+    return days[i - 1].townChoice?.name ?? 'your last stop';
+  }
+
+  // Day-card legs (spec §2): one line per break (km since the previous stop →
+  // glyph + name, with a × remove), then a final leg to the overnight town /
+  // day end. Distances derive from consecutive positions, so they sum to the
+  // ridden distance (endKm − startKm).
+  function dayLegs(day, dayBreaks) {
+    const lines = [];
+    let prevKm = day.startKm;
+    for (const b of dayBreaks) {
+      const legKm = round1(b.routeDistanceKm - prevKm);
+      const glyph = BREAK_GLYPH[b.kind] || '☕';
+      lines.push(`
+        <li class="day-card__leg">
+          <span class="day-card__leg-text"><span class="day-card__leg-dist">${legKm} km</span> → ${glyph} ${esc(b.name)}</span>
+          <button type="button" class="row-remove" data-action="remove-break"
+                  data-break-key="${esc(poiKey(b))}" title="Remove break" aria-label="Remove break">×</button>
+        </li>`);
+      prevKm = b.routeDistanceKm;
+    }
+    const finalKm = round1(day.endKm - prevKm);
+    const endName = day.townChoice ? esc(day.townChoice.name) : 'day end';
+    lines.push(`
+      <li class="day-card__leg day-card__leg--end">
+        <span class="day-card__leg-text"><span class="day-card__leg-dist">${finalKm} km</span> → 🛏 ${endName}</span>
+      </li>`);
+    return `<ol class="day-card__legs">${lines.join('')}</ol>`;
+  }
+
+  function renderItinerary({ days, totalKm, reached, breaksForDay }) {
     const plannedKm = days.length ? days[days.length - 1].endKm : 0;
     const remaining = Math.max(0, totalKm - plannedKm);
     const pct = totalKm > 0 ? Math.min(100, Math.max(0, (plannedKm / totalKm) * 100)) : 0;
@@ -399,19 +528,27 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, itineraryEl, ba
     const cards = days
       .map((day, i) => {
         const isFinish = reached && i === days.length - 1;
+        const fromName = dayFromName(days, i);
+        const dayBreaks = typeof breaksForDay === 'function' ? breaksForDay(day) || [] : [];
         const town = day.townChoice ? esc(day.townChoice.name) : 'no town chosen';
         const townClass = day.townChoice ? 'day-card__town' : 'day-card__town day-card__town--none';
+        // With breaks the overnight/day end shows as the final leg, so the
+        // standalone town chip would duplicate it — omit it then.
+        const legs = dayBreaks.length ? dayLegs(day, dayBreaks) : '';
+        const townSpan = dayBreaks.length ? '' : `<span class="${townClass}">${town}</span>`;
         return `
           <div class="day-card${isFinish ? ' day-card--finish' : ''}">
             <div class="day-card__title">Day ${day.index + 1}</div>
+            <div class="day-card__from">from ${esc(fromName)}</div>
             <div class="day-card__body">
               <label class="day-card__edit">
                 <input type="number" min="1" step="1" value="${round1(day.targetKm)}"
                        data-day-index="${day.index}" /> km
               </label>
-              <span class="day-card__range">km ${round1(day.startKm)} → ${round1(day.endKm)}</span>
-              <span class="${townClass}">${town}</span>
+              <span class="day-card__range">km ${round1(day.startKm)} → ${round1(day.endKm)} of ${round1(totalKm)}</span>
+              ${townSpan}
             </div>
+            ${legs}
           </div>`;
       })
       .join('');

@@ -50,6 +50,16 @@ function poiIcon(kind) {
   });
 }
 
+// A committed break: ☕ in a small amber-bordered white circle. Sized between
+// the numbered day pin (26px) and the POI dot (14px) so breaks read as
+// secondary waypoints on the day.
+const BREAK_ICON = L.divIcon({
+  className: 'break-marker',
+  html: '<span class="break-marker__glyph">☕</span>',
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
 // The map only ever shows the nearest-to-route POIs of a kind; dense city
 // stretches can hold hundreds of food POIs and the panel list stays complete.
 const POI_MAP_CAP = 40;
@@ -77,6 +87,7 @@ function cappedByKind(pois, kind) {
  *   setDayPins: (pins: Array<{index: number, coord: [number, number]}>) => void,
  *   setTownHighlight: (lngLat: [number, number]|null) => void,
  *   setPoiMarkers: (pois: Array<object>) => void,
+ *   setBreakMarkers: (breaks: Array<object>) => void,
  *   panTo: (lngLat: [number, number]) => void,
  *   invalidate: () => void,
  * }}
@@ -109,6 +120,7 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
 
   const dayPinLayer = L.layerGroup().addTo(map);
   const poiLayer = L.layerGroup().addTo(map);
+  const breakLayer = L.layerGroup().addTo(map);
   let ghostMarker = null;
   let townMarker = null;
 
@@ -134,6 +146,26 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
         zIndexOffset: 500,
         title: `Day ${index + 1}`,
       }).addTo(dayPinLayer);
+    });
+  }
+
+  // Committed breaks are always visible (like day pins), rebuilt each render
+  // pass from getBreaks(). Records carry named lat/lng (not [lng, lat] tuples).
+  // A click routes through the same highlight/pan path as a POI click; removal
+  // happens on the day cards, not the marker.
+  function setBreakMarkers(breaks) {
+    breakLayer.clearLayers();
+    (breaks || []).forEach((b) => {
+      const marker = L.marker([b.lat, b.lng], {
+        icon: BREAK_ICON,
+        keyboard: false,
+        zIndexOffset: 450,
+        title: b.name,
+      }).bindTooltip(b.name);
+      marker.on('click', () => {
+        if (typeof onPoiClick === 'function') onPoiClick(b);
+      });
+      marker.addTo(breakLayer);
     });
   }
 
@@ -228,5 +260,14 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
     map.invalidateSize();
   }
 
-  return { setGhost, setDayPins, setTownHighlight, setPoiMarkers, setPoiHighlight, panTo, invalidate };
+  return {
+    setGhost,
+    setDayPins,
+    setBreakMarkers,
+    setTownHighlight,
+    setPoiMarkers,
+    setPoiHighlight,
+    panTo,
+    invalidate,
+  };
 }
