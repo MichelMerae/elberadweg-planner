@@ -33,10 +33,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', 'src', 'data');
 const ROUTE_RAW_CACHE = join(DATA_DIR, 'route.raw.osm.json'); // gitignored
 const TOWNS_RAW_CACHE = join(tmpdir(), 'elberadweg-towns.raw.osm.json'); // not committed
+const POIS_RAW_CACHE = join(tmpdir(), 'elberadweg-pois.raw.osm.json'); // not committed
 
 const ROUTE_JSON = join(DATA_DIR, 'route.json');
 const ROUTE_META_JSON = join(DATA_DIR, 'route.meta.json');
 const TOWNS_JSON = join(DATA_DIR, 'towns.json');
+const POIS_JSON = join(DATA_DIR, 'pois.json');
 
 // Elberadweg right-bank Hamburg -> Dresden stage relations, in north->south order.
 // The first (2599011) starts north of Hamburg and the last (2599032) ends south of
@@ -71,6 +73,21 @@ const CHECKPOINTS = [
 
 const SIMPLIFY_TOLERANCE = 0.00008;
 const COORD_DECIMALS = 6;
+
+// POI corridor half-widths (km off route) — food kept tighter than sights.
+const POI_MAX_OFFSET = { food: 2, sight: 3 };
+// Near-duplicate merge radius (metres) for POIs sharing a normalized name.
+const POI_DEDUPE_M = 100;
+
+// Fallback display labels for unnamed food POIs, keyed by category.
+const FOOD_FALLBACK_LABEL = {
+  cafe: 'Café',
+  bakery: 'Bakery',
+  restaurant: 'Restaurant',
+  fast_food: 'Fast food',
+  ice_cream: 'Ice cream',
+  biergarten: 'Biergarten',
+};
 
 // Gap thresholds (metres) between the current route tail and the next way's start.
 const GAP_JOIN = 1;      // < this => shared vertex, dedupe
@@ -465,6 +482,175 @@ async function buildTowns(trimmed) {
 }
 
 // ---------------------------------------------------------------------------
+// POIs (food stops & sights)
+// ---------------------------------------------------------------------------
+
+/**
+ * Classify a raw OSM element's tags into a POI kind + category, or null if it
+ * matches none of our clauses. Food is checked before sights; the first match
+ * wins so each element gets exactly one {kind, category}.
+ */
+function classifyPoi(tags) {
+  const foodAmenities = ['cafe', 'restaurant', 'fast_food', 'ice_cream', 'biergarten'];
+  if (foodAmenities.includes(tags.amenity)) return { kind: 'food', category: tags.amenity };
+  if (tags.shop === 'bakery') return { kind: 'food', category: 'bakery' };
+
+  if (tags.tourism === 'viewpoint') return { kind: 'sight', category: 'viewpoint' };
+  if (tags.natural === 'waterfall') return { kind: 'sight', category: 'waterfall' };
+  const historic = ['castle', 'monument', 'ruins', 'fort', 'city_gate', 'tower'];
+  if (historic.includes(tags.historic)) return { kind: 'sight', category: tags.historic };
+  if (tags.man_made === 'lighthouse') return { kind: 'sight', category: 'lighthouse' };
+  if (tags.man_made === 'tower' && tags['tower:type'] === 'observation') {
+    return { kind: 'sight', category: 'tower' };
+  }
+  if (tags.man_made === 'bridge') return { kind: 'sight', category: 'bridge' };
+  return null;
+}
+
+/** [lng,lat] for a POI element: nodes carry lat/lon, ways/relations carry center.* */
+function poiCoord(el) {
+  if (typeof el.lat === 'number' && typeof el.lon === 'number') return [el.lon, el.lat];
+  if (el.center && typeof el.center.lat === 'number' && typeof el.center.lon === 'number') {
+    return [el.center.lon, el.center.lat];
+  }
+  return null;
+}
+
+/**
+ * Resolve a display name for a classified POI, applying unnamed-entry rules:
+ *  - food: kept with a capitalized category fallback ("Café", "Bakery", …)
+ *  - unnamed viewpoints: kept as "Viewpoint"
+ *  - all other unnamed sights: dropped (return null)
+ */
+function poiName(tags, kind, category) {
+  const raw = tags.name;
+  if (raw && raw.trim()) return raw.trim();
+  if (kind === 'food') return FOOD_FALLBACK_LABEL[category] ?? 'Food';
+  if (category === 'viewpoint') return 'Viewpoint';
+  return null;
+}
+
+/**
+ * Drop near-duplicate POIs: entries with the same normalized (lowercased,
+ * trimmed) name lying within POI_DEDUPE_M of each other — e.g. a café tagged
+ * both as a node and as its building outline — keeping the one closest to route.
+ */
+function dedupePois(pois) {
+  const kept = [];
+  const byName = new Map(); // normalized name -> indices into kept
+  for (const p of pois) {
+    const norm = p.name.toLowerCase().trim();
+    const group = byName.get(norm);
+    let duplicate = false;
+    if (group) {
+      for (const idx of group) {
+        const q = kept[idx];
+        if (haversineM([p.lng, p.lat], [q.lng, q.lat]) <= POI_DEDUPE_M) {
+          duplicate = true;
+          if (p.offsetKm < q.offsetKm) kept[idx] = p; // keep closest-to-route
+          break;
+        }
+      }
+    }
+    if (!duplicate) {
+      const idx = kept.length;
+      kept.push(p);
+      if (group) group.push(idx);
+      else byName.set(norm, [idx]);
+    }
+  }
+  return kept;
+}
+
+async function buildPois(trimmed) {
+  const [minX, minY, maxX, maxY] = turf.bbox(trimmed);
+  const pad = 0.1;
+  const S = (minY - pad).toFixed(4);
+  const W = (minX - pad).toFixed(4);
+  const N = (maxY + pad).toFixed(4);
+  const E = (maxX + pad).toFixed(4);
+
+  const query =
+    `[out:json][timeout:180];` +
+    `(` +
+    `nwr["amenity"~"^(cafe|restaurant|fast_food|ice_cream|biergarten)$"](${S},${W},${N},${E});` +
+    `nwr["shop"="bakery"](${S},${W},${N},${E});` +
+    `nwr["tourism"="viewpoint"](${S},${W},${N},${E});` +
+    `nwr["natural"="waterfall"](${S},${W},${N},${E});` +
+    `nwr["historic"~"^(castle|monument|ruins|fort|city_gate|tower)$"](${S},${W},${N},${E});` +
+    `nwr["man_made"="lighthouse"](${S},${W},${N},${E});` +
+    `nwr["man_made"="tower"]["tower:type"="observation"](${S},${W},${N},${E});` +
+    `nwr["man_made"="bridge"]["name"](${S},${W},${N},${E});` +
+    `);` +
+    `out center;`;
+
+  const osm = await fetchCached(query, POIS_RAW_CACHE, 'pois');
+
+  const pois = [];
+  for (const el of osm.elements) {
+    const tags = el.tags;
+    if (!tags) continue;
+    const cls = classifyPoi(tags);
+    if (!cls) continue;
+    const coord = poiCoord(el);
+    if (!coord) continue; // ways/relations without a resolvable center
+    const name = poiName(tags, cls.kind, cls.category);
+    if (!name) continue; // unnamed non-viewpoint sight — dropped
+
+    const [lng, lat] = coord;
+    const snap = turf.nearestPointOnLine(trimmed, turf.point([lng, lat]), {
+      units: 'kilometers',
+    });
+    const offsetKm = snap.properties.dist;
+    if (offsetKm > POI_MAX_OFFSET[cls.kind]) continue;
+
+    const record = {
+      name,
+      kind: cls.kind,
+      category: cls.category,
+      lat: round(lat),
+      lng: round(lng),
+      routeDistanceKm: round(snap.properties.location, 1),
+      offsetKm: round(offsetKm, 2),
+    };
+    if (tags.opening_hours) record.openingHours = tags.opening_hours;
+    pois.push(record);
+  }
+
+  const deduped = dedupePois(pois);
+  deduped.sort((a, b) => a.routeDistanceKm - b.routeDistanceKm);
+  return deduped;
+}
+
+/** Print per-kind / per-category counts; throw if the dataset is empty. */
+function validatePois(pois) {
+  console.log('\n===== POI VALIDATION =====');
+  console.log(`Total POIs: ${pois.length}`);
+
+  const perKind = {};
+  const perCategory = {};
+  for (const p of pois) {
+    perKind[p.kind] = (perKind[p.kind] || 0) + 1;
+    const key = `${p.kind}/${p.category}`;
+    perCategory[key] = (perCategory[key] || 0) + 1;
+  }
+
+  console.log('Per kind:');
+  for (const [k, n] of Object.entries(perKind).sort((a, b) => a[0].localeCompare(b[0]))) {
+    console.log(`  ${k.padEnd(8)} ${n}`);
+  }
+  console.log('Per category:');
+  for (const [c, n] of Object.entries(perCategory).sort((a, b) => a[0].localeCompare(b[0]))) {
+    console.log(`  ${c.padEnd(20)} ${n}`);
+  }
+  console.log('==========================\n');
+
+  if (pois.length === 0) {
+    throw new Error('POI dataset is empty — the Overpass query is likely broken.');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -524,6 +710,12 @@ async function main() {
   const towns = await buildTowns(trimmed);
   writeFileSync(TOWNS_JSON, JSON.stringify(towns, null, 2));
   console.log(`[write] ${TOWNS_JSON} (${towns.length} towns)`);
+
+  // 8. POIs (food stops & sights).
+  const pois = await buildPois(trimmed);
+  validatePois(pois);
+  writeFileSync(POIS_JSON, JSON.stringify(pois, null, 2));
+  console.log(`[write] ${POIS_JSON} (${pois.length} POIs)`);
 
   console.log('\nDone.');
 }
