@@ -1,0 +1,7 @@
+node_modules/
+dist/
+src/data/route.raw.osm.json
+
+# OS cruft
+.DS_Store
+Thumbs.db
