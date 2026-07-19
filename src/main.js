@@ -44,6 +44,8 @@ async function boot() {
     routeFeature: route,
     onRouteClick: handleRouteClick,
     onPoiClick: handleTogglePoi,
+    // Map-marker hover highlights the matching row in the left panel.
+    onPoiHover: (poi) => ui.highlightPoiRow(poi ? poiKey(poi) : null),
   });
 
   const ui = createUI({
@@ -59,6 +61,8 @@ async function boot() {
       onReset: handleReset,
       onSelectTown: handleSelectTown,
       onTogglePoi: handleTogglePoi,
+      // Panel-row hover highlights the matching marker on the map.
+      onPoiRowHover: (poi) => map.setPoiHighlight(poi),
       onEditDay: handleEditDay,
     },
   });

@@ -70,6 +70,8 @@ function cappedByKind(pois, kind) {
  *   the user clicks the map; receives the clicked point as [lng, lat].
  * @param {(poi: object) => void} [opts.onPoiClick] - fired when the user clicks
  *   a POI marker; receives the POI record.
+ * @param {(poi: object|null) => void} [opts.onPoiHover] - fired when the pointer
+ *   enters a POI marker (with the POI record) and again with null when it leaves.
  * @returns {{
  *   setGhost: (lngLat: [number, number]|null) => void,
  *   setDayPins: (pins: Array<{index: number, coord: [number, number]}>) => void,
@@ -79,7 +81,7 @@ function cappedByKind(pois, kind) {
  *   invalidate: () => void,
  * }}
  */
-export function createMap({ routeFeature, onRouteClick, onPoiClick } = {}) {
+export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover } = {}) {
   const renderer = L.canvas();
   const map = L.map('map', { renderer, preferCanvas: true });
 
@@ -149,10 +151,21 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick } = {}) {
     }).addTo(map);
   }
 
+  // Same name@km identity convention as ui.js's poiKey/itinerary's poiPinKey —
+  // kept local so map.js stays import-free besides Leaflet.
+  function poiMarkerKey(poi) {
+    return `${poi.name}@${poi.routeDistanceKm}`;
+  }
+
+  let poiMarkerIndex = new Map(); // poiMarkerKey -> marker, for panel-row hover
+  let highlightedPoiMarker = null;
+
   // POIs arrive as records carrying named lat/lng (not [lng, lat] tuples), so
   // the coordinate order still resolves to Leaflet's [lat, lng] right here.
   function setPoiMarkers(pois) {
     poiLayer.clearLayers();
+    poiMarkerIndex = new Map();
+    highlightedPoiMarker = null;
     const list = pois || [];
     const shown = [...cappedByKind(list, 'food'), ...cappedByKind(list, 'sight')];
     shown.forEach((poi) => {
@@ -164,8 +177,47 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick } = {}) {
       marker.on('click', () => {
         if (typeof onPoiClick === 'function') onPoiClick(poi);
       });
+      marker.on('mouseover', () => {
+        if (typeof onPoiHover === 'function') onPoiHover(poi);
+      });
+      marker.on('mouseout', () => {
+        if (typeof onPoiHover === 'function') onPoiHover(null);
+      });
       marker.addTo(poiLayer);
+      poiMarkerIndex.set(poiMarkerKey(poi), marker);
     });
+  }
+
+  // Emphasizes the marker for `poi` (from a panel-row hover); null clears. A POI
+  // dropped by the density cap has no permanent marker, so a temporary one is
+  // shown for the duration of the hover — every row can be located on the map.
+  let tempPoiMarker = null;
+  function setPoiHighlight(poi) {
+    if (highlightedPoiMarker) {
+      highlightedPoiMarker.getElement()?.classList.remove('poi-marker--active');
+      highlightedPoiMarker.closeTooltip();
+      highlightedPoiMarker = null;
+    }
+    if (tempPoiMarker) {
+      map.removeLayer(tempPoiMarker);
+      tempPoiMarker = null;
+    }
+    if (!poi) return;
+    let marker = poiMarkerIndex.get(poiMarkerKey(poi));
+    if (!marker) {
+      tempPoiMarker = L.marker([poi.lat, poi.lng], {
+        icon: poiIcon(poi.kind),
+        keyboard: false,
+        interactive: false,
+        zIndexOffset: 400,
+      })
+        .bindTooltip(poi.name)
+        .addTo(map);
+      marker = tempPoiMarker;
+    }
+    marker.getElement()?.classList.add('poi-marker--active');
+    marker.openTooltip();
+    highlightedPoiMarker = marker === tempPoiMarker ? null : marker;
   }
 
   function panTo(lngLat) {
@@ -176,5 +228,5 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick } = {}) {
     map.invalidateSize();
   }
 
-  return { setGhost, setDayPins, setTownHighlight, setPoiMarkers, panTo, invalidate };
+  return { setGhost, setDayPins, setTownHighlight, setPoiMarkers, setPoiHighlight, panTo, invalidate };
 }

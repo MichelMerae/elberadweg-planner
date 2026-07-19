@@ -86,6 +86,7 @@ function debounce(fn, ms) {
  * @param {() => void} opts.callbacks.onReset
  * @param {(town: object) => void} opts.callbacks.onSelectTown
  * @param {(poi: object) => void} opts.callbacks.onTogglePoi
+ * @param {(poi: object|null) => void} opts.callbacks.onPoiRowHover
  * @param {(index: number, target: number) => void} opts.callbacks.onEditDay
  */
 export function createUI({ controlsEl, townsEl, poisEl, itineraryEl, bannerEl, callbacks = {} }) {
@@ -167,6 +168,28 @@ export function createUI({ controlsEl, townsEl, poisEl, itineraryEl, bannerEl, c
     if (poi && callbacks.onTogglePoi) callbacks.onTogglePoi(poi);
   });
 
+  // Hovering a row reports the POI (or null on leave) so the map can highlight
+  // the matching marker. mouseover repeats while moving across a row's children,
+  // so dedupe by key.
+  let lastRowHoverKey = null;
+  poisEl.addEventListener('mouseover', (e) => {
+    const btn = e.target.closest('[data-poi-index]');
+    if (!btn) return;
+    if (btn.dataset.poiKey === lastRowHoverKey) return;
+    lastRowHoverKey = btn.dataset.poiKey;
+    const list = btn.dataset.poiKind === 'food' ? currentFood : currentSights;
+    const poi = list[Number(btn.dataset.poiIndex)];
+    if (poi && callbacks.onPoiRowHover) callbacks.onPoiRowHover(poi);
+  });
+  poisEl.addEventListener('mouseout', (e) => {
+    const btn = e.target.closest('[data-poi-index]');
+    if (!btn) return;
+    // Ignore moves between a row's own children; only fire on a real exit.
+    if (btn.contains(e.relatedTarget)) return;
+    lastRowHoverKey = null;
+    if (callbacks.onPoiRowHover) callbacks.onPoiRowHover(null);
+  });
+
   // --- Itinerary (event-delegated) --------------------------------------
   itineraryEl.addEventListener('change', (e) => {
     const input = e.target.closest('[data-day-index]');
@@ -226,7 +249,7 @@ export function createUI({ controlsEl, townsEl, poisEl, itineraryEl, bannerEl, c
       : '';
     return `
       <button type="button" class="poi poi--${kind}${pinned}"
-              data-poi-kind="${kind}" data-poi-index="${index}">
+              data-poi-kind="${kind}" data-poi-index="${index}" data-poi-key="${esc(poiKey(poi))}">
         <span class="poi__name">${esc(poi.name)}</span>
         <span class="poi__cat">${esc(poi.category.replace(/_/g, ' '))}</span>
         <span class="poi__meta">${poiMeta(poi, dayStartKm)}</span>
@@ -259,6 +282,23 @@ export function createUI({ controlsEl, townsEl, poisEl, itineraryEl, bannerEl, c
     currentFood = [];
     currentSights = [];
     poisEl.innerHTML = `<p class="pois__note">${esc(message)}</p>`;
+  }
+
+  // Highlights the row matching `key` (from a map-marker hover); null clears.
+  // Scrolls the row into view inside the left panel so the match is visible.
+  let hoveredRow = null;
+  function highlightPoiRow(key) {
+    if (hoveredRow) {
+      hoveredRow.classList.remove('poi--hover');
+      hoveredRow = null;
+    }
+    if (!key) return;
+    hoveredRow =
+      [...poisEl.querySelectorAll('[data-poi-key]')].find((el) => el.dataset.poiKey === key) || null;
+    if (hoveredRow) {
+      hoveredRow.classList.add('poi--hover');
+      hoveredRow.scrollIntoView({ block: 'nearest' });
+    }
   }
 
   function renderItinerary({ days, totalKm, reached }) {
@@ -332,6 +372,7 @@ export function createUI({ controlsEl, townsEl, poisEl, itineraryEl, bannerEl, c
     renderTowns,
     renderPois,
     renderPoisNote,
+    highlightPoiRow,
     renderItinerary,
     showBanner,
   };
