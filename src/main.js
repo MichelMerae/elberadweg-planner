@@ -91,6 +91,9 @@ async function boot() {
       days: itinerary.getDays().map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice })),
       breaks: [], // sub-project 2 fills this
     });
+    // Saving stamps the plan with the current route version, so a stale
+    // route-changed banner must clear now, not on the next plan switch.
+    renderBanner();
   }
 
   // Loads the active plan into the itinerary and resets the pending day. Used at
