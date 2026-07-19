@@ -196,6 +196,65 @@ body {
   padding-bottom: 24px;
 }
 
+/* --- Plans bar (pick / rename / new / duplicate / delete a named plan) --- */
+#plans {
+  padding: 0 var(--pad);
+  margin-top: 14px;
+}
+.plans__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+/* Select grows to fill the row; the name field rides alongside and both wrap
+   above the action buttons on a narrow panel. */
+.plans__select,
+.plans__name {
+  min-width: 0;
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-hi);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 6px 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.plans__select {
+  flex: 2 1 140px;
+  cursor: pointer;
+}
+.plans__name {
+  flex: 1 1 110px;
+}
+.plans__select:hover,
+.plans__name:hover {
+  border-color: #4a4335;
+}
+.plans__select:focus-visible,
+.plans__name:focus-visible {
+  outline: none;
+  border-color: var(--river);
+  box-shadow: 0 0 0 3px rgba(91, 147, 255, 0.25);
+}
+.plans__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* Compact button variant for the plans bar's three actions. */
+.btn--sm {
+  font-size: 0.72rem;
+  padding: 6px 9px;
+}
+
 /* --- Banner (route data changed) ---------------------------------------- */
 /* A class selector out-specifies the UA `[hidden]` rule, so restore it or the
    empty banner would render as a stray box. */
