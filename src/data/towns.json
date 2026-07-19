@@ -1,0 +1,3986 @@
+[
+  {
+    "name": "Hamburg",
+    "place": "city",
+    "lat": 53.550172,
+    "lng": 10.001317,
+    "routeDistanceKm": 8.5,
+    "offsetKm": 0.31
+  },
+  {
+    "name": "Bullenhausen",
+    "place": "village",
+    "lat": 53.447174,
+    "lng": 10.076127,
+    "routeDistanceKm": 21.9,
+    "offsetKm": 2.5
+  },
+  {
+    "name": "Fünfhausen",
+    "place": "village",
+    "lat": 53.445555,
+    "lng": 10.128234,
+    "routeDistanceKm": 24.7,
+    "offsetKm": 0.15
+  },
+  {
+    "name": "Over",
+    "place": "village",
+    "lat": 53.432949,
+    "lng": 10.097442,
+    "routeDistanceKm": 24.9,
+    "offsetKm": 2.57
+  },
+  {
+    "name": "Rosenweide",
+    "place": "village",
+    "lat": 53.42083,
+    "lng": 10.121933,
+    "routeDistanceKm": 26.3,
+    "offsetKm": 1.93
+  },
+  {
+    "name": "Klein-Rosenweide",
+    "place": "village",
+    "lat": 53.42028,
+    "lng": 10.113916,
+    "routeDistanceKm": 26.3,
+    "offsetKm": 2.36
+  },
+  {
+    "name": "Fliegenberg",
+    "place": "village",
+    "lat": 53.416088,
+    "lng": 10.138074,
+    "routeDistanceKm": 27.1,
+    "offsetKm": 1.71
+  },
+  {
+    "name": "Howe",
+    "place": "village",
+    "lat": 53.421611,
+    "lng": 10.14737,
+    "routeDistanceKm": 27.3,
+    "offsetKm": 0.86
+  },
+  {
+    "name": "Hoopte",
+    "place": "village",
+    "lat": 53.394848,
+    "lng": 10.170727,
+    "routeDistanceKm": 30,
+    "offsetKm": 2.1
+  },
+  {
+    "name": "Stöckte",
+    "place": "village",
+    "lat": 53.384354,
+    "lng": 10.190668,
+    "routeDistanceKm": 31.6,
+    "offsetKm": 2.68
+  },
+  {
+    "name": "Winsen (Luhe)",
+    "place": "town",
+    "lat": 53.363647,
+    "lng": 10.205921,
+    "routeDistanceKm": 33.1,
+    "offsetKm": 4.33
+  },
+  {
+    "name": "Laßrönne",
+    "place": "village",
+    "lat": 53.389036,
+    "lng": 10.228337,
+    "routeDistanceKm": 33.4,
+    "offsetKm": 1.3
+  },
+  {
+    "name": "Tönnhausen",
+    "place": "village",
+    "lat": 53.37356,
+    "lng": 10.261263,
+    "routeDistanceKm": 33.6,
+    "offsetKm": 3.73
+  },
+  {
+    "name": "Drage",
+    "place": "village",
+    "lat": 53.414048,
+    "lng": 10.264673,
+    "routeDistanceKm": 36.6,
+    "offsetKm": 1.33
+  },
+  {
+    "name": "Drennhausen",
+    "place": "village",
+    "lat": 53.417795,
+    "lng": 10.271458,
+    "routeDistanceKm": 38.8,
+    "offsetKm": 1.09
+  },
+  {
+    "name": "Elbstorf",
+    "place": "village",
+    "lat": 53.420566,
+    "lng": 10.290295,
+    "routeDistanceKm": 39.7,
+    "offsetKm": 0.89
+  },
+  {
+    "name": "Stove",
+    "place": "village",
+    "lat": 53.42658,
+    "lng": 10.306649,
+    "routeDistanceKm": 40.7,
+    "offsetKm": 0.84
+  },
+  {
+    "name": "Börnsen",
+    "place": "village",
+    "lat": 53.476201,
+    "lng": 10.28404,
+    "routeDistanceKm": 41,
+    "offsetKm": 4.77
+  },
+  {
+    "name": "Voßmoor",
+    "place": "village",
+    "lat": 53.447668,
+    "lng": 10.303931,
+    "routeDistanceKm": 41.7,
+    "offsetKm": 1.36
+  },
+  {
+    "name": "Escheburg",
+    "place": "village",
+    "lat": 53.466625,
+    "lng": 10.310146,
+    "routeDistanceKm": 41.9,
+    "offsetKm": 3.39
+  },
+  {
+    "name": "Schwinde",
+    "place": "village",
+    "lat": 53.421969,
+    "lng": 10.326014,
+    "routeDistanceKm": 43.2,
+    "offsetKm": 1.39
+  },
+  {
+    "name": "Fahrendorf",
+    "place": "village",
+    "lat": 53.467367,
+    "lng": 10.348027,
+    "routeDistanceKm": 45.5,
+    "offsetKm": 3.82
+  },
+  {
+    "name": "Rönne",
+    "place": "village",
+    "lat": 53.419556,
+    "lng": 10.340348,
+    "routeDistanceKm": 46.2,
+    "offsetKm": 1.39
+  },
+  {
+    "name": "Niedermarschacht",
+    "place": "village",
+    "lat": 53.417743,
+    "lng": 10.350482,
+    "routeDistanceKm": 46.5,
+    "offsetKm": 1.5
+  },
+  {
+    "name": "Hohenhorn",
+    "place": "village",
+    "lat": 53.476205,
+    "lng": 10.368767,
+    "routeDistanceKm": 46.8,
+    "offsetKm": 4.92
+  },
+  {
+    "name": "Geesthacht",
+    "place": "town",
+    "lat": 53.437468,
+    "lng": 10.367824,
+    "routeDistanceKm": 47.5,
+    "offsetKm": 0.74
+  },
+  {
+    "name": "Hamwarde",
+    "place": "village",
+    "lat": 53.452625,
+    "lng": 10.421923,
+    "routeDistanceKm": 48.9,
+    "offsetKm": 4.11
+  },
+  {
+    "name": "Obermarschacht",
+    "place": "village",
+    "lat": 53.415997,
+    "lng": 10.369821,
+    "routeDistanceKm": 49.1,
+    "offsetKm": 1.2
+  },
+  {
+    "name": "Wiershop",
+    "place": "village",
+    "lat": 53.441534,
+    "lng": 10.451988,
+    "routeDistanceKm": 50.2,
+    "offsetKm": 4.54
+  },
+  {
+    "name": "Eichholz",
+    "place": "village",
+    "lat": 53.39046,
+    "lng": 10.349364,
+    "routeDistanceKm": 50.6,
+    "offsetKm": 4.2
+  },
+  {
+    "name": "Tespe",
+    "place": "village",
+    "lat": 53.393575,
+    "lng": 10.415758,
+    "routeDistanceKm": 52.9,
+    "offsetKm": 1.17
+  },
+  {
+    "name": "Bütlingen",
+    "place": "village",
+    "lat": 53.370338,
+    "lng": 10.413253,
+    "routeDistanceKm": 54.9,
+    "offsetKm": 3.52
+  },
+  {
+    "name": "Krukow",
+    "place": "village",
+    "lat": 53.419615,
+    "lng": 10.481627,
+    "routeDistanceKm": 55.4,
+    "offsetKm": 3.3
+  },
+  {
+    "name": "Lüdershausen",
+    "place": "village",
+    "lat": 53.352662,
+    "lng": 10.453025,
+    "routeDistanceKm": 58.3,
+    "offsetKm": 4
+  },
+  {
+    "name": "Juliusburg",
+    "place": "village",
+    "lat": 53.416705,
+    "lng": 10.504801,
+    "routeDistanceKm": 58.6,
+    "offsetKm": 3.73
+  },
+  {
+    "name": "Artlenburg",
+    "place": "village",
+    "lat": 53.373402,
+    "lng": 10.489905,
+    "routeDistanceKm": 59.7,
+    "offsetKm": 0.83
+  },
+  {
+    "name": "Schnakenbek",
+    "place": "village",
+    "lat": 53.38602,
+    "lng": 10.50232,
+    "routeDistanceKm": 60,
+    "offsetKm": 0.7
+  },
+  {
+    "name": "Krüzen",
+    "place": "village",
+    "lat": 53.402185,
+    "lng": 10.526756,
+    "routeDistanceKm": 61.1,
+    "offsetKm": 2.94
+  },
+  {
+    "name": "Lauenburg/Elbe",
+    "place": "town",
+    "lat": 53.37898,
+    "lng": 10.551389,
+    "routeDistanceKm": 63.4,
+    "offsetKm": 0.88
+  },
+  {
+    "name": "Echem",
+    "place": "village",
+    "lat": 53.337215,
+    "lng": 10.534201,
+    "routeDistanceKm": 63.8,
+    "offsetKm": 3.81
+  },
+  {
+    "name": "Hohnstorf",
+    "place": "village",
+    "lat": 53.366701,
+    "lng": 10.549999,
+    "routeDistanceKm": 64.3,
+    "offsetKm": 0.4
+  },
+  {
+    "name": "Bullendorf",
+    "place": "village",
+    "lat": 53.347798,
+    "lng": 10.571697,
+    "routeDistanceKm": 65,
+    "offsetKm": 2.62
+  },
+  {
+    "name": "Buchhorst",
+    "place": "village",
+    "lat": 53.38465,
+    "lng": 10.567719,
+    "routeDistanceKm": 66.8,
+    "offsetKm": 1.32
+  },
+  {
+    "name": "Basedow",
+    "place": "village",
+    "lat": 53.418922,
+    "lng": 10.584332,
+    "routeDistanceKm": 66.8,
+    "offsetKm": 4.69
+  },
+  {
+    "name": "Hittbergen",
+    "place": "village",
+    "lat": 53.345325,
+    "lng": 10.593885,
+    "routeDistanceKm": 67.4,
+    "offsetKm": 3.26
+  },
+  {
+    "name": "Lanze",
+    "place": "village",
+    "lat": 53.390192,
+    "lng": 10.606684,
+    "routeDistanceKm": 68.5,
+    "offsetKm": 1.59
+  },
+  {
+    "name": "Bickhusen",
+    "place": "village",
+    "lat": 53.390703,
+    "lng": 10.63254,
+    "routeDistanceKm": 70,
+    "offsetKm": 1.75
+  },
+  {
+    "name": "Barförde",
+    "place": "village",
+    "lat": 53.366445,
+    "lng": 10.629979,
+    "routeDistanceKm": 70.2,
+    "offsetKm": 0.95
+  },
+  {
+    "name": "Wendewisch",
+    "place": "village",
+    "lat": 53.351308,
+    "lng": 10.647526,
+    "routeDistanceKm": 71.5,
+    "offsetKm": 2.45
+  },
+  {
+    "name": "Nostorf",
+    "place": "village",
+    "lat": 53.406839,
+    "lng": 10.654659,
+    "routeDistanceKm": 72.4,
+    "offsetKm": 3.69
+  },
+  {
+    "name": "Garlstorf",
+    "place": "village",
+    "lat": 53.349973,
+    "lng": 10.673824,
+    "routeDistanceKm": 72.8,
+    "offsetKm": 2.73
+  },
+  {
+    "name": "Schwartow",
+    "place": "village",
+    "lat": 53.397153,
+    "lng": 10.748144,
+    "routeDistanceKm": 76.1,
+    "offsetKm": 3.07
+  },
+  {
+    "name": "Boizenburg/Elbe",
+    "place": "town",
+    "lat": 53.375079,
+    "lng": 10.723236,
+    "routeDistanceKm": 76.2,
+    "offsetKm": 0.33
+  },
+  {
+    "name": "Brackede",
+    "place": "village",
+    "lat": 53.355185,
+    "lng": 10.702946,
+    "routeDistanceKm": 78.7,
+    "offsetKm": 1.56
+  },
+  {
+    "name": "Bahlen",
+    "place": "village",
+    "lat": 53.365875,
+    "lng": 10.762529,
+    "routeDistanceKm": 80.9,
+    "offsetKm": 1.9
+  },
+  {
+    "name": "Neu Gülze",
+    "place": "village",
+    "lat": 53.372301,
+    "lng": 10.791405,
+    "routeDistanceKm": 81,
+    "offsetKm": 3.86
+  },
+  {
+    "name": "Gülze",
+    "place": "village",
+    "lat": 53.353136,
+    "lng": 10.809711,
+    "routeDistanceKm": 82.3,
+    "offsetKm": 4.14
+  },
+  {
+    "name": "Garze",
+    "place": "village",
+    "lat": 53.308038,
+    "lng": 10.694417,
+    "routeDistanceKm": 86.7,
+    "offsetKm": 2.85
+  },
+  {
+    "name": "Bleckeder Moor",
+    "place": "village",
+    "lat": 53.297988,
+    "lng": 10.668254,
+    "routeDistanceKm": 86.8,
+    "offsetKm": 4.65
+  },
+  {
+    "name": "Bleckede",
+    "place": "town",
+    "lat": 53.293306,
+    "lng": 10.729996,
+    "routeDistanceKm": 87.1,
+    "offsetKm": 1.15
+  },
+  {
+    "name": "Breetze",
+    "place": "village",
+    "lat": 53.264461,
+    "lng": 10.706854,
+    "routeDistanceKm": 87.6,
+    "offsetKm": 4.66
+  },
+  {
+    "name": "Nindorf",
+    "place": "village",
+    "lat": 53.261733,
+    "lng": 10.743705,
+    "routeDistanceKm": 89,
+    "offsetKm": 4.03
+  },
+  {
+    "name": "Stiepelse",
+    "place": "village",
+    "lat": 53.288753,
+    "lng": 10.801971,
+    "routeDistanceKm": 92.2,
+    "offsetKm": 0.09
+  },
+  {
+    "name": "Alt Garge",
+    "place": "village",
+    "lat": 53.268927,
+    "lng": 10.794178,
+    "routeDistanceKm": 92.5,
+    "offsetKm": 1.96
+  },
+  {
+    "name": "Sumte",
+    "place": "village",
+    "lat": 53.28773,
+    "lng": 10.877052,
+    "routeDistanceKm": 94.2,
+    "offsetKm": 3.56
+  },
+  {
+    "name": "Neu Garge",
+    "place": "village",
+    "lat": 53.271917,
+    "lng": 10.828445,
+    "routeDistanceKm": 95.1,
+    "offsetKm": 0.08
+  },
+  {
+    "name": "Barskamp",
+    "place": "village",
+    "lat": 53.243244,
+    "lng": 10.783697,
+    "routeDistanceKm": 96.6,
+    "offsetKm": 3.65
+  },
+  {
+    "name": "Viehle",
+    "place": "village",
+    "lat": 53.259367,
+    "lng": 10.835566,
+    "routeDistanceKm": 96.8,
+    "offsetKm": 0.06
+  },
+  {
+    "name": "Walmsburg",
+    "place": "village",
+    "lat": 53.240444,
+    "lng": 10.845701,
+    "routeDistanceKm": 98.2,
+    "offsetKm": 1.85
+  },
+  {
+    "name": "Konau",
+    "place": "village",
+    "lat": 53.249663,
+    "lng": 10.876501,
+    "routeDistanceKm": 100.1,
+    "offsetKm": 0.05
+  },
+  {
+    "name": "Haar",
+    "place": "village",
+    "lat": 53.261057,
+    "lng": 10.918495,
+    "routeDistanceKm": 100.5,
+    "offsetKm": 2.83
+  },
+  {
+    "name": "Popelau",
+    "place": "village",
+    "lat": 53.24725,
+    "lng": 10.882486,
+    "routeDistanceKm": 100.6,
+    "offsetKm": 0.01
+  },
+  {
+    "name": "Katemin",
+    "place": "village",
+    "lat": 53.229769,
+    "lng": 10.876855,
+    "routeDistanceKm": 101.9,
+    "offsetKm": 1.41
+  },
+  {
+    "name": "Darchau",
+    "place": "village",
+    "lat": 53.239828,
+    "lng": 10.895823,
+    "routeDistanceKm": 102.1,
+    "offsetKm": 0.27
+  },
+  {
+    "name": "Neu Darchau",
+    "place": "village",
+    "lat": 53.228131,
+    "lng": 10.886468,
+    "routeDistanceKm": 102.3,
+    "offsetKm": 1.13
+  },
+  {
+    "name": "Klein Kühren",
+    "place": "village",
+    "lat": 53.226527,
+    "lng": 10.909182,
+    "routeDistanceKm": 103.8,
+    "offsetKm": 0.84
+  },
+  {
+    "name": "Stapel",
+    "place": "village",
+    "lat": 53.252503,
+    "lng": 10.961355,
+    "routeDistanceKm": 104.6,
+    "offsetKm": 3.16
+  },
+  {
+    "name": "Vockfey",
+    "place": "village",
+    "lat": 53.224834,
+    "lng": 10.93749,
+    "routeDistanceKm": 105.6,
+    "offsetKm": 0.27
+  },
+  {
+    "name": "Sammatz",
+    "place": "village",
+    "lat": 53.194056,
+    "lng": 10.900596,
+    "routeDistanceKm": 105.9,
+    "offsetKm": 3.86
+  },
+  {
+    "name": "Schutschur",
+    "place": "village",
+    "lat": 53.215568,
+    "lng": 10.928464,
+    "routeDistanceKm": 105.9,
+    "offsetKm": 0.85
+  },
+  {
+    "name": "Gutitz",
+    "place": "village",
+    "lat": 53.232894,
+    "lng": 10.980274,
+    "routeDistanceKm": 106.9,
+    "offsetKm": 2.77
+  },
+  {
+    "name": "Glienitz",
+    "place": "village",
+    "lat": 53.207288,
+    "lng": 10.945058,
+    "routeDistanceKm": 107.6,
+    "offsetKm": 0.82
+  },
+  {
+    "name": "Pommau",
+    "place": "village",
+    "lat": 53.212664,
+    "lng": 10.956672,
+    "routeDistanceKm": 107.8,
+    "offsetKm": 0.11
+  },
+  {
+    "name": "Wietzetze",
+    "place": "village",
+    "lat": 53.1845,
+    "lng": 10.9314,
+    "routeDistanceKm": 108.2,
+    "offsetKm": 3.43
+  },
+  {
+    "name": "Drethem",
+    "place": "village",
+    "lat": 53.202136,
+    "lng": 10.956,
+    "routeDistanceKm": 108.3,
+    "offsetKm": 0.91
+  },
+  {
+    "name": "Zeetze",
+    "place": "village",
+    "lat": 53.22785,
+    "lng": 10.986635,
+    "routeDistanceKm": 108.6,
+    "offsetKm": 2.55
+  },
+  {
+    "name": "Bahrendorf",
+    "place": "village",
+    "lat": 53.186704,
+    "lng": 10.946677,
+    "routeDistanceKm": 109.4,
+    "offsetKm": 2.54
+  },
+  {
+    "name": "Tiesmesland",
+    "place": "village",
+    "lat": 53.1898,
+    "lng": 10.9791,
+    "routeDistanceKm": 110.8,
+    "offsetKm": 0.64
+  },
+  {
+    "name": "Tießau",
+    "place": "village",
+    "lat": 53.1802,
+    "lng": 10.9836,
+    "routeDistanceKm": 111.2,
+    "offsetKm": 1.42
+  },
+  {
+    "name": "Stixe",
+    "place": "village",
+    "lat": 53.208061,
+    "lng": 11.016562,
+    "routeDistanceKm": 111.7,
+    "offsetKm": 2.26
+  },
+  {
+    "name": "Rassau",
+    "place": "village",
+    "lat": 53.18772,
+    "lng": 11.012734,
+    "routeDistanceKm": 112.7,
+    "offsetKm": 0.26
+  },
+  {
+    "name": "Kaarßen",
+    "place": "village",
+    "lat": 53.193764,
+    "lng": 11.043526,
+    "routeDistanceKm": 113.8,
+    "offsetKm": 2.14
+  },
+  {
+    "name": "Harlingen",
+    "place": "village",
+    "lat": 53.1503,
+    "lng": 10.9813,
+    "routeDistanceKm": 115.4,
+    "offsetKm": 4.03
+  },
+  {
+    "name": "Bitter",
+    "place": "village",
+    "lat": 53.168371,
+    "lng": 11.035483,
+    "routeDistanceKm": 115.4,
+    "offsetKm": 0.1
+  },
+  {
+    "name": "Sarenseck",
+    "place": "village",
+    "lat": 53.126147,
+    "lng": 11.014563,
+    "routeDistanceKm": 116.7,
+    "offsetKm": 4.59
+  },
+  {
+    "name": "Hitzacker (Elbe)",
+    "place": "town",
+    "lat": 53.151212,
+    "lng": 11.044094,
+    "routeDistanceKm": 116.8,
+    "offsetKm": 1.21
+  },
+  {
+    "name": "Pinnau",
+    "place": "village",
+    "lat": 53.180193,
+    "lng": 11.078391,
+    "routeDistanceKm": 117.6,
+    "offsetKm": 2.28
+  },
+  {
+    "name": "Laake",
+    "place": "village",
+    "lat": 53.154432,
+    "lng": 11.075133,
+    "routeDistanceKm": 118.9,
+    "offsetKm": 0.13
+  },
+  {
+    "name": "Streetz",
+    "place": "village",
+    "lat": 53.1086,
+    "lng": 11.0593,
+    "routeDistanceKm": 119.6,
+    "offsetKm": 4.71
+  },
+  {
+    "name": "Gümse",
+    "place": "village",
+    "lat": 53.1137,
+    "lng": 11.144,
+    "routeDistanceKm": 121.4,
+    "offsetKm": 4.42
+  },
+  {
+    "name": "Breese in der Marsch",
+    "place": "village",
+    "lat": 53.110289,
+    "lng": 11.132425,
+    "routeDistanceKm": 121.4,
+    "offsetKm": 4.33
+  },
+  {
+    "name": "Strachauer Rad",
+    "place": "village",
+    "lat": 53.142135,
+    "lng": 11.118844,
+    "routeDistanceKm": 121.5,
+    "offsetKm": 1.05
+  },
+  {
+    "name": "Raffatz",
+    "place": "village",
+    "lat": 53.153329,
+    "lng": 11.108577,
+    "routeDistanceKm": 122.3,
+    "offsetKm": 0.06
+  },
+  {
+    "name": "Wilkenstorf",
+    "place": "village",
+    "lat": 53.159405,
+    "lng": 11.112328,
+    "routeDistanceKm": 123.1,
+    "offsetKm": 0.07
+  },
+  {
+    "name": "Bohnenburg",
+    "place": "village",
+    "lat": 53.165101,
+    "lng": 11.123477,
+    "routeDistanceKm": 124,
+    "offsetKm": 0.05
+  },
+  {
+    "name": "Tripkau",
+    "place": "village",
+    "lat": 53.183548,
+    "lng": 11.108774,
+    "routeDistanceKm": 125.3,
+    "offsetKm": 1.81
+  },
+  {
+    "name": "Woosmer",
+    "place": "village",
+    "lat": 53.200002,
+    "lng": 11.183292,
+    "routeDistanceKm": 126.9,
+    "offsetKm": 3.22
+  },
+  {
+    "name": "Wehningen",
+    "place": "village",
+    "lat": 53.170483,
+    "lng": 11.167302,
+    "routeDistanceKm": 127.9,
+    "offsetKm": 0.18
+  },
+  {
+    "name": "Quickborn",
+    "place": "village",
+    "lat": 53.106504,
+    "lng": 11.195597,
+    "routeDistanceKm": 131.8,
+    "offsetKm": 4.71
+  },
+  {
+    "name": "Dömitz",
+    "place": "town",
+    "lat": 53.138488,
+    "lng": 11.260928,
+    "routeDistanceKm": 138.4,
+    "offsetKm": 0.06
+  },
+  {
+    "name": "Neu Kaliß",
+    "place": "village",
+    "lat": 53.173954,
+    "lng": 11.297682,
+    "routeDistanceKm": 138.5,
+    "offsetKm": 4.58
+  },
+  {
+    "name": "Polz",
+    "place": "village",
+    "lat": 53.121532,
+    "lng": 11.355017,
+    "routeDistanceKm": 140.7,
+    "offsetKm": 4.55
+  },
+  {
+    "name": "Brandleben",
+    "place": "village",
+    "lat": 53.122106,
+    "lng": 11.248472,
+    "routeDistanceKm": 142.4,
+    "offsetKm": 1.6
+  },
+  {
+    "name": "Cacherien",
+    "place": "village",
+    "lat": 53.108331,
+    "lng": 11.234134,
+    "routeDistanceKm": 143,
+    "offsetKm": 2.64
+  },
+  {
+    "name": "Langendorf, Elbe",
+    "place": "village",
+    "lat": 53.103739,
+    "lng": 11.248632,
+    "routeDistanceKm": 143.5,
+    "offsetKm": 1.84
+  },
+  {
+    "name": "Groß Gusborn",
+    "place": "village",
+    "lat": 53.080383,
+    "lng": 11.214403,
+    "routeDistanceKm": 145.3,
+    "offsetKm": 4.86
+  },
+  {
+    "name": "Lenzerwische",
+    "place": "village",
+    "lat": 53.077837,
+    "lng": 11.321143,
+    "routeDistanceKm": 148.7,
+    "offsetKm": 0.19
+  },
+  {
+    "name": "Laase",
+    "place": "village",
+    "lat": 53.066105,
+    "lng": 11.306556,
+    "routeDistanceKm": 149.3,
+    "offsetKm": 1.36
+  },
+  {
+    "name": "Gedelitz",
+    "place": "village",
+    "lat": 53.03148,
+    "lng": 11.303042,
+    "routeDistanceKm": 151.5,
+    "offsetKm": 4.03
+  },
+  {
+    "name": "Gorleben",
+    "place": "village",
+    "lat": 53.04838,
+    "lng": 11.356904,
+    "routeDistanceKm": 152.1,
+    "offsetKm": 0.95
+  },
+  {
+    "name": "Meetschow",
+    "place": "village",
+    "lat": 53.0483,
+    "lng": 11.388,
+    "routeDistanceKm": 153.7,
+    "offsetKm": 1.93
+  },
+  {
+    "name": "Laasche",
+    "place": "village",
+    "lat": 53.040721,
+    "lng": 11.41476,
+    "routeDistanceKm": 154.1,
+    "offsetKm": 3.62
+  },
+  {
+    "name": "Vietze",
+    "place": "village",
+    "lat": 53.069703,
+    "lng": 11.405005,
+    "routeDistanceKm": 156.5,
+    "offsetKm": 0.86
+  },
+  {
+    "name": "Brünkendorf",
+    "place": "village",
+    "lat": 53.054675,
+    "lng": 11.433451,
+    "routeDistanceKm": 158.8,
+    "offsetKm": 2.7
+  },
+  {
+    "name": "Eldenburg",
+    "place": "village",
+    "lat": 53.114913,
+    "lng": 11.439225,
+    "routeDistanceKm": 159.6,
+    "offsetKm": 3.7
+  },
+  {
+    "name": "Lenzen (Elbe)",
+    "place": "town",
+    "lat": 53.090801,
+    "lng": 11.474862,
+    "routeDistanceKm": 160.9,
+    "offsetKm": 1.43
+  },
+  {
+    "name": "Pevestorf",
+    "place": "village",
+    "lat": 53.058755,
+    "lng": 11.454084,
+    "routeDistanceKm": 161.5,
+    "offsetKm": 2.32
+  },
+  {
+    "name": "Restorf",
+    "place": "village",
+    "lat": 53.041594,
+    "lng": 11.44549,
+    "routeDistanceKm": 162.4,
+    "offsetKm": 4.19
+  },
+  {
+    "name": "Holtorf",
+    "place": "village",
+    "lat": 53.032535,
+    "lng": 11.508223,
+    "routeDistanceKm": 165.9,
+    "offsetKm": 3.04
+  },
+  {
+    "name": "Ferbitz",
+    "place": "village",
+    "lat": 53.098064,
+    "lng": 11.565557,
+    "routeDistanceKm": 167.7,
+    "offsetKm": 4.53
+  },
+  {
+    "name": "Lanz",
+    "place": "village",
+    "lat": 53.073035,
+    "lng": 11.598112,
+    "routeDistanceKm": 168.5,
+    "offsetKm": 2.99
+  },
+  {
+    "name": "Schnackenburg",
+    "place": "town",
+    "lat": 53.036474,
+    "lng": 11.564476,
+    "routeDistanceKm": 170.1,
+    "offsetKm": 1.01
+  },
+  {
+    "name": "Kapern",
+    "place": "village",
+    "lat": 53.017716,
+    "lng": 11.539944,
+    "routeDistanceKm": 170.3,
+    "offsetKm": 3.65
+  },
+  {
+    "name": "Gummern",
+    "place": "village",
+    "lat": 53.017237,
+    "lng": 11.561458,
+    "routeDistanceKm": 171,
+    "offsetKm": 2.85
+  },
+  {
+    "name": "Cumlosen",
+    "place": "village",
+    "lat": 53.032241,
+    "lng": 11.657903,
+    "routeDistanceKm": 176.6,
+    "offsetKm": 0.16
+  },
+  {
+    "name": "Wentdorf",
+    "place": "village",
+    "lat": 53.026735,
+    "lng": 11.672019,
+    "routeDistanceKm": 177.1,
+    "offsetKm": 1.18
+  },
+  {
+    "name": "Wanzer",
+    "place": "village",
+    "lat": 52.992865,
+    "lng": 11.603236,
+    "routeDistanceKm": 179.6,
+    "offsetKm": 2.98
+  },
+  {
+    "name": "Aulosen",
+    "place": "village",
+    "lat": 52.992682,
+    "lng": 11.583179,
+    "routeDistanceKm": 179.6,
+    "offsetKm": 3.97
+  },
+  {
+    "name": "Pollitz",
+    "place": "village",
+    "lat": 52.970608,
+    "lng": 11.621906,
+    "routeDistanceKm": 180.6,
+    "offsetKm": 4.62
+  },
+  {
+    "name": "Bentwisch",
+    "place": "village",
+    "lat": 53.039352,
+    "lng": 11.733338,
+    "routeDistanceKm": 183.4,
+    "offsetKm": 4.71
+  },
+  {
+    "name": "Wahrenberg",
+    "place": "village",
+    "lat": 52.983085,
+    "lng": 11.673607,
+    "routeDistanceKm": 186.3,
+    "offsetKm": 1.18
+  },
+  {
+    "name": "Geestgottberg",
+    "place": "village",
+    "lat": 52.955374,
+    "lng": 11.73022,
+    "routeDistanceKm": 187.5,
+    "offsetKm": 3.26
+  },
+  {
+    "name": "Weisen",
+    "place": "village",
+    "lat": 53.026668,
+    "lng": 11.791212,
+    "routeDistanceKm": 192.7,
+    "offsetKm": 4.04
+  },
+  {
+    "name": "Lindenberg",
+    "place": "village",
+    "lat": 53.026253,
+    "lng": 11.733473,
+    "routeDistanceKm": 192.7,
+    "offsetKm": 3.65
+  },
+  {
+    "name": "Wittenberge",
+    "place": "town",
+    "lat": 52.998372,
+    "lng": 11.75072,
+    "routeDistanceKm": 192.9,
+    "offsetKm": 0.41
+  },
+  {
+    "name": "Breese",
+    "place": "village",
+    "lat": 53.000555,
+    "lng": 11.789273,
+    "routeDistanceKm": 194.5,
+    "offsetKm": 1.99
+  },
+  {
+    "name": "Losenrade",
+    "place": "village",
+    "lat": 52.966539,
+    "lng": 11.765354,
+    "routeDistanceKm": 197,
+    "offsetKm": 1.39
+  },
+  {
+    "name": "Beuster",
+    "place": "village",
+    "lat": 52.939427,
+    "lng": 11.787249,
+    "routeDistanceKm": 198.7,
+    "offsetKm": 2.69
+  },
+  {
+    "name": "Hinzdorf",
+    "place": "village",
+    "lat": 52.960693,
+    "lng": 11.814517,
+    "routeDistanceKm": 200,
+    "offsetKm": 0.01
+  },
+  {
+    "name": "Groß Lüben",
+    "place": "village",
+    "lat": 52.960332,
+    "lng": 11.919051,
+    "routeDistanceKm": 203.9,
+    "offsetKm": 4.22
+  },
+  {
+    "name": "Herzfelde",
+    "place": "village",
+    "lat": 52.889339,
+    "lng": 11.810599,
+    "routeDistanceKm": 208.2,
+    "offsetKm": 3.7
+  },
+  {
+    "name": "Schönberg",
+    "place": "village",
+    "lat": 52.877834,
+    "lng": 11.829561,
+    "routeDistanceKm": 209.1,
+    "offsetKm": 4.16
+  },
+  {
+    "name": "Rühstädt",
+    "place": "village",
+    "lat": 52.9197,
+    "lng": 11.868625,
+    "routeDistanceKm": 210,
+    "offsetKm": 0.85
+  },
+  {
+    "name": "Neukirchen (Altmark)",
+    "place": "village",
+    "lat": 52.878662,
+    "lng": 11.862481,
+    "routeDistanceKm": 212.8,
+    "offsetKm": 3.54
+  },
+  {
+    "name": "Wendemark",
+    "place": "village",
+    "lat": 52.859824,
+    "lng": 11.92636,
+    "routeDistanceKm": 215.8,
+    "offsetKm": 3.82
+  },
+  {
+    "name": "Legde",
+    "place": "village",
+    "lat": 52.919588,
+    "lng": 11.963632,
+    "routeDistanceKm": 216.1,
+    "offsetKm": 3.28
+  },
+  {
+    "name": "Werben (Elbe)",
+    "place": "town",
+    "lat": 52.86123,
+    "lng": 11.982205,
+    "routeDistanceKm": 218.7,
+    "offsetKm": 2.14
+  },
+  {
+    "name": "Quitzöbel",
+    "place": "village",
+    "lat": 52.892877,
+    "lng": 11.985302,
+    "routeDistanceKm": 220.7,
+    "offsetKm": 0.18
+  },
+  {
+    "name": "Glöwen",
+    "place": "village",
+    "lat": 52.913491,
+    "lng": 12.084738,
+    "routeDistanceKm": 225,
+    "offsetKm": 3.73
+  },
+  {
+    "name": "Nitzow",
+    "place": "village",
+    "lat": 52.874654,
+    "lng": 12.053248,
+    "routeDistanceKm": 226.7,
+    "offsetKm": 0.01
+  },
+  {
+    "name": "Dahlen",
+    "place": "village",
+    "lat": 52.860367,
+    "lng": 12.052922,
+    "routeDistanceKm": 228.3,
+    "offsetKm": 0.1
+  },
+  {
+    "name": "Toppel",
+    "place": "village",
+    "lat": 52.847181,
+    "lng": 12.058803,
+    "routeDistanceKm": 229.8,
+    "offsetKm": 0.11
+  },
+  {
+    "name": "Räbel",
+    "place": "village",
+    "lat": 52.833438,
+    "lng": 12.028363,
+    "routeDistanceKm": 230.6,
+    "offsetKm": 2.5
+  },
+  {
+    "name": "Wöplitz",
+    "place": "village",
+    "lat": 52.831194,
+    "lng": 12.121869,
+    "routeDistanceKm": 231.9,
+    "offsetKm": 3.1
+  },
+  {
+    "name": "Havelberg",
+    "place": "town",
+    "lat": 52.825043,
+    "lng": 12.074193,
+    "routeDistanceKm": 232.6,
+    "offsetKm": 0.16
+  },
+  {
+    "name": "Jederitz",
+    "place": "village",
+    "lat": 52.803049,
+    "lng": 12.133429,
+    "routeDistanceKm": 233.2,
+    "offsetKm": 4.57
+  },
+  {
+    "name": "Berge",
+    "place": "village",
+    "lat": 52.820573,
+    "lng": 11.997041,
+    "routeDistanceKm": 235.4,
+    "offsetKm": 4.21
+  },
+  {
+    "name": "Sandau (Elbe)",
+    "place": "town",
+    "lat": 52.78907,
+    "lng": 12.048005,
+    "routeDistanceKm": 237.5,
+    "offsetKm": 0.14
+  },
+  {
+    "name": "Sandauerholz",
+    "place": "village",
+    "lat": 52.791753,
+    "lng": 12.005118,
+    "routeDistanceKm": 238,
+    "offsetKm": 2.46
+  },
+  {
+    "name": "Rosenhof",
+    "place": "village",
+    "lat": 52.766248,
+    "lng": 12.023859,
+    "routeDistanceKm": 240.4,
+    "offsetKm": 1.46
+  },
+  {
+    "name": "Wulkau",
+    "place": "village",
+    "lat": 52.760999,
+    "lng": 12.069257,
+    "routeDistanceKm": 241.6,
+    "offsetKm": 1.31
+  },
+  {
+    "name": "Osterholz",
+    "place": "village",
+    "lat": 52.750472,
+    "lng": 12.027029,
+    "routeDistanceKm": 242.1,
+    "offsetKm": 1.68
+  },
+  {
+    "name": "Altenzaun",
+    "place": "village",
+    "lat": 52.741097,
+    "lng": 12.026407,
+    "routeDistanceKm": 243.1,
+    "offsetKm": 1.87
+  },
+  {
+    "name": "Kamern",
+    "place": "village",
+    "lat": 52.749906,
+    "lng": 12.113038,
+    "routeDistanceKm": 243.7,
+    "offsetKm": 3.76
+  },
+  {
+    "name": "Dalchau",
+    "place": "village",
+    "lat": 52.707772,
+    "lng": 12.01792,
+    "routeDistanceKm": 245.3,
+    "offsetKm": 3.34
+  },
+  {
+    "name": "Schönfeld",
+    "place": "village",
+    "lat": 52.726608,
+    "lng": 12.060821,
+    "routeDistanceKm": 245.6,
+    "offsetKm": 0.11
+  },
+  {
+    "name": "Scharlibbe",
+    "place": "village",
+    "lat": 52.696397,
+    "lng": 12.070647,
+    "routeDistanceKm": 249.8,
+    "offsetKm": 0
+  },
+  {
+    "name": "Klietz",
+    "place": "village",
+    "lat": 52.667269,
+    "lng": 12.067984,
+    "routeDistanceKm": 253.2,
+    "offsetKm": 0.27
+  },
+  {
+    "name": "Arneburg",
+    "place": "town",
+    "lat": 52.674454,
+    "lng": 12.003502,
+    "routeDistanceKm": 254.9,
+    "offsetKm": 3.7
+  },
+  {
+    "name": "Bürs",
+    "place": "village",
+    "lat": 52.673609,
+    "lng": 11.984983,
+    "routeDistanceKm": 255.2,
+    "offsetKm": 4.73
+  },
+  {
+    "name": "Neuermark-Lübars",
+    "place": "village",
+    "lat": 52.650022,
+    "lng": 12.042507,
+    "routeDistanceKm": 255.6,
+    "offsetKm": 0.16
+  },
+  {
+    "name": "Schönhausen Damm",
+    "place": "village",
+    "lat": 52.604714,
+    "lng": 12.108846,
+    "routeDistanceKm": 258.9,
+    "offsetKm": 4.92
+  },
+  {
+    "name": "Hohengöhren Damm",
+    "place": "village",
+    "lat": 52.617703,
+    "lng": 12.098707,
+    "routeDistanceKm": 258.9,
+    "offsetKm": 3.91
+  },
+  {
+    "name": "Hohengöhren",
+    "place": "village",
+    "lat": 52.61571,
+    "lng": 12.036374,
+    "routeDistanceKm": 259.6,
+    "offsetKm": 0.07
+  },
+  {
+    "name": "Billberge",
+    "place": "village",
+    "lat": 52.631028,
+    "lng": 12.003505,
+    "routeDistanceKm": 261.5,
+    "offsetKm": 2.39
+  },
+  {
+    "name": "Wischer",
+    "place": "village",
+    "lat": 52.640838,
+    "lng": 11.961002,
+    "routeDistanceKm": 261.6,
+    "offsetKm": 4.91
+  },
+  {
+    "name": "Storkau (Elbe)",
+    "place": "village",
+    "lat": 52.613523,
+    "lng": 11.999822,
+    "routeDistanceKm": 261.7,
+    "offsetKm": 0.99
+  },
+  {
+    "name": "Arnim",
+    "place": "village",
+    "lat": 52.626838,
+    "lng": 11.946786,
+    "routeDistanceKm": 261.7,
+    "offsetKm": 4.86
+  },
+  {
+    "name": "Staffelde",
+    "place": "village",
+    "lat": 52.601119,
+    "lng": 11.957309,
+    "routeDistanceKm": 264.1,
+    "offsetKm": 3.35
+  },
+  {
+    "name": "Hämerten",
+    "place": "village",
+    "lat": 52.589669,
+    "lng": 11.987517,
+    "routeDistanceKm": 264.4,
+    "offsetKm": 1.03
+  },
+  {
+    "name": "Langensalzwedel",
+    "place": "village",
+    "lat": 52.581496,
+    "lng": 11.941593,
+    "routeDistanceKm": 264.6,
+    "offsetKm": 4.19
+  },
+  {
+    "name": "Schönhausen (Elbe)",
+    "place": "village",
+    "lat": 52.582479,
+    "lng": 12.037814,
+    "routeDistanceKm": 267.9,
+    "offsetKm": 0.1
+  },
+  {
+    "name": "Kabelitz",
+    "place": "village",
+    "lat": 52.542355,
+    "lng": 12.049555,
+    "routeDistanceKm": 271.7,
+    "offsetKm": 1.97
+  },
+  {
+    "name": "Fischbeck (Elbe)",
+    "place": "village",
+    "lat": 52.540015,
+    "lng": 12.015767,
+    "routeDistanceKm": 272.8,
+    "offsetKm": 0.04
+  },
+  {
+    "name": "Tangermünde",
+    "place": "town",
+    "lat": 52.54311,
+    "lng": 11.972252,
+    "routeDistanceKm": 274.3,
+    "offsetKm": 2.54
+  },
+  {
+    "name": "Steinitz",
+    "place": "village",
+    "lat": 52.513702,
+    "lng": 12.040004,
+    "routeDistanceKm": 277.5,
+    "offsetKm": 2.05
+  },
+  {
+    "name": "Jerichow",
+    "place": "town",
+    "lat": 52.497636,
+    "lng": 12.025753,
+    "routeDistanceKm": 278.8,
+    "offsetKm": 0.22
+  },
+  {
+    "name": "Mangelsdorf",
+    "place": "village",
+    "lat": 52.511726,
+    "lng": 12.066679,
+    "routeDistanceKm": 279.8,
+    "offsetKm": 3.18
+  },
+  {
+    "name": "Klein-Mangelsdorf",
+    "place": "village",
+    "lat": 52.516463,
+    "lng": 12.092465,
+    "routeDistanceKm": 279.8,
+    "offsetKm": 4.89
+  },
+  {
+    "name": "Redekin",
+    "place": "village",
+    "lat": 52.466936,
+    "lng": 12.076231,
+    "routeDistanceKm": 281.3,
+    "offsetKm": 3.27
+  },
+  {
+    "name": "Scharteucke",
+    "place": "village",
+    "lat": 52.454687,
+    "lng": 12.084916,
+    "routeDistanceKm": 281.5,
+    "offsetKm": 4.46
+  },
+  {
+    "name": "Neuredekin",
+    "place": "village",
+    "lat": 52.455205,
+    "lng": 12.062447,
+    "routeDistanceKm": 282.6,
+    "offsetKm": 3.14
+  },
+  {
+    "name": "Klietznick",
+    "place": "village",
+    "lat": 52.470112,
+    "lng": 12.020711,
+    "routeDistanceKm": 282.6,
+    "offsetKm": 0.12
+  },
+  {
+    "name": "Schelldorf",
+    "place": "village",
+    "lat": 52.471228,
+    "lng": 11.978463,
+    "routeDistanceKm": 284.1,
+    "offsetKm": 2.18
+  },
+  {
+    "name": "Buch",
+    "place": "village",
+    "lat": 52.485436,
+    "lng": 11.948442,
+    "routeDistanceKm": 284.1,
+    "offsetKm": 4.74
+  },
+  {
+    "name": "Jerchel",
+    "place": "village",
+    "lat": 52.460749,
+    "lng": 11.944811,
+    "routeDistanceKm": 284.3,
+    "offsetKm": 4.18
+  },
+  {
+    "name": "Nielebock",
+    "place": "village",
+    "lat": 52.435673,
+    "lng": 12.06495,
+    "routeDistanceKm": 286.2,
+    "offsetKm": 4.04
+  },
+  {
+    "name": "Ferchland",
+    "place": "village",
+    "lat": 52.439911,
+    "lng": 12.002302,
+    "routeDistanceKm": 286.7,
+    "offsetKm": 0.03
+  },
+  {
+    "name": "Grieben",
+    "place": "village",
+    "lat": 52.435629,
+    "lng": 11.957822,
+    "routeDistanceKm": 287.5,
+    "offsetKm": 2.69
+  },
+  {
+    "name": "Derben",
+    "place": "village",
+    "lat": 52.415185,
+    "lng": 11.997378,
+    "routeDistanceKm": 289.7,
+    "offsetKm": 0.03
+  },
+  {
+    "name": "Seedorf",
+    "place": "village",
+    "lat": 52.411364,
+    "lng": 12.065499,
+    "routeDistanceKm": 289.9,
+    "offsetKm": 4.57
+  },
+  {
+    "name": "Bergzow",
+    "place": "village",
+    "lat": 52.395964,
+    "lng": 12.049643,
+    "routeDistanceKm": 291.5,
+    "offsetKm": 3.68
+  },
+  {
+    "name": "Parey",
+    "place": "village",
+    "lat": 52.37962,
+    "lng": 11.98604,
+    "routeDistanceKm": 292.7,
+    "offsetKm": 1.26
+  },
+  {
+    "name": "Bittkau",
+    "place": "village",
+    "lat": 52.413591,
+    "lng": 11.963865,
+    "routeDistanceKm": 294.8,
+    "offsetKm": 1.32
+  },
+  {
+    "name": "Güsen",
+    "place": "village",
+    "lat": 52.34293,
+    "lng": 11.979979,
+    "routeDistanceKm": 299.7,
+    "offsetKm": 4.22
+  },
+  {
+    "name": "Zerben",
+    "place": "village",
+    "lat": 52.357209,
+    "lng": 11.951529,
+    "routeDistanceKm": 299.9,
+    "offsetKm": 1.75
+  },
+  {
+    "name": "Ringfurth",
+    "place": "village",
+    "lat": 52.380994,
+    "lng": 11.904539,
+    "routeDistanceKm": 300.8,
+    "offsetKm": 2.28
+  },
+  {
+    "name": "Sandfurth",
+    "place": "village",
+    "lat": 52.362739,
+    "lng": 11.893212,
+    "routeDistanceKm": 302.4,
+    "offsetKm": 1.25
+  },
+  {
+    "name": "Ihleburg",
+    "place": "village",
+    "lat": 52.330853,
+    "lng": 11.915792,
+    "routeDistanceKm": 304,
+    "offsetKm": 2.23
+  },
+  {
+    "name": "Uetz",
+    "place": "village",
+    "lat": 52.365458,
+    "lng": 11.846552,
+    "routeDistanceKm": 305.5,
+    "offsetKm": 3.71
+  },
+  {
+    "name": "Parchau",
+    "place": "village",
+    "lat": 52.321553,
+    "lng": 11.883063,
+    "routeDistanceKm": 305.7,
+    "offsetKm": 1.74
+  },
+  {
+    "name": "Kehnert",
+    "place": "village",
+    "lat": 52.342493,
+    "lng": 11.858125,
+    "routeDistanceKm": 306,
+    "offsetKm": 1.1
+  },
+  {
+    "name": "Bertingen",
+    "place": "village",
+    "lat": 52.349714,
+    "lng": 11.835222,
+    "routeDistanceKm": 307.3,
+    "offsetKm": 2.53
+  },
+  {
+    "name": "Rogätz",
+    "place": "village",
+    "lat": 52.315376,
+    "lng": 11.767499,
+    "routeDistanceKm": 314.5,
+    "offsetKm": 1.09
+  },
+  {
+    "name": "Schartau",
+    "place": "village",
+    "lat": 52.2882,
+    "lng": 11.790337,
+    "routeDistanceKm": 316.9,
+    "offsetKm": 0.61
+  },
+  {
+    "name": "Loitsche",
+    "place": "village",
+    "lat": 52.296949,
+    "lng": 11.699651,
+    "routeDistanceKm": 318.7,
+    "offsetKm": 4.77
+  },
+  {
+    "name": "Detershagen",
+    "place": "village",
+    "lat": 52.244694,
+    "lng": 11.812475,
+    "routeDistanceKm": 319.9,
+    "offsetKm": 4.21
+  },
+  {
+    "name": "Niegripp",
+    "place": "village",
+    "lat": 52.264729,
+    "lng": 11.759136,
+    "routeDistanceKm": 320.7,
+    "offsetKm": 0.05
+  },
+  {
+    "name": "Heinrichsberg",
+    "place": "village",
+    "lat": 52.273204,
+    "lng": 11.735457,
+    "routeDistanceKm": 321.4,
+    "offsetKm": 1.48
+  },
+  {
+    "name": "Möser",
+    "place": "village",
+    "lat": 52.21637,
+    "lng": 11.792546,
+    "routeDistanceKm": 324.7,
+    "offsetKm": 4.42
+  },
+  {
+    "name": "Glindenberg",
+    "place": "village",
+    "lat": 52.241394,
+    "lng": 11.682307,
+    "routeDistanceKm": 328.1,
+    "offsetKm": 1.81
+  },
+  {
+    "name": "Hohenwarthe",
+    "place": "village",
+    "lat": 52.227095,
+    "lng": 11.70798,
+    "routeDistanceKm": 328.6,
+    "offsetKm": 0.28
+  },
+  {
+    "name": "Lostau",
+    "place": "village",
+    "lat": 52.210721,
+    "lng": 11.738623,
+    "routeDistanceKm": 331.2,
+    "offsetKm": 1.02
+  },
+  {
+    "name": "Alt Lostau",
+    "place": "village",
+    "lat": 52.208144,
+    "lng": 11.726876,
+    "routeDistanceKm": 332.1,
+    "offsetKm": 0.34
+  },
+  {
+    "name": "Körbelitz",
+    "place": "village",
+    "lat": 52.180295,
+    "lng": 11.782878,
+    "routeDistanceKm": 333.7,
+    "offsetKm": 4.65
+  },
+  {
+    "name": "Gerwisch",
+    "place": "village",
+    "lat": 52.175342,
+    "lng": 11.745422,
+    "routeDistanceKm": 333.8,
+    "offsetKm": 2.84
+  },
+  {
+    "name": "Biederitz",
+    "place": "village",
+    "lat": 52.15671,
+    "lng": 11.719833,
+    "routeDistanceKm": 340.1,
+    "offsetKm": 2.43
+  },
+  {
+    "name": "Magdeburg",
+    "place": "city",
+    "lat": 52.131478,
+    "lng": 11.640079,
+    "routeDistanceKm": 347.7,
+    "offsetKm": 0.06
+  },
+  {
+    "name": "Pechau",
+    "place": "village",
+    "lat": 52.089035,
+    "lng": 11.716089,
+    "routeDistanceKm": 359.8,
+    "offsetKm": 0.54
+  },
+  {
+    "name": "Menz",
+    "place": "village",
+    "lat": 52.118203,
+    "lng": 11.762988,
+    "routeDistanceKm": 360.5,
+    "offsetKm": 4.72
+  },
+  {
+    "name": "Gübs",
+    "place": "village",
+    "lat": 52.110892,
+    "lng": 11.736589,
+    "routeDistanceKm": 360.5,
+    "offsetKm": 3.2
+  },
+  {
+    "name": "Wahlitz",
+    "place": "village",
+    "lat": 52.103646,
+    "lng": 11.780198,
+    "routeDistanceKm": 360.9,
+    "offsetKm": 4.43
+  },
+  {
+    "name": "Randau-Calenberge",
+    "place": "village",
+    "lat": 52.063227,
+    "lng": 11.729576,
+    "routeDistanceKm": 362.8,
+    "offsetKm": 0.34
+  },
+  {
+    "name": "Calenberge",
+    "place": "village",
+    "lat": 52.064376,
+    "lng": 11.741538,
+    "routeDistanceKm": 362.9,
+    "offsetKm": 0.48
+  },
+  {
+    "name": "Randau",
+    "place": "village",
+    "lat": 52.06216,
+    "lng": 11.723004,
+    "routeDistanceKm": 364.2,
+    "offsetKm": 0.31
+  },
+  {
+    "name": "Schönebeck (Elbe)",
+    "place": "town",
+    "lat": 52.0206,
+    "lng": 11.738328,
+    "routeDistanceKm": 368.5,
+    "offsetKm": 0.86
+  },
+  {
+    "name": "Grünewalde",
+    "place": "village",
+    "lat": 52.028315,
+    "lng": 11.745368,
+    "routeDistanceKm": 368.6,
+    "offsetKm": 0.08
+  },
+  {
+    "name": "Elbenau",
+    "place": "village",
+    "lat": 52.044741,
+    "lng": 11.759391,
+    "routeDistanceKm": 370.6,
+    "offsetKm": 1.65
+  },
+  {
+    "name": "Ranies",
+    "place": "village",
+    "lat": 52.016694,
+    "lng": 11.82688,
+    "routeDistanceKm": 375.3,
+    "offsetKm": 0.14
+  },
+  {
+    "name": "Pömmelte",
+    "place": "village",
+    "lat": 51.994588,
+    "lng": 11.835428,
+    "routeDistanceKm": 376,
+    "offsetKm": 2.18
+  },
+  {
+    "name": "Glinde",
+    "place": "village",
+    "lat": 52.009297,
+    "lng": 11.851867,
+    "routeDistanceKm": 376.5,
+    "offsetKm": 0.97
+  },
+  {
+    "name": "Plötzky",
+    "place": "village",
+    "lat": 52.05128,
+    "lng": 11.802671,
+    "routeDistanceKm": 381,
+    "offsetKm": 1.7
+  },
+  {
+    "name": "Gommern",
+    "place": "town",
+    "lat": 52.073956,
+    "lng": 11.830723,
+    "routeDistanceKm": 381.3,
+    "offsetKm": 3.03
+  },
+  {
+    "name": "Pretzien",
+    "place": "village",
+    "lat": 52.046688,
+    "lng": 11.829121,
+    "routeDistanceKm": 381.3,
+    "offsetKm": 0
+  },
+  {
+    "name": "Dannigkow",
+    "place": "village",
+    "lat": 52.07017,
+    "lng": 11.875422,
+    "routeDistanceKm": 385.6,
+    "offsetKm": 3.6
+  },
+  {
+    "name": "Dornburg",
+    "place": "village",
+    "lat": 52.034017,
+    "lng": 11.880859,
+    "routeDistanceKm": 386.2,
+    "offsetKm": 0.03
+  },
+  {
+    "name": "Prödel",
+    "place": "village",
+    "lat": 52.037377,
+    "lng": 11.918173,
+    "routeDistanceKm": 387.4,
+    "offsetKm": 1.89
+  },
+  {
+    "name": "Lübs",
+    "place": "village",
+    "lat": 52.021146,
+    "lng": 11.93908,
+    "routeDistanceKm": 387.9,
+    "offsetKm": 3.17
+  },
+  {
+    "name": "Gödnitz",
+    "place": "village",
+    "lat": 51.995766,
+    "lng": 11.920228,
+    "routeDistanceKm": 392,
+    "offsetKm": 1.09
+  },
+  {
+    "name": "Gehrden",
+    "place": "village",
+    "lat": 52.010118,
+    "lng": 11.959322,
+    "routeDistanceKm": 392,
+    "offsetKm": 4.02
+  },
+  {
+    "name": "Flötz",
+    "place": "village",
+    "lat": 51.987955,
+    "lng": 11.923352,
+    "routeDistanceKm": 392,
+    "offsetKm": 1.65
+  },
+  {
+    "name": "Wespen",
+    "place": "village",
+    "lat": 51.959422,
+    "lng": 11.828739,
+    "routeDistanceKm": 395,
+    "offsetKm": 4.91
+  },
+  {
+    "name": "Barby",
+    "place": "town",
+    "lat": 51.966647,
+    "lng": 11.886051,
+    "routeDistanceKm": 395.1,
+    "offsetKm": 1.01
+  },
+  {
+    "name": "Klein Rosenburg",
+    "place": "village",
+    "lat": 51.927505,
+    "lng": 11.887316,
+    "routeDistanceKm": 396.7,
+    "offsetKm": 4.22
+  },
+  {
+    "name": "Ronney",
+    "place": "village",
+    "lat": 51.961472,
+    "lng": 11.915159,
+    "routeDistanceKm": 396.8,
+    "offsetKm": 0
+  },
+  {
+    "name": "Walternienburg",
+    "place": "village",
+    "lat": 51.96749,
+    "lng": 11.938892,
+    "routeDistanceKm": 398.7,
+    "offsetKm": 0.22
+  },
+  {
+    "name": "Güterglück",
+    "place": "village",
+    "lat": 51.987563,
+    "lng": 11.993354,
+    "routeDistanceKm": 400.2,
+    "offsetKm": 4.07
+  },
+  {
+    "name": "Trebnitz",
+    "place": "village",
+    "lat": 51.974056,
+    "lng": 12.024162,
+    "routeDistanceKm": 400.2,
+    "offsetKm": 4.95
+  },
+  {
+    "name": "Nutha-Siedlung",
+    "place": "village",
+    "lat": 51.969754,
+    "lng": 11.987804,
+    "routeDistanceKm": 400.2,
+    "offsetKm": 2.48
+  },
+  {
+    "name": "Nutha",
+    "place": "village",
+    "lat": 51.963658,
+    "lng": 12.011999,
+    "routeDistanceKm": 400.4,
+    "offsetKm": 3.85
+  },
+  {
+    "name": "Kämeritz",
+    "place": "village",
+    "lat": 51.954306,
+    "lng": 11.972945,
+    "routeDistanceKm": 400.6,
+    "offsetKm": 1.09
+  },
+  {
+    "name": "Groß Rosenburg",
+    "place": "village",
+    "lat": 51.916871,
+    "lng": 11.888313,
+    "routeDistanceKm": 403.1,
+    "offsetKm": 4.84
+  },
+  {
+    "name": "Breitenhagen",
+    "place": "village",
+    "lat": 51.923326,
+    "lng": 11.949368,
+    "routeDistanceKm": 403.1,
+    "offsetKm": 1.26
+  },
+  {
+    "name": "Hohenlepte",
+    "place": "village",
+    "lat": 51.954674,
+    "lng": 12.009477,
+    "routeDistanceKm": 405.3,
+    "offsetKm": 3.17
+  },
+  {
+    "name": "Badetz",
+    "place": "village",
+    "lat": 51.936826,
+    "lng": 11.987964,
+    "routeDistanceKm": 405.3,
+    "offsetKm": 0.72
+  },
+  {
+    "name": "Eichholz",
+    "place": "village",
+    "lat": 51.927155,
+    "lng": 12.031517,
+    "routeDistanceKm": 407.9,
+    "offsetKm": 2.01
+  },
+  {
+    "name": "Leps",
+    "place": "village",
+    "lat": 51.924892,
+    "lng": 12.04971,
+    "routeDistanceKm": 408,
+    "offsetKm": 2.88
+  },
+  {
+    "name": "Kermen",
+    "place": "village",
+    "lat": 51.918238,
+    "lng": 12.046391,
+    "routeDistanceKm": 408.3,
+    "offsetKm": 2.42
+  },
+  {
+    "name": "Lödderitz",
+    "place": "village",
+    "lat": 51.883421,
+    "lng": 11.952686,
+    "routeDistanceKm": 410.5,
+    "offsetKm": 4.77
+  },
+  {
+    "name": "Steckby",
+    "place": "village",
+    "lat": 51.892804,
+    "lng": 12.028654,
+    "routeDistanceKm": 411.1,
+    "offsetKm": 0.09
+  },
+  {
+    "name": "Pakendorf",
+    "place": "village",
+    "lat": 51.918396,
+    "lng": 12.109505,
+    "routeDistanceKm": 415.1,
+    "offsetKm": 4.91
+  },
+  {
+    "name": "Steutz",
+    "place": "village",
+    "lat": 51.877522,
+    "lng": 12.079342,
+    "routeDistanceKm": 415.2,
+    "offsetKm": 0
+  },
+  {
+    "name": "Aken",
+    "place": "town",
+    "lat": 51.85,
+    "lng": 12.05,
+    "routeDistanceKm": 418.3,
+    "offsetKm": 0.99
+  },
+  {
+    "name": "Susigke",
+    "place": "village",
+    "lat": 51.831956,
+    "lng": 12.07499,
+    "routeDistanceKm": 420.4,
+    "offsetKm": 2.16
+  },
+  {
+    "name": "Reppichau",
+    "place": "village",
+    "lat": 51.810979,
+    "lng": 12.080645,
+    "routeDistanceKm": 420.7,
+    "offsetKm": 4.43
+  },
+  {
+    "name": "Chörau",
+    "place": "village",
+    "lat": 51.815467,
+    "lng": 12.118171,
+    "routeDistanceKm": 423.5,
+    "offsetKm": 3.68
+  },
+  {
+    "name": "Dessau",
+    "place": "town",
+    "lat": 51.830996,
+    "lng": 12.243072,
+    "routeDistanceKm": 437.3,
+    "offsetKm": 0.33
+  },
+  {
+    "name": "Roßlau",
+    "place": "town",
+    "lat": 51.888283,
+    "lng": 12.243458,
+    "routeDistanceKm": 443.4,
+    "offsetKm": 3.87
+  },
+  {
+    "name": "Klieken",
+    "place": "village",
+    "lat": 51.889023,
+    "lng": 12.370492,
+    "routeDistanceKm": 447.2,
+    "offsetKm": 3.9
+  },
+  {
+    "name": "Kapen",
+    "place": "village",
+    "lat": 51.806547,
+    "lng": 12.352458,
+    "routeDistanceKm": 452.2,
+    "offsetKm": 4.22
+  },
+  {
+    "name": "Oranienbaum",
+    "place": "town",
+    "lat": 51.797973,
+    "lng": 12.404533,
+    "routeDistanceKm": 452.9,
+    "offsetKm": 4.81
+  },
+  {
+    "name": "Kakau",
+    "place": "village",
+    "lat": 51.804267,
+    "lng": 12.432575,
+    "routeDistanceKm": 454,
+    "offsetKm": 4.62
+  },
+  {
+    "name": "Horstdorf",
+    "place": "village",
+    "lat": 51.818144,
+    "lng": 12.436089,
+    "routeDistanceKm": 454.1,
+    "offsetKm": 3.41
+  },
+  {
+    "name": "Wörlitz",
+    "place": "village",
+    "lat": 51.841454,
+    "lng": 12.419902,
+    "routeDistanceKm": 454.5,
+    "offsetKm": 0.75
+  },
+  {
+    "name": "Riesigk",
+    "place": "village",
+    "lat": 51.823549,
+    "lng": 12.468908,
+    "routeDistanceKm": 456.5,
+    "offsetKm": 4.39
+  },
+  {
+    "name": "Rotehof",
+    "place": "village",
+    "lat": 51.820818,
+    "lng": 12.465284,
+    "routeDistanceKm": 456.5,
+    "offsetKm": 4.5
+  },
+  {
+    "name": "Schönitz",
+    "place": "village",
+    "lat": 51.834833,
+    "lng": 12.469236,
+    "routeDistanceKm": 456.5,
+    "offsetKm": 3.49
+  },
+  {
+    "name": "Buro",
+    "place": "village",
+    "lat": 51.880329,
+    "lng": 12.404384,
+    "routeDistanceKm": 457.9,
+    "offsetKm": 3
+  },
+  {
+    "name": "Zieko",
+    "place": "village",
+    "lat": 51.915127,
+    "lng": 12.410976,
+    "routeDistanceKm": 460,
+    "offsetKm": 4.9
+  },
+  {
+    "name": "Coswig (Anhalt)",
+    "place": "town",
+    "lat": 51.884657,
+    "lng": 12.456278,
+    "routeDistanceKm": 460.4,
+    "offsetKm": 0.41
+  },
+  {
+    "name": "Möllensdorf",
+    "place": "village",
+    "lat": 51.9194,
+    "lng": 12.535966,
+    "routeDistanceKm": 464.8,
+    "offsetKm": 4.65
+  },
+  {
+    "name": "Griebo",
+    "place": "village",
+    "lat": 51.881243,
+    "lng": 12.512346,
+    "routeDistanceKm": 465,
+    "offsetKm": 0.19
+  },
+  {
+    "name": "Seegrehna",
+    "place": "village",
+    "lat": 51.831923,
+    "lng": 12.558547,
+    "routeDistanceKm": 469.4,
+    "offsetKm": 4.25
+  },
+  {
+    "name": "Bleesern",
+    "place": "village",
+    "lat": 51.834634,
+    "lng": 12.570655,
+    "routeDistanceKm": 473,
+    "offsetKm": 3.57
+  },
+  {
+    "name": "Kienberge",
+    "place": "village",
+    "lat": 51.845652,
+    "lng": 12.624295,
+    "routeDistanceKm": 474.4,
+    "offsetKm": 2.06
+  },
+  {
+    "name": "Lutherstadt Wittenberg",
+    "place": "town",
+    "lat": 51.866653,
+    "lng": 12.646761,
+    "routeDistanceKm": 476.8,
+    "offsetKm": 0.1
+  },
+  {
+    "name": "Pratau",
+    "place": "village",
+    "lat": 51.842678,
+    "lng": 12.642977,
+    "routeDistanceKm": 477.8,
+    "offsetKm": 2.45
+  },
+  {
+    "name": "Euper",
+    "place": "village",
+    "lat": 51.900248,
+    "lng": 12.704091,
+    "routeDistanceKm": 479.4,
+    "offsetKm": 4.38
+  },
+  {
+    "name": "Abtsdorf",
+    "place": "village",
+    "lat": 51.888193,
+    "lng": 12.727091,
+    "routeDistanceKm": 482.4,
+    "offsetKm": 3.55
+  },
+  {
+    "name": "Bülzig",
+    "place": "village",
+    "lat": 51.892835,
+    "lng": 12.757137,
+    "routeDistanceKm": 482.4,
+    "offsetKm": 4.88
+  },
+  {
+    "name": "Zörnigall",
+    "place": "village",
+    "lat": 51.872459,
+    "lng": 12.743822,
+    "routeDistanceKm": 483.6,
+    "offsetKm": 2.56
+  },
+  {
+    "name": "Mühlanger",
+    "place": "village",
+    "lat": 51.852906,
+    "lng": 12.749563,
+    "routeDistanceKm": 484.8,
+    "offsetKm": 0.77
+  },
+  {
+    "name": "Dietrichsdorf",
+    "place": "village",
+    "lat": 51.859408,
+    "lng": 12.774347,
+    "routeDistanceKm": 488.2,
+    "offsetKm": 2.39
+  },
+  {
+    "name": "Külso",
+    "place": "village",
+    "lat": 51.867982,
+    "lng": 12.782582,
+    "routeDistanceKm": 488.2,
+    "offsetKm": 3.3
+  },
+  {
+    "name": "Iserbegka",
+    "place": "village",
+    "lat": 51.837069,
+    "lng": 12.78959,
+    "routeDistanceKm": 488.8,
+    "offsetKm": 0.09
+  },
+  {
+    "name": "Raßdorf",
+    "place": "village",
+    "lat": 51.871207,
+    "lng": 12.818229,
+    "routeDistanceKm": 489,
+    "offsetKm": 4.33
+  },
+  {
+    "name": "Wartenburg",
+    "place": "village",
+    "lat": 51.810474,
+    "lng": 12.777933,
+    "routeDistanceKm": 490.1,
+    "offsetKm": 2.69
+  },
+  {
+    "name": "Zemnick",
+    "place": "village",
+    "lat": 51.86544,
+    "lng": 12.844073,
+    "routeDistanceKm": 492,
+    "offsetKm": 4.34
+  },
+  {
+    "name": "Gielsdorf",
+    "place": "village",
+    "lat": 51.848212,
+    "lng": 12.836707,
+    "routeDistanceKm": 492,
+    "offsetKm": 2.36
+  },
+  {
+    "name": "Lüttchenseyda",
+    "place": "village",
+    "lat": 51.856703,
+    "lng": 12.893647,
+    "routeDistanceKm": 493.6,
+    "offsetKm": 4.79
+  },
+  {
+    "name": "Meltendorf",
+    "place": "village",
+    "lat": 51.855255,
+    "lng": 12.877807,
+    "routeDistanceKm": 493.6,
+    "offsetKm": 4.04
+  },
+  {
+    "name": "Listerfehrda",
+    "place": "village",
+    "lat": 51.82065,
+    "lng": 12.851503,
+    "routeDistanceKm": 493.7,
+    "offsetKm": 0.22
+  },
+  {
+    "name": "Gentha",
+    "place": "village",
+    "lat": 51.850374,
+    "lng": 12.897363,
+    "routeDistanceKm": 493.7,
+    "offsetKm": 4.45
+  },
+  {
+    "name": "Ruhlsdorf",
+    "place": "village",
+    "lat": 51.81834,
+    "lng": 12.911541,
+    "routeDistanceKm": 496.4,
+    "offsetKm": 3.21
+  },
+  {
+    "name": "Rehain",
+    "place": "village",
+    "lat": 51.808502,
+    "lng": 12.925114,
+    "routeDistanceKm": 496.4,
+    "offsetKm": 3.83
+  },
+  {
+    "name": "Battin",
+    "place": "village",
+    "lat": 51.767849,
+    "lng": 12.903936,
+    "routeDistanceKm": 497.3,
+    "offsetKm": 4.31
+  },
+  {
+    "name": "Gorsdorf",
+    "place": "village",
+    "lat": 51.79816,
+    "lng": 12.867914,
+    "routeDistanceKm": 497.3,
+    "offsetKm": 0.18
+  },
+  {
+    "name": "Hemsendorf",
+    "place": "village",
+    "lat": 51.79302,
+    "lng": 12.881252,
+    "routeDistanceKm": 497.3,
+    "offsetKm": 1.25
+  },
+  {
+    "name": "Schützberg",
+    "place": "village",
+    "lat": 51.789647,
+    "lng": 12.826333,
+    "routeDistanceKm": 500.7,
+    "offsetKm": 0.01
+  },
+  {
+    "name": "Bleddin",
+    "place": "village",
+    "lat": 51.786144,
+    "lng": 12.786296,
+    "routeDistanceKm": 500.9,
+    "offsetKm": 2.64
+  },
+  {
+    "name": "Rettig",
+    "place": "village",
+    "lat": 51.770946,
+    "lng": 12.862905,
+    "routeDistanceKm": 503.4,
+    "offsetKm": 2.2
+  },
+  {
+    "name": "Klöden",
+    "place": "village",
+    "lat": 51.759249,
+    "lng": 12.829803,
+    "routeDistanceKm": 504.2,
+    "offsetKm": 0.09
+  },
+  {
+    "name": "Kleindröben",
+    "place": "village",
+    "lat": 51.743961,
+    "lng": 12.83915,
+    "routeDistanceKm": 506.6,
+    "offsetKm": 0.19
+  },
+  {
+    "name": "Rade",
+    "place": "village",
+    "lat": 51.753743,
+    "lng": 12.885419,
+    "routeDistanceKm": 506.6,
+    "offsetKm": 3.55
+  },
+  {
+    "name": "Trebitz",
+    "place": "village",
+    "lat": 51.751056,
+    "lng": 12.750282,
+    "routeDistanceKm": 508.9,
+    "offsetKm": 4.71
+  },
+  {
+    "name": "Kleinzerbst",
+    "place": "village",
+    "lat": 51.743301,
+    "lng": 12.771591,
+    "routeDistanceKm": 508.9,
+    "offsetKm": 3.02
+  },
+  {
+    "name": "Merschwitz",
+    "place": "village",
+    "lat": 51.729127,
+    "lng": 12.782027,
+    "routeDistanceKm": 509.8,
+    "offsetKm": 1.88
+  },
+  {
+    "name": "Splau",
+    "place": "village",
+    "lat": 51.703563,
+    "lng": 12.764294,
+    "routeDistanceKm": 510,
+    "offsetKm": 3.95
+  },
+  {
+    "name": "Mauken",
+    "place": "village",
+    "lat": 51.721046,
+    "lng": 12.821419,
+    "routeDistanceKm": 510.9,
+    "offsetKm": 0.09
+  },
+  {
+    "name": "Priesitz",
+    "place": "village",
+    "lat": 51.702299,
+    "lng": 12.824474,
+    "routeDistanceKm": 513.1,
+    "offsetKm": 1.78
+  },
+  {
+    "name": "Düßnitz",
+    "place": "village",
+    "lat": 51.730567,
+    "lng": 12.877397,
+    "routeDistanceKm": 513.9,
+    "offsetKm": 2.4
+  },
+  {
+    "name": "Gehmen",
+    "place": "village",
+    "lat": 51.708377,
+    "lng": 12.870654,
+    "routeDistanceKm": 514.4,
+    "offsetKm": 0.9
+  },
+  {
+    "name": "Greudnitz",
+    "place": "village",
+    "lat": 51.67035,
+    "lng": 12.841356,
+    "routeDistanceKm": 518.3,
+    "offsetKm": 1.71
+  },
+  {
+    "name": "Wörblitz",
+    "place": "village",
+    "lat": 51.661614,
+    "lng": 12.850694,
+    "routeDistanceKm": 518.6,
+    "offsetKm": 1.93
+  },
+  {
+    "name": "Proschwitz",
+    "place": "village",
+    "lat": 51.655855,
+    "lng": 12.859849,
+    "routeDistanceKm": 518.6,
+    "offsetKm": 2.36
+  },
+  {
+    "name": "Mahlitzsch",
+    "place": "village",
+    "lat": 51.637167,
+    "lng": 12.858556,
+    "routeDistanceKm": 518.6,
+    "offsetKm": 4.43
+  },
+  {
+    "name": "Axien",
+    "place": "village",
+    "lat": 51.7,
+    "lng": 12.8833,
+    "routeDistanceKm": 520.2,
+    "offsetKm": 1.5
+  },
+  {
+    "name": "Hohndorf",
+    "place": "village",
+    "lat": 51.693785,
+    "lng": 12.917538,
+    "routeDistanceKm": 520.7,
+    "offsetKm": 2.37
+  },
+  {
+    "name": "Dommitzsch",
+    "place": "town",
+    "lat": 51.640116,
+    "lng": 12.881846,
+    "routeDistanceKm": 523.6,
+    "offsetKm": 3.24
+  },
+  {
+    "name": "Prettin",
+    "place": "town",
+    "lat": 51.660679,
+    "lng": 12.926507,
+    "routeDistanceKm": 525.3,
+    "offsetKm": 0.17
+  },
+  {
+    "name": "Plossig",
+    "place": "village",
+    "lat": 51.696723,
+    "lng": 12.952662,
+    "routeDistanceKm": 525.7,
+    "offsetKm": 4.06
+  },
+  {
+    "name": "Großtreben",
+    "place": "village",
+    "lat": 51.647084,
+    "lng": 12.987976,
+    "routeDistanceKm": 529.7,
+    "offsetKm": 0.64
+  },
+  {
+    "name": "Elsnig",
+    "place": "village",
+    "lat": 51.610638,
+    "lng": 12.92847,
+    "routeDistanceKm": 531.6,
+    "offsetKm": 4.33
+  },
+  {
+    "name": "Neiden",
+    "place": "village",
+    "lat": 51.597908,
+    "lng": 12.952151,
+    "routeDistanceKm": 532.6,
+    "offsetKm": 4.06
+  },
+  {
+    "name": "Mockritz",
+    "place": "village",
+    "lat": 51.612098,
+    "lng": 12.96898,
+    "routeDistanceKm": 532.6,
+    "offsetKm": 2.1
+  },
+  {
+    "name": "Dautzschen",
+    "place": "village",
+    "lat": 51.637887,
+    "lng": 13.007071,
+    "routeDistanceKm": 534,
+    "offsetKm": 0.77
+  },
+  {
+    "name": "Döbern",
+    "place": "village",
+    "lat": 51.602125,
+    "lng": 12.988382,
+    "routeDistanceKm": 536.4,
+    "offsetKm": 2.25
+  },
+  {
+    "name": "Rosenfeld",
+    "place": "village",
+    "lat": 51.599616,
+    "lng": 13.039757,
+    "routeDistanceKm": 538.9,
+    "offsetKm": 0.04
+  },
+  {
+    "name": "Döbrichau",
+    "place": "village",
+    "lat": 51.59635,
+    "lng": 13.127964,
+    "routeDistanceKm": 540.5,
+    "offsetKm": 4.95
+  },
+  {
+    "name": "Zwethau",
+    "place": "village",
+    "lat": 51.580845,
+    "lng": 13.041693,
+    "routeDistanceKm": 542.2,
+    "offsetKm": 0.05
+  },
+  {
+    "name": "Repitz",
+    "place": "village",
+    "lat": 51.583748,
+    "lng": 13.012433,
+    "routeDistanceKm": 543.1,
+    "offsetKm": 1.59
+  },
+  {
+    "name": "Zinna",
+    "place": "village",
+    "lat": 51.568742,
+    "lng": 12.955991,
+    "routeDistanceKm": 545.4,
+    "offsetKm": 4.18
+  },
+  {
+    "name": "Welsau",
+    "place": "village",
+    "lat": 51.572721,
+    "lng": 12.968237,
+    "routeDistanceKm": 545.4,
+    "offsetKm": 3.53
+  },
+  {
+    "name": "Torgau",
+    "place": "town",
+    "lat": 51.558127,
+    "lng": 13.004654,
+    "routeDistanceKm": 545.4,
+    "offsetKm": 0.71
+  },
+  {
+    "name": "Loßwig",
+    "place": "village",
+    "lat": 51.531947,
+    "lng": 13.018618,
+    "routeDistanceKm": 546.9,
+    "offsetKm": 2.6
+  },
+  {
+    "name": "Werdau",
+    "place": "village",
+    "lat": 51.553294,
+    "lng": 13.033764,
+    "routeDistanceKm": 547,
+    "offsetKm": 0.01
+  },
+  {
+    "name": "Beilrode",
+    "place": "village",
+    "lat": 51.568808,
+    "lng": 13.069735,
+    "routeDistanceKm": 549.4,
+    "offsetKm": 1
+  },
+  {
+    "name": "Graditz",
+    "place": "village",
+    "lat": 51.544146,
+    "lng": 13.060738,
+    "routeDistanceKm": 551.3,
+    "offsetKm": 0.05
+  },
+  {
+    "name": "Kunzwerda",
+    "place": "village",
+    "lat": 51.525711,
+    "lng": 13.050181,
+    "routeDistanceKm": 553.2,
+    "offsetKm": 1.05
+  },
+  {
+    "name": "Bennewitz",
+    "place": "village",
+    "lat": 51.511694,
+    "lng": 13.029273,
+    "routeDistanceKm": 553.3,
+    "offsetKm": 3.14
+  },
+  {
+    "name": "Weßnig",
+    "place": "village",
+    "lat": 51.517833,
+    "lng": 13.046588,
+    "routeDistanceKm": 553.3,
+    "offsetKm": 1.78
+  },
+  {
+    "name": "Pülswerda",
+    "place": "village",
+    "lat": 51.526475,
+    "lng": 13.072347,
+    "routeDistanceKm": 554,
+    "offsetKm": 0.02
+  },
+  {
+    "name": "Mehderitzsch",
+    "place": "village",
+    "lat": 51.50359,
+    "lng": 13.049481,
+    "routeDistanceKm": 554.3,
+    "offsetKm": 2.9
+  },
+  {
+    "name": "Kranichau",
+    "place": "village",
+    "lat": 51.504553,
+    "lng": 13.062827,
+    "routeDistanceKm": 554.5,
+    "offsetKm": 2.31
+  },
+  {
+    "name": "Triestewitz",
+    "place": "village",
+    "lat": 51.535215,
+    "lng": 13.098166,
+    "routeDistanceKm": 556.1,
+    "offsetKm": 1.16
+  },
+  {
+    "name": "Kathewitz",
+    "place": "village",
+    "lat": 51.52255,
+    "lng": 13.108975,
+    "routeDistanceKm": 556.9,
+    "offsetKm": 0.13
+  },
+  {
+    "name": "Arzberg",
+    "place": "village",
+    "lat": 51.530344,
+    "lng": 13.127023,
+    "routeDistanceKm": 557.1,
+    "offsetKm": 1.57
+  },
+  {
+    "name": "Nichtewitz",
+    "place": "village",
+    "lat": 51.533295,
+    "lng": 13.135551,
+    "routeDistanceKm": 557.1,
+    "offsetKm": 2.23
+  },
+  {
+    "name": "Adelwitz",
+    "place": "village",
+    "lat": 51.509674,
+    "lng": 13.129118,
+    "routeDistanceKm": 558.7,
+    "offsetKm": 0.62
+  },
+  {
+    "name": "Köllitsch",
+    "place": "village",
+    "lat": 51.500606,
+    "lng": 13.119752,
+    "routeDistanceKm": 559.6,
+    "offsetKm": 0.05
+  },
+  {
+    "name": "Mahitzschen",
+    "place": "village",
+    "lat": 51.489045,
+    "lng": 13.077689,
+    "routeDistanceKm": 560,
+    "offsetKm": 3.02
+  },
+  {
+    "name": "Döbeltitz",
+    "place": "village",
+    "lat": 51.495982,
+    "lng": 13.093413,
+    "routeDistanceKm": 560,
+    "offsetKm": 1.81
+  },
+  {
+    "name": "Belgern",
+    "place": "town",
+    "lat": 51.482822,
+    "lng": 13.124611,
+    "routeDistanceKm": 561.5,
+    "offsetKm": 0.66
+  },
+  {
+    "name": "Neußen",
+    "place": "village",
+    "lat": 51.449476,
+    "lng": 13.115078,
+    "routeDistanceKm": 561.6,
+    "offsetKm": 4.19
+  },
+  {
+    "name": "Puschwitz",
+    "place": "village",
+    "lat": 51.466268,
+    "lng": 13.104139,
+    "routeDistanceKm": 561.6,
+    "offsetKm": 2.94
+  },
+  {
+    "name": "Treblitzsch",
+    "place": "village",
+    "lat": 51.47039,
+    "lng": 13.1521,
+    "routeDistanceKm": 561.6,
+    "offsetKm": 2.11
+  },
+  {
+    "name": "Ammelgoßwitz",
+    "place": "village",
+    "lat": 51.478812,
+    "lng": 13.153586,
+    "routeDistanceKm": 562.4,
+    "offsetKm": 1.51
+  },
+  {
+    "name": "Tauschwitz",
+    "place": "village",
+    "lat": 51.494287,
+    "lng": 13.148688,
+    "routeDistanceKm": 563.1,
+    "offsetKm": 0.14
+  },
+  {
+    "name": "Kötten",
+    "place": "village",
+    "lat": 51.541563,
+    "lng": 13.171065,
+    "routeDistanceKm": 564.8,
+    "offsetKm": 4.09
+  },
+  {
+    "name": "Blumberg",
+    "place": "village",
+    "lat": 51.519717,
+    "lng": 13.184046,
+    "routeDistanceKm": 564.8,
+    "offsetKm": 2.13
+  },
+  {
+    "name": "Packisch",
+    "place": "village",
+    "lat": 51.51117,
+    "lng": 13.160876,
+    "routeDistanceKm": 564.8,
+    "offsetKm": 0.73
+  },
+  {
+    "name": "Stehla",
+    "place": "village",
+    "lat": 51.495483,
+    "lng": 13.183339,
+    "routeDistanceKm": 566.5,
+    "offsetKm": 0.16
+  },
+  {
+    "name": "Koßdorf",
+    "place": "village",
+    "lat": 51.500438,
+    "lng": 13.22839,
+    "routeDistanceKm": 567,
+    "offsetKm": 2.99
+  },
+  {
+    "name": "Langenrieth",
+    "place": "village",
+    "lat": 51.474907,
+    "lng": 13.268374,
+    "routeDistanceKm": 569.7,
+    "offsetKm": 4.34
+  },
+  {
+    "name": "Martinskirchen",
+    "place": "village",
+    "lat": 51.47171,
+    "lng": 13.203793,
+    "routeDistanceKm": 570.2,
+    "offsetKm": 0
+  },
+  {
+    "name": "Brottewitz",
+    "place": "village",
+    "lat": 51.463608,
+    "lng": 13.22004,
+    "routeDistanceKm": 571,
+    "offsetKm": 0.99
+  },
+  {
+    "name": "Staritz",
+    "place": "village",
+    "lat": 51.444898,
+    "lng": 13.173098,
+    "routeDistanceKm": 571.7,
+    "offsetKm": 2.62
+  },
+  {
+    "name": "Burxdorf",
+    "place": "village",
+    "lat": 51.458385,
+    "lng": 13.258899,
+    "routeDistanceKm": 574,
+    "offsetKm": 3.08
+  },
+  {
+    "name": "Weinberge",
+    "place": "village",
+    "lat": 51.448317,
+    "lng": 13.229472,
+    "routeDistanceKm": 574,
+    "offsetKm": 0.8
+  },
+  {
+    "name": "Seydewitz",
+    "place": "village",
+    "lat": 51.420143,
+    "lng": 13.182219,
+    "routeDistanceKm": 576.2,
+    "offsetKm": 2.29
+  },
+  {
+    "name": "Oelzschau",
+    "place": "village",
+    "lat": 51.435251,
+    "lng": 13.159494,
+    "routeDistanceKm": 576.2,
+    "offsetKm": 3.36
+  },
+  {
+    "name": "Wohlau",
+    "place": "village",
+    "lat": 51.423514,
+    "lng": 13.1541,
+    "routeDistanceKm": 576.2,
+    "offsetKm": 3.88
+  },
+  {
+    "name": "Mühlberg/Elbe",
+    "place": "town",
+    "lat": 51.434427,
+    "lng": 13.217247,
+    "routeDistanceKm": 576.9,
+    "offsetKm": 0.29
+  },
+  {
+    "name": "Außig",
+    "place": "village",
+    "lat": 51.404806,
+    "lng": 13.189936,
+    "routeDistanceKm": 580.2,
+    "offsetKm": 1.95
+  },
+  {
+    "name": "Schirmenitz",
+    "place": "village",
+    "lat": 51.391122,
+    "lng": 13.185503,
+    "routeDistanceKm": 580.5,
+    "offsetKm": 2.99
+  },
+  {
+    "name": "Paußnitz",
+    "place": "village",
+    "lat": 51.387611,
+    "lng": 13.202597,
+    "routeDistanceKm": 581.1,
+    "offsetKm": 2.45
+  },
+  {
+    "name": "Altenau",
+    "place": "village",
+    "lat": 51.419403,
+    "lng": 13.26728,
+    "routeDistanceKm": 582.3,
+    "offsetKm": 2.44
+  },
+  {
+    "name": "Jacobsthal",
+    "place": "village",
+    "lat": 51.380011,
+    "lng": 13.281296,
+    "routeDistanceKm": 585.3,
+    "offsetKm": 1.38
+  },
+  {
+    "name": "Kreinitz",
+    "place": "village",
+    "lat": 51.375393,
+    "lng": 13.256585,
+    "routeDistanceKm": 586.1,
+    "offsetKm": 0.04
+  },
+  {
+    "name": "Trebnitz",
+    "place": "village",
+    "lat": 51.370557,
+    "lng": 13.239743,
+    "routeDistanceKm": 587.4,
+    "offsetKm": 0.73
+  },
+  {
+    "name": "Görzig",
+    "place": "village",
+    "lat": 51.371003,
+    "lng": 13.228357,
+    "routeDistanceKm": 588.1,
+    "offsetKm": 1.3
+  },
+  {
+    "name": "Cottewitz",
+    "place": "village",
+    "lat": 51.361998,
+    "lng": 13.239648,
+    "routeDistanceKm": 588.2,
+    "offsetKm": 0.08
+  },
+  {
+    "name": "Sahlassan",
+    "place": "village",
+    "lat": 51.367461,
+    "lng": 13.191233,
+    "routeDistanceKm": 588.3,
+    "offsetKm": 3.46
+  },
+  {
+    "name": "Strehla",
+    "place": "town",
+    "lat": 51.352122,
+    "lng": 13.220966,
+    "routeDistanceKm": 589,
+    "offsetKm": 1.44
+  },
+  {
+    "name": "Großrügeln",
+    "place": "village",
+    "lat": 51.333803,
+    "lng": 13.226286,
+    "routeDistanceKm": 589,
+    "offsetKm": 2.58
+  },
+  {
+    "name": "Zaußwitz",
+    "place": "village",
+    "lat": 51.337898,
+    "lng": 13.192156,
+    "routeDistanceKm": 589,
+    "offsetKm": 3.9
+  },
+  {
+    "name": "Leckwitz",
+    "place": "village",
+    "lat": 51.352393,
+    "lng": 13.189682,
+    "routeDistanceKm": 589,
+    "offsetKm": 3.59
+  },
+  {
+    "name": "Lorenzkirch",
+    "place": "village",
+    "lat": 51.35347,
+    "lng": 13.247917,
+    "routeDistanceKm": 589.5,
+    "offsetKm": 0.06
+  },
+  {
+    "name": "Schwarzroda",
+    "place": "village",
+    "lat": 51.318276,
+    "lng": 13.218945,
+    "routeDistanceKm": 589.5,
+    "offsetKm": 4.33
+  },
+  {
+    "name": "Unterreußen",
+    "place": "village",
+    "lat": 51.33258,
+    "lng": 13.251228,
+    "routeDistanceKm": 590.5,
+    "offsetKm": 2.02
+  },
+  {
+    "name": "Zschepa",
+    "place": "village",
+    "lat": 51.350902,
+    "lng": 13.265075,
+    "routeDistanceKm": 590.8,
+    "offsetKm": 0.17
+  },
+  {
+    "name": "Oppitzsch",
+    "place": "village",
+    "lat": 51.344144,
+    "lng": 13.268657,
+    "routeDistanceKm": 591.1,
+    "offsetKm": 0.55
+  },
+  {
+    "name": "Gohlis",
+    "place": "village",
+    "lat": 51.344074,
+    "lng": 13.292244,
+    "routeDistanceKm": 592.8,
+    "offsetKm": 0.09
+  },
+  {
+    "name": "Neudorf",
+    "place": "village",
+    "lat": 51.35229,
+    "lng": 13.354338,
+    "routeDistanceKm": 593,
+    "offsetKm": 4.33
+  },
+  {
+    "name": "Bobersen",
+    "place": "village",
+    "lat": 51.324199,
+    "lng": 13.300271,
+    "routeDistanceKm": 595.2,
+    "offsetKm": 0.08
+  },
+  {
+    "name": "Kalbitz",
+    "place": "village",
+    "lat": 51.27313,
+    "lng": 13.264143,
+    "routeDistanceKm": 597.1,
+    "offsetKm": 4.88
+  },
+  {
+    "name": "Promnitz",
+    "place": "village",
+    "lat": 51.309147,
+    "lng": 13.308071,
+    "routeDistanceKm": 597.6,
+    "offsetKm": 0.01
+  },
+  {
+    "name": "Riesa",
+    "place": "town",
+    "lat": 51.303824,
+    "lng": 13.308828,
+    "routeDistanceKm": 597.8,
+    "offsetKm": 0.57
+  },
+  {
+    "name": "Röderau",
+    "place": "village",
+    "lat": 51.322105,
+    "lng": 13.320649,
+    "routeDistanceKm": 598.5,
+    "offsetKm": 1.39
+  },
+  {
+    "name": "Zeithain",
+    "place": "town",
+    "lat": 51.33237,
+    "lng": 13.338297,
+    "routeDistanceKm": 599.9,
+    "offsetKm": 2.28
+  },
+  {
+    "name": "Moritz",
+    "place": "village",
+    "lat": 51.311183,
+    "lng": 13.343849,
+    "routeDistanceKm": 600.3,
+    "offsetKm": 0.04
+  },
+  {
+    "name": "Marksiedlitz",
+    "place": "village",
+    "lat": 51.340529,
+    "lng": 13.390735,
+    "routeDistanceKm": 601.4,
+    "offsetKm": 4.29
+  },
+  {
+    "name": "Grödel",
+    "place": "village",
+    "lat": 51.304612,
+    "lng": 13.367762,
+    "routeDistanceKm": 602.1,
+    "offsetKm": 0.06
+  },
+  {
+    "name": "Glaubitz",
+    "place": "village",
+    "lat": 51.323049,
+    "lng": 13.37878,
+    "routeDistanceKm": 602.3,
+    "offsetKm": 2.2
+  },
+  {
+    "name": "Radewitz",
+    "place": "village",
+    "lat": 51.332131,
+    "lng": 13.391623,
+    "routeDistanceKm": 602.4,
+    "offsetKm": 3.46
+  },
+  {
+    "name": "Heyda",
+    "place": "village",
+    "lat": 51.267588,
+    "lng": 13.3389,
+    "routeDistanceKm": 602.6,
+    "offsetKm": 4.48
+  },
+  {
+    "name": "Nünchritz",
+    "place": "village",
+    "lat": 51.302057,
+    "lng": 13.385055,
+    "routeDistanceKm": 603.4,
+    "offsetKm": 0.33
+  },
+  {
+    "name": "Roda",
+    "place": "village",
+    "lat": 51.307134,
+    "lng": 13.417115,
+    "routeDistanceKm": 604.1,
+    "offsetKm": 2.4
+  },
+  {
+    "name": "Zschaiten",
+    "place": "village",
+    "lat": 51.298526,
+    "lng": 13.408823,
+    "routeDistanceKm": 604.5,
+    "offsetKm": 1.39
+  },
+  {
+    "name": "Schänitz",
+    "place": "village",
+    "lat": 51.282095,
+    "lng": 13.388014,
+    "routeDistanceKm": 605.4,
+    "offsetKm": 0.72
+  },
+  {
+    "name": "Weißig",
+    "place": "village",
+    "lat": 51.291775,
+    "lng": 13.440199,
+    "routeDistanceKm": 605.7,
+    "offsetKm": 2.97
+  },
+  {
+    "name": "Leckwitz",
+    "place": "village",
+    "lat": 51.282311,
+    "lng": 13.403759,
+    "routeDistanceKm": 605.8,
+    "offsetKm": 0.24
+  },
+  {
+    "name": "Naundörfchen",
+    "place": "village",
+    "lat": 51.282445,
+    "lng": 13.423466,
+    "routeDistanceKm": 606.4,
+    "offsetKm": 1.49
+  },
+  {
+    "name": "Boritz",
+    "place": "village",
+    "lat": 51.273552,
+    "lng": 13.394021,
+    "routeDistanceKm": 606.6,
+    "offsetKm": 0.76
+  },
+  {
+    "name": "Goltzscha",
+    "place": "village",
+    "lat": 51.270467,
+    "lng": 13.43471,
+    "routeDistanceKm": 607.2,
+    "offsetKm": 2.03
+  },
+  {
+    "name": "Merschwitz",
+    "place": "village",
+    "lat": 51.265501,
+    "lng": 13.406554,
+    "routeDistanceKm": 607.7,
+    "offsetKm": 0.11
+  },
+  {
+    "name": "Althirschstein",
+    "place": "village",
+    "lat": 51.263675,
+    "lng": 13.392477,
+    "routeDistanceKm": 607.9,
+    "offsetKm": 0.83
+  },
+  {
+    "name": "Bahra",
+    "place": "village",
+    "lat": 51.257928,
+    "lng": 13.377199,
+    "routeDistanceKm": 608,
+    "offsetKm": 1.97
+  },
+  {
+    "name": "Neuhirschstein",
+    "place": "village",
+    "lat": 51.25227,
+    "lng": 13.397586,
+    "routeDistanceKm": 609.3,
+    "offsetKm": 0.84
+  },
+  {
+    "name": "Neuseußlitz",
+    "place": "village",
+    "lat": 51.249661,
+    "lng": 13.418717,
+    "routeDistanceKm": 609.8,
+    "offsetKm": 0.52
+  },
+  {
+    "name": "Diesbar-Seußlitz",
+    "place": "village",
+    "lat": 51.240175,
+    "lng": 13.41823,
+    "routeDistanceKm": 610.8,
+    "offsetKm": 0.2
+  },
+  {
+    "name": "Niederlommatzsch",
+    "place": "village",
+    "lat": 51.238937,
+    "lng": 13.40599,
+    "routeDistanceKm": 611,
+    "offsetKm": 0.58
+  },
+  {
+    "name": "Hebelei",
+    "place": "village",
+    "lat": 51.234297,
+    "lng": 13.413597,
+    "routeDistanceKm": 611.4,
+    "offsetKm": 0.48
+  },
+  {
+    "name": "Nieschütz",
+    "place": "village",
+    "lat": 51.220317,
+    "lng": 13.417835,
+    "routeDistanceKm": 613.9,
+    "offsetKm": 0.25
+  },
+  {
+    "name": "Golk",
+    "place": "village",
+    "lat": 51.21393,
+    "lng": 13.428229,
+    "routeDistanceKm": 614,
+    "offsetKm": 1.25
+  },
+  {
+    "name": "Niedermuschütz",
+    "place": "village",
+    "lat": 51.219032,
+    "lng": 13.39761,
+    "routeDistanceKm": 614.6,
+    "offsetKm": 0.89
+  },
+  {
+    "name": "Wölkisch",
+    "place": "village",
+    "lat": 51.22429,
+    "lng": 13.360848,
+    "routeDistanceKm": 614.8,
+    "offsetKm": 3.5
+  },
+  {
+    "name": "Kleinzadel",
+    "place": "village",
+    "lat": 51.20773,
+    "lng": 13.410459,
+    "routeDistanceKm": 615.7,
+    "offsetKm": 0.21
+  },
+  {
+    "name": "Daubnitz",
+    "place": "village",
+    "lat": 51.191742,
+    "lng": 13.3414,
+    "routeDistanceKm": 615.9,
+    "offsetKm": 4.91
+  },
+  {
+    "name": "Schieritz",
+    "place": "village",
+    "lat": 51.197007,
+    "lng": 13.392021,
+    "routeDistanceKm": 616.3,
+    "offsetKm": 1.4
+  },
+  {
+    "name": "Wachtnitz",
+    "place": "village",
+    "lat": 51.189713,
+    "lng": 13.349157,
+    "routeDistanceKm": 616.3,
+    "offsetKm": 4.47
+  },
+  {
+    "name": "Zehren",
+    "place": "village",
+    "lat": 51.199078,
+    "lng": 13.404441,
+    "routeDistanceKm": 616.5,
+    "offsetKm": 0.55
+  },
+  {
+    "name": "Zadel",
+    "place": "village",
+    "lat": 51.197941,
+    "lng": 13.42663,
+    "routeDistanceKm": 617.8,
+    "offsetKm": 0.35
+  },
+  {
+    "name": "Diera",
+    "place": "village",
+    "lat": 51.198216,
+    "lng": 13.447369,
+    "routeDistanceKm": 619.2,
+    "offsetKm": 1.09
+  },
+  {
+    "name": "Keilbusch",
+    "place": "village",
+    "lat": 51.185173,
+    "lng": 13.442662,
+    "routeDistanceKm": 619.7,
+    "offsetKm": 0.27
+  },
+  {
+    "name": "Oberjahna",
+    "place": "village",
+    "lat": 51.159596,
+    "lng": 13.421454,
+    "routeDistanceKm": 620.5,
+    "offsetKm": 3.46
+  },
+  {
+    "name": "Gasern",
+    "place": "village",
+    "lat": 51.174946,
+    "lng": 13.447604,
+    "routeDistanceKm": 620.5,
+    "offsetKm": 1
+  },
+  {
+    "name": "Naundörfel",
+    "place": "village",
+    "lat": 51.200211,
+    "lng": 13.477186,
+    "routeDistanceKm": 620.7,
+    "offsetKm": 2.47
+  },
+  {
+    "name": "Niederjahna",
+    "place": "village",
+    "lat": 51.16584,
+    "lng": 13.434757,
+    "routeDistanceKm": 621.3,
+    "offsetKm": 2.34
+  },
+  {
+    "name": "Gröbern",
+    "place": "village",
+    "lat": 51.186785,
+    "lng": 13.522147,
+    "routeDistanceKm": 622.4,
+    "offsetKm": 3.65
+  },
+  {
+    "name": "Ockrilla",
+    "place": "village",
+    "lat": 51.196718,
+    "lng": 13.506587,
+    "routeDistanceKm": 622.4,
+    "offsetKm": 3.43
+  },
+  {
+    "name": "Meißen",
+    "place": "town",
+    "lat": 51.163087,
+    "lng": 13.470494,
+    "routeDistanceKm": 623.3,
+    "offsetKm": 0.5
+  },
+  {
+    "name": "Nassau",
+    "place": "village",
+    "lat": 51.169716,
+    "lng": 13.513464,
+    "routeDistanceKm": 623.8,
+    "offsetKm": 2.47
+  },
+  {
+    "name": "Garsebach",
+    "place": "village",
+    "lat": 51.129996,
+    "lng": 13.43555,
+    "routeDistanceKm": 624.8,
+    "offsetKm": 4.35
+  },
+  {
+    "name": "Semmelsberg",
+    "place": "village",
+    "lat": 51.124821,
+    "lng": 13.433548,
+    "routeDistanceKm": 624.9,
+    "offsetKm": 4.81
+  },
+  {
+    "name": "Niederau",
+    "place": "village",
+    "lat": 51.176932,
+    "lng": 13.543883,
+    "routeDistanceKm": 625.3,
+    "offsetKm": 4.7
+  },
+  {
+    "name": "Polenz",
+    "place": "village",
+    "lat": 51.121762,
+    "lng": 13.457361,
+    "routeDistanceKm": 626.1,
+    "offsetKm": 3.76
+  },
+  {
+    "name": "Ullendorf",
+    "place": "village",
+    "lat": 51.107198,
+    "lng": 13.484608,
+    "routeDistanceKm": 627.3,
+    "offsetKm": 3.82
+  },
+  {
+    "name": "Sörnewitz",
+    "place": "village",
+    "lat": 51.13763,
+    "lng": 13.520287,
+    "routeDistanceKm": 627.9,
+    "offsetKm": 0.18
+  },
+  {
+    "name": "Weinböhla",
+    "place": "village",
+    "lat": 51.161894,
+    "lng": 13.564353,
+    "routeDistanceKm": 628.6,
+    "offsetKm": 4.17
+  },
+  {
+    "name": "Scharfenberg",
+    "place": "village",
+    "lat": 51.119142,
+    "lng": 13.513354,
+    "routeDistanceKm": 629.1,
+    "offsetKm": 1.76
+  },
+  {
+    "name": "Naustadt",
+    "place": "village",
+    "lat": 51.11308,
+    "lng": 13.510068,
+    "routeDistanceKm": 629.2,
+    "offsetKm": 2.4
+  },
+  {
+    "name": "Brockwitz",
+    "place": "village",
+    "lat": 51.130183,
+    "lng": 13.544401,
+    "routeDistanceKm": 629.8,
+    "offsetKm": 0.63
+  },
+  {
+    "name": "Röhrsdorf",
+    "place": "village",
+    "lat": 51.094662,
+    "lng": 13.519207,
+    "routeDistanceKm": 630,
+    "offsetKm": 3.67
+  },
+  {
+    "name": "Pinkowitz",
+    "place": "village",
+    "lat": 51.105054,
+    "lng": 13.547614,
+    "routeDistanceKm": 631.1,
+    "offsetKm": 1.89
+  },
+  {
+    "name": "Gauernitz",
+    "place": "village",
+    "lat": 51.113991,
+    "lng": 13.555821,
+    "routeDistanceKm": 631.4,
+    "offsetKm": 0.77
+  },
+  {
+    "name": "Coswig",
+    "place": "town",
+    "lat": 51.126731,
+    "lng": 13.578398,
+    "routeDistanceKm": 632,
+    "offsetKm": 1.28
+  },
+  {
+    "name": "Constappel",
+    "place": "village",
+    "lat": 51.105578,
+    "lng": 13.564806,
+    "routeDistanceKm": 632.8,
+    "offsetKm": 1.05
+  },
+  {
+    "name": "Wildberg",
+    "place": "village",
+    "lat": 51.101369,
+    "lng": 13.579277,
+    "routeDistanceKm": 633.7,
+    "offsetKm": 0.89
+  },
+  {
+    "name": "Kleinschönberg",
+    "place": "village",
+    "lat": 51.085054,
+    "lng": 13.563788,
+    "routeDistanceKm": 635,
+    "offsetKm": 2.97
+  },
+  {
+    "name": "Weistropp",
+    "place": "village",
+    "lat": 51.08635,
+    "lng": 13.585671,
+    "routeDistanceKm": 635.1,
+    "offsetKm": 1.78
+  },
+  {
+    "name": "Friedewald",
+    "place": "village",
+    "lat": 51.132899,
+    "lng": 13.645953,
+    "routeDistanceKm": 637.3,
+    "offsetKm": 3.41
+  },
+  {
+    "name": "Dippelsdorf",
+    "place": "village",
+    "lat": 51.140048,
+    "lng": 13.661838,
+    "routeDistanceKm": 637.8,
+    "offsetKm": 4.61
+  },
+  {
+    "name": "Reichenberg",
+    "place": "village",
+    "lat": 51.126849,
+    "lng": 13.680809,
+    "routeDistanceKm": 640,
+    "offsetKm": 3.97
+  },
+  {
+    "name": "Boxdorf",
+    "place": "village",
+    "lat": 51.11933,
+    "lng": 13.698115,
+    "routeDistanceKm": 640.4,
+    "offsetKm": 3.93
+  },
+  {
+    "name": "Radebeul",
+    "place": "town",
+    "lat": 51.099977,
+    "lng": 13.6768,
+    "routeDistanceKm": 640.6,
+    "offsetKm": 1.32
+  },
+  {
+    "name": "Merbitz",
+    "place": "village",
+    "lat": 51.067566,
+    "lng": 13.640001,
+    "routeDistanceKm": 642.5,
+    "offsetKm": 2.51
+  },
+  {
+    "name": "Dresden",
+    "place": "city",
+    "lat": 51.049329,
+    "lng": 13.738144,
+    "routeDistanceKm": 650.2,
+    "offsetKm": 0.81
+  }
+]
