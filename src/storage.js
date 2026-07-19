@@ -1,3 +1,5 @@
+import { favKey } from './favorites.js';
+
 const PLANS_KEY = 'elberadweg-plans';
 const LEGACY_KEY = 'elberadweg-itinerary';
 const FAVORITES_KEY = 'elberadweg-favorites';
@@ -172,7 +174,9 @@ export function createPlanStore({ storage, routeVersion } = {}) {
         const pins = Array.isArray(day?.poiPins) ? day.poiPins : [];
         for (const pin of pins) {
           if (!pin || typeof pin !== 'object') continue; // skip null/garbage entries
-          const key = `${pin.kind}:${pin.name}@${pin.routeDistanceKm}`;
+          // favKey is the favorites store's identity — using it here guarantees
+          // migration-written entries stay readable if the convention changes.
+          const key = favKey(pin);
           if (seen.has(key)) continue;
           seen.add(key);
           favorites.push(clone(pin));

@@ -491,3 +491,15 @@ describe('createItinerary - break re-bucketing across day edits', () => {
     ).toEqual(['Stop']);
   });
 });
+
+// Break removal in the UI matches ui.js row keys (name@km) against
+// itinerary's breakKey. ui.js can't import itinerary.js (zero-imports rule),
+// so this test is the only thing pinning the two conventions together.
+describe('cross-module key contract', () => {
+  it('ui townKey/poiKey and itinerary breakKey produce identical keys', async () => {
+    const { townKey, poiKey } = await import('./ui.js');
+    const place = makeBreak({ name: 'Fähre "Elbe" & Co', routeDistanceKm: 70.55 });
+    expect(townKey(place)).toBe(breakKey(place));
+    expect(poiKey(place)).toBe(breakKey(place));
+  });
+});
