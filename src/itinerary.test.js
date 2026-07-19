@@ -198,6 +198,29 @@ describe('createItinerary - getDays defensive copy', () => {
 });
 
 describe('createItinerary - persistence', () => {
+  it('writes the exact payload shape to storage: no startKm/endKm leakage', () => {
+    const storage = createFakeStorage();
+    const itinerary = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });
+    itinerary.addDay(80);
+    itinerary.addDay(100);
+    itinerary.setTownChoice(1, { name: 'Wittenberge' });
+
+    itinerary.save();
+
+    const raw = storage.store[STORAGE_KEY];
+    const parsed = JSON.parse(raw);
+
+    expect(Object.keys(parsed).sort()).toEqual(['days', 'routeVersion', 'schemaVersion'].sort());
+    expect(parsed.schemaVersion).toBe(1);
+    expect(parsed.routeVersion).toBe('v1');
+    expect(parsed.days).toHaveLength(2);
+    for (const dayEntry of parsed.days) {
+      expect(Object.keys(dayEntry).sort()).toEqual(['targetKm', 'townChoice'].sort());
+    }
+    expect(parsed.days[0]).toEqual({ targetKm: 80, townChoice: null });
+    expect(parsed.days[1]).toEqual({ targetKm: 100, townChoice: { name: 'Wittenberge' } });
+  });
+
   it('round-trips through save() and a fresh load()', () => {
     const storage = createFakeStorage();
     const original = createItinerary({ totalKm: TOTAL_KM, routeVersion: 'v1', storage });

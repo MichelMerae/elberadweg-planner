@@ -148,17 +148,16 @@ export function createItinerary({ totalKm, routeVersion, storage } = {}) {
         return { loaded: false, routeChanged: false };
       }
 
-      const restored = [];
-      let prevEnd = 0;
-      for (const entry of parsed.days) {
+      // Build bare records (targetKm + townChoice only) and let recomputeFrom()
+      // - the same chain/clamp logic editDay() uses - derive startKm/endKm,
+      // rather than duplicating that math here.
+      const restored = parsed.days.map((entry) => {
         assertValidTargetKm(entry.targetKm);
-        const startKm = prevEnd;
-        const endKm = clamp(startKm + entry.targetKm, 0, total);
-        restored.push({ targetKm: entry.targetKm, startKm, endKm, townChoice: entry.townChoice ?? null });
-        prevEnd = endKm;
-      }
+        return { targetKm: entry.targetKm, startKm: 0, endKm: 0, townChoice: entry.townChoice ?? null };
+      });
 
       days = restored;
+      recomputeFrom(0);
       return { loaded: true, routeChanged: parsed.routeVersion !== routeVersion };
     } catch {
       days = [];
