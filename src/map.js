@@ -39,6 +39,28 @@ const TOWN_ICON = L.divIcon({
   iconAnchor: [9, 9],
 });
 
+// Small dot for a POI. `kind` is 'food' (orange) or 'sight' (teal); the colour
+// itself is set in style.css off the kind class.
+function poiIcon(kind) {
+  return L.divIcon({
+    className: `poi-marker poi-marker--${kind}`,
+    html: '<span class="poi-marker__dot"></span>',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
+// The map only ever shows the nearest-to-route POIs of a kind; dense city
+// stretches can hold hundreds of food POIs and the panel list stays complete.
+const POI_MAP_CAP = 40;
+
+function cappedByKind(pois, kind) {
+  const ofKind = pois.filter((p) => p.kind === kind);
+  if (ofKind.length <= POI_MAP_CAP) return ofKind;
+  // Copy before sorting so the caller's array order is never disturbed.
+  return [...ofKind].sort((a, b) => a.offsetKm - b.offsetKm).slice(0, POI_MAP_CAP);
+}
+
 /**
  * Creates and manages the Leaflet map for the planner.
  *
@@ -46,15 +68,18 @@ const TOWN_ICON = L.divIcon({
  * @param {Feature<LineString>} opts.routeFeature - the route in GeoJSON order.
  * @param {(lngLat: [number, number]) => void} [opts.onRouteClick] - fired when
  *   the user clicks the map; receives the clicked point as [lng, lat].
+ * @param {(poi: object) => void} [opts.onPoiClick] - fired when the user clicks
+ *   a POI marker; receives the POI record.
  * @returns {{
  *   setGhost: (lngLat: [number, number]|null) => void,
  *   setDayPins: (pins: Array<{index: number, coord: [number, number]}>) => void,
  *   setTownHighlight: (lngLat: [number, number]|null) => void,
+ *   setPoiMarkers: (pois: Array<object>) => void,
  *   panTo: (lngLat: [number, number]) => void,
  *   invalidate: () => void,
  * }}
  */
-export function createMap({ routeFeature, onRouteClick } = {}) {
+export function createMap({ routeFeature, onRouteClick, onPoiClick } = {}) {
   const renderer = L.canvas();
   const map = L.map('map', { renderer, preferCanvas: true });
 
@@ -81,6 +106,7 @@ export function createMap({ routeFeature, onRouteClick } = {}) {
   }
 
   const dayPinLayer = L.layerGroup().addTo(map);
+  const poiLayer = L.layerGroup().addTo(map);
   let ghostMarker = null;
   let townMarker = null;
 
@@ -123,6 +149,25 @@ export function createMap({ routeFeature, onRouteClick } = {}) {
     }).addTo(map);
   }
 
+  // POIs arrive as records carrying named lat/lng (not [lng, lat] tuples), so
+  // the coordinate order still resolves to Leaflet's [lat, lng] right here.
+  function setPoiMarkers(pois) {
+    poiLayer.clearLayers();
+    const list = pois || [];
+    const shown = [...cappedByKind(list, 'food'), ...cappedByKind(list, 'sight')];
+    shown.forEach((poi) => {
+      const marker = L.marker([poi.lat, poi.lng], {
+        icon: poiIcon(poi.kind),
+        keyboard: false,
+        zIndexOffset: 300,
+      }).bindTooltip(poi.name);
+      marker.on('click', () => {
+        if (typeof onPoiClick === 'function') onPoiClick(poi);
+      });
+      marker.addTo(poiLayer);
+    });
+  }
+
   function panTo(lngLat) {
     map.panTo(toLatLng(lngLat));
   }
@@ -131,5 +176,5 @@ export function createMap({ routeFeature, onRouteClick } = {}) {
     map.invalidateSize();
   }
 
-  return { setGhost, setDayPins, setTownHighlight, panTo, invalidate };
+  return { setGhost, setDayPins, setTownHighlight, setPoiMarkers, panTo, invalidate };
 }

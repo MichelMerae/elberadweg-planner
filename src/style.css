@@ -144,6 +144,7 @@ body {
 /* Section blocks get shared horizontal padding + rhythm. */
 #controls,
 #towns,
+#pois,
 #itinerary {
   padding: 0 var(--pad);
 }
@@ -151,6 +152,9 @@ body {
   margin-top: 16px;
 }
 #towns {
+  margin-top: 22px;
+}
+#pois {
   margin-top: 22px;
 }
 #itinerary {
@@ -467,6 +471,189 @@ input[type="number"]:disabled {
   padding: 2px 0;
 }
 
+/* --- POIs (food + sights along the pending stretch) --------------------- */
+/* Two collapsible sections; each summary carries a legend dot in its kind's
+   colour (orange food / teal sight) and a chevron that flips when open. */
+.pois {
+  margin-bottom: 12px;
+}
+
+.pois__summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 10px;
+  padding: 2px 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.pois__summary::-webkit-details-marker {
+  display: none;
+}
+.pois__summary::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
+.pois--food .pois__summary::before {
+  background: #e07b39;
+  box-shadow: 0 0 0 3px rgba(224, 123, 57, 0.18);
+}
+.pois--sight .pois__summary::before {
+  background: #2a9d8f;
+  box-shadow: 0 0 0 3px rgba(42, 157, 143, 0.18);
+}
+.pois__count {
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+/* Chevron at the trailing edge; points right when closed, down when open. */
+.pois__summary::after {
+  content: "";
+  margin-left: auto;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--text-faint);
+  border-bottom: 1.5px solid var(--text-faint);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+.pois[open] .pois__summary::after {
+  transform: rotate(45deg);
+}
+.pois__summary:focus-visible {
+  outline: none;
+  color: var(--text-dim);
+}
+
+/* POI row — shares the .town row anatomy, dot recoloured per kind. */
+.poi {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 3px 10px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 11px 9px 26px;
+  margin-bottom: 7px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  font-family: var(--sans);
+  transition: border-color 0.15s ease, background 0.15s ease,
+    transform 0.12s ease;
+}
+.poi::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 15px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
+}
+.poi--food::before {
+  background: #e07b39;
+}
+.poi--sight::before {
+  background: #2a9d8f;
+}
+.poi:hover {
+  border-color: #4a4335;
+  transform: translateX(2px);
+}
+.poi:hover::before {
+  opacity: 1;
+}
+.poi:focus-visible {
+  outline: none;
+  border-color: var(--river);
+  box-shadow: 0 0 0 3px rgba(91, 147, 255, 0.3);
+}
+
+.poi--pinned::before {
+  opacity: 1;
+}
+.poi--food.poi--pinned {
+  border-color: #e07b39;
+  background: rgba(224, 123, 57, 0.1);
+}
+.poi--food.poi--pinned::before {
+  box-shadow: 0 0 0 4px rgba(224, 123, 57, 0.22);
+}
+.poi--sight.poi--pinned {
+  border-color: #2a9d8f;
+  background: rgba(42, 157, 143, 0.1);
+}
+.poi--sight.poi--pinned::before {
+  box-shadow: 0 0 0 4px rgba(42, 157, 143, 0.22);
+}
+/* Filled pin marker on the pinned row. */
+.poi--pinned .poi__name::after {
+  content: " 📌";
+  font-size: 0.8em;
+}
+
+.poi__name {
+  min-width: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.poi__cat {
+  justify-self: end;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  white-space: nowrap;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-hi);
+}
+
+.poi__meta {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.poi__hours {
+  grid-column: 1 / -1;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.poi__hours::before {
+  content: "🕒 ";
+}
+
+.pois__empty,
+.pois__note {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-faint);
+  padding: 2px 0 8px;
+}
+
 /* --- Itinerary summary (the river filling toward Dresden) --------------- */
 .summary {
   padding: 12px 14px;
@@ -643,6 +830,36 @@ input[type="number"]:disabled {
   border: 1px solid var(--text-faint);
 }
 
+/* Pinned POIs on a committed day — small chips under the town line. */
+.day-card__pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+.day-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-hi);
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+}
+.day-pin--food {
+  border-color: rgba(224, 123, 57, 0.4);
+  color: #f0b184;
+}
+.day-pin--sight {
+  border-color: rgba(42, 157, 143, 0.45);
+  color: #7fd0c4;
+}
+
 /* --- Footer / attribution ------------------------------------------------ */
 #panel-footer {
   margin-top: auto;
@@ -685,6 +902,22 @@ input[type="number"]:disabled {
   border: 2px solid #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45),
     0 0 0 4px rgba(245, 158, 11, 0.35);
+}
+
+/* POI dots — warm orange food / teal sights, distinct from the amber town dot. */
+.poi-marker__dot {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.poi-marker--food .poi-marker__dot {
+  background: #e07b39;
+}
+.poi-marker--sight .poi-marker__dot {
+  background: #2a9d8f;
 }
 
 /* Ghost marker: the proposed day-end — distinct, outlined, pulsing, non-interactive. */

@@ -21,6 +21,20 @@ function townMeta(town) {
   return `${round1(town.routeDistanceKm)} km along · ${town.offsetKm} km off route`;
 }
 
+// Stable identity for a POI, mirroring townKey — used to match a pending pin to
+// its row (poisInRange returns fresh objects each render).
+export function poiKey(poi) {
+  return poi ? `${poi.name}@${poi.routeDistanceKm}` : null;
+}
+
+function poiMeta(poi, dayStartKm) {
+  const into = round1(poi.routeDistanceKm - dayStartKm);
+  return `${into} km into your day (km ${round1(poi.routeDistanceKm)}) · ${poi.offsetKm} km off route`;
+}
+
+// Kind → glyph used in list rows and day-card chips.
+const POI_GLYPH = { food: '🍴', sight: '📷' };
+
 // Escape user-facing data (OSM town names) before innerHTML interpolation.
 // None of the current dataset needs it, but a data rebuild could introduce
 // names containing & or < and must not become markup.
@@ -62,6 +76,7 @@ function debounce(fn, ms) {
  * @param {Object} opts
  * @param {HTMLElement} opts.controlsEl
  * @param {HTMLElement} opts.townsEl
+ * @param {HTMLElement} opts.poisEl
  * @param {HTMLElement} opts.itineraryEl
  * @param {HTMLElement} opts.bannerEl
  * @param {Object} opts.callbacks
@@ -70,9 +85,10 @@ function debounce(fn, ms) {
  * @param {() => void} opts.callbacks.onRemoveLast
  * @param {() => void} opts.callbacks.onReset
  * @param {(town: object) => void} opts.callbacks.onSelectTown
+ * @param {(poi: object) => void} opts.callbacks.onTogglePoi
  * @param {(index: number, target: number) => void} opts.callbacks.onEditDay
  */
-export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks = {} }) {
+export function createUI({ controlsEl, townsEl, poisEl, itineraryEl, bannerEl, callbacks = {} }) {
   // --- Controls (built once) --------------------------------------------
   controlsEl.innerHTML = `
     <h2 class="controls__heading" id="pending-heading">Day 1 — start at km 0</h2>
@@ -139,6 +155,18 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
     if (town && callbacks.onSelectTown) callbacks.onSelectTown(town);
   });
 
+  // --- POIs (event-delegated) -------------------------------------------
+  // Two lists share one container; the row's kind selects which to index into.
+  let currentFood = [];
+  let currentSights = [];
+  poisEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-poi-index]');
+    if (!btn) return;
+    const list = btn.dataset.poiKind === 'food' ? currentFood : currentSights;
+    const poi = list[Number(btn.dataset.poiIndex)];
+    if (poi && callbacks.onTogglePoi) callbacks.onTogglePoi(poi);
+  });
+
   // --- Itinerary (event-delegated) --------------------------------------
   itineraryEl.addEventListener('change', (e) => {
     const input = e.target.closest('[data-day-index]');
@@ -191,6 +219,48 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
     townsEl.innerHTML = `<h2 class="towns__heading">Overnight options</h2>${items}`;
   }
 
+  function poiRow(poi, index, kind, pinnedSet, dayStartKm) {
+    const pinned = pinnedSet.has(poiKey(poi)) ? ' poi--pinned' : '';
+    const hours = poi.openingHours
+      ? `<span class="poi__hours">${esc(poi.openingHours)}</span>`
+      : '';
+    return `
+      <button type="button" class="poi poi--${kind}${pinned}"
+              data-poi-kind="${kind}" data-poi-index="${index}">
+        <span class="poi__name">${esc(poi.name)}</span>
+        <span class="poi__cat">${esc(poi.category.replace(/_/g, ' '))}</span>
+        <span class="poi__meta">${poiMeta(poi, dayStartKm)}</span>
+        ${hours}
+      </button>`;
+  }
+
+  function poiSection(kind, label, emptyText, items, pinnedSet, dayStartKm) {
+    const body = items.length
+      ? items.map((poi, i) => poiRow(poi, i, kind, pinnedSet, dayStartKm)).join('')
+      : `<p class="pois__empty">${emptyText}</p>`;
+    return `
+      <details class="pois pois--${kind}" open>
+        <summary class="pois__summary">${label} <span class="pois__count">(${items.length})</span></summary>
+        <div class="pois__body">${body}</div>
+      </details>`;
+  }
+
+  function renderPois({ food = [], sights = [], pinnedKeys, dayStartKm = 0 } = {}) {
+    currentFood = food;
+    currentSights = sights;
+    const pinnedSet = pinnedKeys instanceof Set ? pinnedKeys : new Set(pinnedKeys || []);
+    poisEl.innerHTML =
+      poiSection('food', 'Food on the way', 'No food stops on this stretch.', food, pinnedSet, dayStartKm) +
+      poiSection('sight', 'Worth seeing', 'No sights on this stretch.', sights, pinnedSet, dayStartKm);
+  }
+
+  // Boot-time fallback when POI data failed to load.
+  function renderPoisNote(message) {
+    currentFood = [];
+    currentSights = [];
+    poisEl.innerHTML = `<p class="pois__note">${esc(message)}</p>`;
+  }
+
   function renderItinerary({ days, totalKm, reached }) {
     const plannedKm = days.length ? days[days.length - 1].endKm : 0;
     const remaining = Math.max(0, totalKm - plannedKm);
@@ -218,6 +288,14 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
         const isFinish = reached && i === days.length - 1;
         const town = day.townChoice ? esc(day.townChoice.name) : 'no town chosen';
         const townClass = day.townChoice ? 'day-card__town' : 'day-card__town day-card__town--none';
+        const pins = day.poiPins && day.poiPins.length
+          ? `<div class="day-card__pins">${day.poiPins
+              .map(
+                (p) =>
+                  `<span class="day-pin day-pin--${p.kind}">${POI_GLYPH[p.kind] || ''} ${esc(p.name)}</span>`,
+              )
+              .join('')}</div>`
+          : '';
         return `
           <div class="day-card${isFinish ? ' day-card--finish' : ''}">
             <div class="day-card__title">Day ${day.index + 1}</div>
@@ -229,6 +307,7 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
               <span class="day-card__range">km ${round1(day.startKm)} → ${round1(day.endKm)}</span>
               <span class="${townClass}">${town}</span>
             </div>
+            ${pins}
           </div>`;
       })
       .join('');
@@ -247,5 +326,13 @@ export function createUI({ controlsEl, townsEl, itineraryEl, bannerEl, callbacks
     });
   }
 
-  return { setPendingTarget, renderControls, renderTowns, renderItinerary, showBanner };
+  return {
+    setPendingTarget,
+    renderControls,
+    renderTowns,
+    renderPois,
+    renderPoisNote,
+    renderItinerary,
+    showBanner,
+  };
 }
