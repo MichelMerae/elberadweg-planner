@@ -28,3 +28,10 @@ export async function loadTowns() {
   const mod = await import('./data/towns.json');
   return mod.default;
 }
+
+// Towns whose routeDistanceKm falls inside [startKm, endKm] — the browse
+// window for a committed day in day mode. `towns` is sorted ascending by
+// routeDistanceKm, so the result stays in route order.
+export function townsInRange(towns, startKm, endKm) {
+  return towns.filter((t) => t.routeDistanceKm >= startKm && t.routeDistanceKm <= endKm);
+}

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { loadTowns, townsNear } from './towns.js';
+import { loadTowns, townsNear, townsInRange } from './towns.js';
 
 // Sorted ascending by routeDistanceKm, as the real towns.json will be.
 const TOWNS = [
@@ -104,5 +104,16 @@ describe('townsNear', () => {
 describe('loadTowns', () => {
   test('is exported as an async loader (not invoked here; data file is generated separately)', () => {
     expect(typeof loadTowns).toBe('function');
+  });
+});
+
+describe('townsInRange', () => {
+  test('returns towns with routeDistanceKm in [startKm, endKm], in km order', () => {
+    const names = townsInRange(TOWNS, 40, 60).map((t) => t.name);
+    expect(names).toEqual(['Millbrook', 'Ashford', 'Brambury', 'Craghill', 'Dunmoor']);
+  });
+
+  test('returns empty when no town falls in the range', () => {
+    expect(townsInRange(TOWNS, 100, 110)).toEqual([]);
   });
 });
