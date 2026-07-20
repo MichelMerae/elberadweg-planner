@@ -40,7 +40,7 @@ function poiMeta(poi, dayStartKm, fromName) {
 
 // Glyph per break kind for day-card legs (spec §2: a food break reads as a
 // coffee ☕ stop, a sight 📷, a town waypoint 🛏 — matching the day-end marker).
-const BREAK_GLYPH = { food: '☕', sight: '📷', town: '🛏' };
+const BREAK_GLYPH = { food: '☕', sight: '📷', town: '🛏', custom: '📌' };
 
 // Glyph per kind in the favorites list — here a food place reads literally as a
 // fork 🍴 (not the coffee ☕ used for break legs), a sight 📷, a town 🛏.
@@ -113,6 +113,8 @@ function debounce(fn, ms) {
  * @param {() => void} opts.callbacks.onExitDayMode
  * @param {(label: string) => void} opts.callbacks.onAddCustomStop
  * @param {() => void} opts.callbacks.onCancelCustomStop
+ * @param {(dayIndex: number) => void} opts.callbacks.onAddStops
+ * @param {(key: string, value: string) => void} opts.callbacks.onEditBreak
  */
 export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, itineraryEl, bannerEl, callbacks = {} }) {
   // --- Controls (built once) --------------------------------------------
@@ -198,9 +200,12 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
     if (escState.promptOpen) callbacks.onCancelCustomStop?.();
     else callbacks.onExitDayMode?.();
   });
-  // The pending-stretch breaks list lives inside the controls block; its ×
-  // buttons remove a plan-level break (same callback as the day-card legs).
+  // The pending-stretch breaks list lives inside the controls block; its ✎/×
+  // buttons edit or remove a plan-level break (same callbacks as the day-card
+  // legs).
   controlsEl.addEventListener('click', (e) => {
+    const edit = e.target.closest('[data-action="edit-break"]');
+    if (edit) return startBreakEdit(edit);
     const btn = e.target.closest('[data-action="remove-break"]');
     if (!btn) return;
     if (callbacks.onRemoveBreak) callbacks.onRemoveBreak(btn.dataset.breakKey);
@@ -343,9 +348,25 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
     if (callbacks.onEditDay) callbacks.onEditDay(Number(input.dataset.dayIndex), value);
   });
   itineraryEl.addEventListener('click', (e) => {
+    const edit = e.target.closest('[data-action="edit-break"]');
+    if (edit) return startBreakEdit(edit);
+    const addStops = e.target.closest('[data-action="add-stops"]');
+    if (addStops) {
+      callbacks.onAddStops?.(Number(addStops.dataset.dayIndex));
+      return;
+    }
     const btn = e.target.closest('[data-action="remove-break"]');
     if (!btn) return;
     if (callbacks.onRemoveBreak) callbacks.onRemoveBreak(btn.dataset.breakKey);
+  });
+
+  // Esc while typing in a day-card km input: commit-by-blur and stay in day
+  // mode — editing a day's distance is not a request to leave.
+  itineraryEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && e.target.matches('input[data-day-index]')) {
+      e.stopPropagation();
+      e.target.blur();
+    }
   });
 
   // --- Public render API -------------------------------------------------
@@ -394,7 +415,13 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
       delete promptEl.dataset.km;
       return;
     }
-    if (promptEl.dataset.km === String(draft.km)) return;
+    if (promptEl.dataset.km === String(draft.km)) {
+      // Same click target; only the day's start may have shifted (day-target
+      // edits stay live in day mode) — refresh the title, keep typed text.
+      promptEl.querySelector('.custom-stop__title').textContent =
+        `New stop at km ${round1(draft.km)} (${round1(draft.km - selectedDay.startKm)} km into the day)`;
+      return;
+    }
     promptEl.dataset.km = String(draft.km);
     promptEl.innerHTML = `
       <div class="custom-stop">
@@ -441,10 +468,13 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
         const rel = round1(b.routeDistanceKm - startKm);
         return `
           <li class="pending-break">
-            <span class="pending-break__name">${glyph} ${esc(b.name)}</span>
+            <span class="pending-break__name">${glyph} ${esc(b.name)}${b.note ? ` <span class="day-card__leg-note">· ${esc(b.note)}</span>` : ''}</span>
             <span class="pending-break__dist">${rel} km from start</span>
-            <button type="button" class="row-remove" data-action="remove-break"
-                    data-break-key="${esc(poiKey(b))}" title="Remove break" aria-label="Remove break">×</button>
+            <span class="leg-actions">
+              ${breakEditButton(b)}
+              <button type="button" class="row-remove" data-action="remove-break"
+                      data-break-key="${esc(poiKey(b))}" title="Remove break" aria-label="Remove break">×</button>
+            </span>
           </li>`;
       })
       .join('');
@@ -467,6 +497,55 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
         <button type="button" class="row-action row-action--fav${isFav ? ' row-action--active' : ''}"
                 data-action="fav" aria-pressed="${isFav}" title="${favLabel}" aria-label="${favLabel}: ${safeName}">⭐</button>
       </span>`;
+  }
+
+  // ✎ on a break leg / pending-break row. For place breaks it edits the free
+  // note; for custom stops it edits the label itself (= the break's name).
+  function breakEditButton(b) {
+    const isCustom = b.kind === 'custom';
+    const label = isCustom ? 'Edit label' : 'Edit note';
+    return `
+      <button type="button" class="row-edit" data-action="edit-break"
+              data-break-key="${esc(poiKey(b))}" data-break-kind="${esc(b.kind || 'town')}"
+              data-break-name="${esc(b.name)}" data-break-note="${esc(b.note || '')}"
+              title="${label}" aria-label="${label}: ${esc(b.name)}">✎</button>`;
+  }
+
+  // Swaps a leg's text for an inline input. Local DOM state only: saving
+  // fires onEditBreak (main.js persists + re-renders); cancel restores the
+  // original markup. `done` guards the blur that fires when a re-render (or
+  // Enter/Esc) removes the input.
+  function startBreakEdit(btn) {
+    const row = btn.closest('.day-card__leg, .pending-break');
+    if (!row || row.querySelector('.leg-edit__input')) return;
+    const isCustom = btn.dataset.breakKind === 'custom';
+    const textEl = row.querySelector('.day-card__leg-text, .pending-break__name');
+    const original = textEl.innerHTML;
+    const ariaLabel = isCustom ? 'Stop label' : 'Break note';
+    textEl.innerHTML = `<input type="text" class="leg-edit__input" maxlength="120"
+        aria-label="${ariaLabel}" placeholder="${isCustom ? 'Stop label' : 'e.g. 15 min coffee'}" />`;
+    const input = textEl.querySelector('input');
+    input.value = (isCustom ? btn.dataset.breakName : btn.dataset.breakNote) || '';
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (save) => {
+      if (done) return;
+      done = true;
+      const value = input.value.trim();
+      // A custom stop's label is its identity — refuse to blank it.
+      if (save && callbacks.onEditBreak && (value || !isCustom)) {
+        callbacks.onEditBreak(btn.dataset.breakKey, value);
+      } else {
+        textEl.innerHTML = original;
+      }
+    };
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation(); // Esc stays local (must not exit day mode)
+      if (e.key === 'Enter') finish(true);
+      else if (e.key === 'Escape') finish(false);
+    });
+    input.addEventListener('blur', () => finish(true));
   }
 
   function renderTowns(towns, selectedKey, { dayStartKm = 0, fromName = 'your last stop', breakKeys, favoriteKeys, heading: townsHeading = 'Overnight options' } = {}) {
@@ -658,11 +737,15 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
     for (const b of dayBreaks) {
       const legKm = round1(b.routeDistanceKm - prevKm);
       const glyph = BREAK_GLYPH[b.kind] || '☕';
+      const note = b.note ? ` <span class="day-card__leg-note">· ${esc(b.note)}</span>` : '';
       lines.push(`
         <li class="day-card__leg">
-          <span class="day-card__leg-text"><span class="day-card__leg-dist">${legKm} km</span> → ${glyph} ${esc(b.name)}</span>
-          <button type="button" class="row-remove" data-action="remove-break"
-                  data-break-key="${esc(poiKey(b))}" title="Remove break" aria-label="Remove break">×</button>
+          <span class="day-card__leg-text"><span class="day-card__leg-dist">${legKm} km</span> → ${glyph} ${esc(b.name)}${note}</span>
+          <span class="leg-actions">
+            ${breakEditButton(b)}
+            <button type="button" class="row-remove" data-action="remove-break"
+                    data-break-key="${esc(poiKey(b))}" title="Remove break" aria-label="Remove break">×</button>
+          </span>
         </li>`);
       prevKm = b.routeDistanceKm;
     }
@@ -675,7 +758,7 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
     return `<ol class="day-card__legs">${lines.join('')}</ol>`;
   }
 
-  function renderItinerary({ days, totalKm, reached, breaksForDay }) {
+  function renderItinerary({ days, totalKm, reached, breaksForDay, selectedDayIndex = null }) {
     const plannedKm = days.length ? days[days.length - 1].endKm : 0;
     const remaining = Math.max(0, totalKm - plannedKm);
     const pct = totalKm > 0 ? Math.min(100, Math.max(0, (plannedKm / totalKm) * 100)) : 0;
@@ -708,8 +791,9 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
         // standalone town chip would duplicate it — omit it then.
         const legs = dayBreaks.length ? dayLegs(day, dayBreaks) : '';
         const townSpan = dayBreaks.length ? '' : `<span class="${townClass}">${town}</span>`;
+        const isSelected = day.index === selectedDayIndex;
         return `
-          <div class="day-card${isFinish ? ' day-card--finish' : ''}">
+          <div class="day-card${isFinish ? ' day-card--finish' : ''}${isSelected ? ' day-card--selected' : ''}">
             <div class="day-card__title">Day ${day.index + 1}</div>
             <div class="day-card__from">from ${esc(fromName)}</div>
             <div class="day-card__body">
@@ -721,6 +805,10 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
               ${townSpan}
             </div>
             ${legs}
+            <button type="button" class="btn btn--sm day-card__add-stops${isSelected ? ' btn--primary' : ''}"
+                    data-action="add-stops" data-day-index="${day.index}">
+              ${isSelected ? 'Done adding stops' : '+ Add stops'}
+            </button>
           </div>`;
       })
       .join('');

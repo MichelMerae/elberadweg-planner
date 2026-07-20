@@ -1323,3 +1323,60 @@ input[type="number"]:disabled {
   display: flex;
   gap: 8px;
 }
+
+/* --- Committed-day stops: selected card, add button, leg editing ---------- */
+.day-card--selected {
+  border-color: rgba(91, 147, 255, 0.55);
+  background: rgba(91, 147, 255, 0.07);
+}
+.day-card__add-stops {
+  margin-top: 10px;
+}
+.leg-actions {
+  flex: none;
+  display: inline-flex;
+  gap: 4px;
+}
+.row-edit {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 0.85rem;
+  line-height: 1;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.row-edit:hover {
+  border-color: var(--river);
+  color: var(--river);
+  background: rgba(91, 147, 255, 0.12);
+}
+.row-edit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(91, 147, 255, 0.3);
+}
+.day-card__leg-note {
+  color: var(--text-dim);
+  font-style: italic;
+}
+.leg-edit__input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--river);
+  border-radius: 6px;
+  padding: 3px 6px;
+}
+.leg-edit__input:focus-visible {
+  outline: none;
+}
