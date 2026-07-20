@@ -319,6 +319,12 @@ async function boot() {
   }
 
   function handleSelectTown(town) {
+    // Day mode: town rows are browse-only (like POI rows) — pan to the town,
+    // but never touch the pending day's overnight choice or persist.
+    if (selectedDay()) {
+      map.panTo([town.lng, town.lat]);
+      return;
+    }
     pendingTown = town;
     // renderPending() already redraws the towns list (with this town selected),
     // the ghost, and the town highlight from pendingTown — reuse it instead of

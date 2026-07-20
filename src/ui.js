@@ -197,6 +197,9 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
   let escState = { dayMode: false, promptOpen: false };
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !escState.dayMode) return;
+    // Esc while typing in any control (plans bar, day-card km, editors)
+    // stays local to that control — leaving day mode is a no-focus gesture.
+    if (e.target.closest('input, select, textarea')) return;
     if (escState.promptOpen) callbacks.onCancelCustomStop?.();
     else callbacks.onExitDayMode?.();
   });
