@@ -525,7 +525,8 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
     textEl.innerHTML = `<input type="text" class="leg-edit__input" maxlength="120"
         aria-label="${ariaLabel}" placeholder="${isCustom ? 'Stop label' : 'e.g. 15 min coffee'}" />`;
     const input = textEl.querySelector('input');
-    input.value = (isCustom ? btn.dataset.breakName : btn.dataset.breakNote) || '';
+    const initial = (isCustom ? btn.dataset.breakName : btn.dataset.breakNote) || '';
+    input.value = initial;
     input.focus();
     input.select();
     let done = false;
@@ -533,8 +534,10 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
       if (done) return;
       done = true;
       const value = input.value.trim();
-      // A custom stop's label is its identity — refuse to blank it.
-      if (save && callbacks.onEditBreak && (value || !isCustom)) {
+      // A custom stop's label is its identity — refuse to blank it. An
+      // unchanged value restores locally (no callback, no re-render), so a
+      // plain blur doesn't eat the user's next click.
+      if (save && callbacks.onEditBreak && value !== initial && (value || !isCustom)) {
         callbacks.onEditBreak(btn.dataset.breakKey, value);
       } else {
         textEl.innerHTML = original;
@@ -543,7 +546,10 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
     input.addEventListener('keydown', (e) => {
       e.stopPropagation(); // Esc stays local (must not exit day mode)
       if (e.key === 'Enter') finish(true);
-      else if (e.key === 'Escape') finish(false);
+      else if (e.key === 'Escape') {
+        finish(false);
+        btn.focus(); // keyboard context back to the ✎ — cancel never re-renders
+      }
     });
     input.addEventListener('blur', () => finish(true));
   }

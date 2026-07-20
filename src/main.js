@@ -1,6 +1,6 @@
 import './style.css';
 import { loadRoute, pointAtDistance, snap } from './route.js';
-import { loadTowns, townsNear } from './towns.js';
+import { loadTowns, townsNear, townsInRange } from './towns.js';
 import { loadPois, poisInRange } from './pois.js';
 import { createItinerary, breakKey } from './itinerary.js';
 import { createPlanStore } from './storage.js';
@@ -57,6 +57,22 @@ async function boot() {
   let pendingTarget = DEFAULT_TARGET_KM;
   let pendingTown = null;
 
+  // --- Day mode (adding stops to a committed day) ------------------------
+  // Which committed day is being edited (null = normal pending planning) and
+  // the route click awaiting a label ({km, lat, lng}). Not persisted.
+  let selectedDayIndex = null;
+  let customStopDraft = null;
+
+  function selectedDay() {
+    if (selectedDayIndex == null) return null;
+    return itinerary.getDays()[selectedDayIndex] ?? null;
+  }
+
+  function exitDayMode() {
+    selectedDayIndex = null;
+    customStopDraft = null;
+  }
+
   const map = createMap({
     routeFeature: route,
     onRouteClick: handleRouteClick,
@@ -89,6 +105,11 @@ async function boot() {
       // Panel-row hover highlights the matching marker on the map.
       onPoiRowHover: (poi) => map.setPoiHighlight(poi),
       onEditDay: handleEditDay,
+      onAddStops: handleAddStops,
+      onExitDayMode: handleExitDayMode,
+      onAddCustomStop: handleAddCustomStop,
+      onCancelCustomStop: handleCancelCustomStop,
+      onEditBreak: handleEditBreak,
       onSelectPlan: handleSelectPlan,
       onRenamePlan: handleRenamePlan,
       onNewPlan: handleNewPlan,
@@ -115,6 +136,7 @@ async function boot() {
   // boot and on every plan switch — hydrate + render only, no persist.
   function hydrateActivePlan() {
     const active = store.getActivePlan();
+    exitDayMode(); // a different plan's days — day-mode selection is stale
     // Object form so the new plan's breaks replace the previous plan's — the
     // array form would leak breaks across a plan switch.
     itinerary.hydrate({ days: active?.days ?? [], breaks: active?.breaks ?? [] });
@@ -173,7 +195,7 @@ async function boot() {
     const days = itinerary.getDays();
     map.setDayPins(days.map((day) => ({ index: day.index, coord: pointAtDistance(route, day.endKm) })));
     map.setBreakMarkers(itinerary.getBreaks());
-    ui.renderItinerary({ days, totalKm, reached: hasReachedDresden(), breaksForDay });
+    ui.renderItinerary({ days, totalKm, reached: hasReachedDresden(), breaksForDay, selectedDayIndex });
   }
 
   // Renders the (global) favorites list + its always-visible map markers. The
@@ -202,6 +224,8 @@ async function boot() {
 
   // Renders the pending day: ghost marker, candidate towns, POIs, control state.
   function renderPending() {
+    const dayForStops = selectedDay();
+    if (dayForStops) return renderDayMode(dayForStops);
     const reached = hasReachedDresden();
     const startKm = pendingStartKm();
     const fromName = pendingFromName();
@@ -242,6 +266,42 @@ async function boot() {
     const food = poisInRange(poiData, startKm, ghostKm, { kind: 'food' });
     const sights = poisInRange(poiData, startKm, ghostKm, { kind: 'sight' });
     drawPois(food, sights, startKm, fromName, breakKeys, favoriteKeys);
+  }
+
+  // Day mode: the same left panel + map markers as pending planning, but for
+  // a committed day's stretch. Bucketing stays (start, end] — matching
+  // breaksForDay — so every ☕ added here lands on the selected day's legs.
+  function renderDayMode(day) {
+    const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
+    const favoriteKeys = new Set(favorites.list().map(favKey));
+    // Twin of ui.js dayFromName — same literals as pendingFromName.
+    const fromName =
+      day.index === 0 ? 'Hamburg' : itinerary.getDays()[day.index - 1].townChoice?.name ?? 'your last stop';
+
+    ui.renderControls({
+      dayNumber: day.index + 1,
+      startKm: day.startKm,
+      reached: hasReachedDresden(),
+      pendingBreaks: [],
+      selectedDay: day,
+      customStopDraft,
+    });
+
+    map.setGhost(null);
+    map.setTownHighlight(null);
+
+    const dayTowns = townsInRange(towns, day.startKm, day.endKm);
+    ui.renderTowns(dayTowns, null, {
+      dayStartKm: day.startKm,
+      fromName,
+      breakKeys,
+      favoriteKeys,
+      heading: 'Towns on this stretch',
+    });
+
+    const food = poisInRange(poiData, day.startKm, day.endKm, { kind: 'food' });
+    const sights = poisInRange(poiData, day.startKm, day.endKm, { kind: 'sight' });
+    drawPois(food, sights, day.startKm, fromName, breakKeys, favoriteKeys);
   }
 
   function renderAll() {
@@ -316,12 +376,14 @@ async function boot() {
 
   function handleRemoveLast() {
     itinerary.removeLastDay();
+    if (selectedDayIndex != null && selectedDayIndex >= itinerary.getDays().length) exitDayMode();
     persistPlan();
     renderAll();
   }
 
   function handleReset() {
     itinerary.reset();
+    exitDayMode();
     persistPlan();
     pendingTarget = DEFAULT_TARGET_KM;
     pendingTown = null;
@@ -331,7 +393,62 @@ async function boot() {
 
   function handleEditDay(index, target) {
     itinerary.editDay(index, target);
+    // A resized day can strand the pending custom-stop draft outside the
+    // selected day's stretch — drop the draft, keep day mode.
+    const day = selectedDay();
+    if (customStopDraft && day) {
+      const lower = day.startKm === 0 ? -1 : day.startKm;
+      if (customStopDraft.km <= lower || customStopDraft.km > day.endKm) customStopDraft = null;
+    }
     persistPlan();
+    renderAll();
+  }
+
+  // + Add stops on a day card: enter day mode for that day; clicking the
+  // selected day's own button (labeled "Done adding stops") exits instead.
+  function handleAddStops(index) {
+    if (selectedDayIndex === index) return handleExitDayMode();
+    selectedDayIndex = index;
+    customStopDraft = null;
+    renderAll();
+  }
+
+  function handleExitDayMode() {
+    exitDayMode();
+    renderAll();
+  }
+
+  // Add-stop prompt confirmed: the draft becomes a plan-level custom break.
+  function handleAddCustomStop(label) {
+    const day = selectedDay();
+    if (!day || !customStopDraft || !label) return;
+    itinerary.addBreak({
+      kind: 'custom',
+      name: label,
+      routeDistanceKm: customStopDraft.km,
+      lat: customStopDraft.lat,
+      lng: customStopDraft.lng,
+    });
+    customStopDraft = null;
+    persistPlan();
+    renderAll();
+  }
+
+  function handleCancelCustomStop() {
+    customStopDraft = null;
+    renderPending();
+  }
+
+  // ✎ save on a leg: custom stops edit their label (name = identity), place
+  // breaks edit the free note. updateBreak returning null (stale key,
+  // collision, blank name) is fine — the re-render restores canonical state.
+  function handleEditBreak(key, value) {
+    const target = itinerary.getBreaks().find((b) => breakKey(b) === key);
+    if (target) {
+      if (target.kind === 'custom') itinerary.updateBreak(key, { name: value });
+      else itinerary.updateBreak(key, { note: value });
+      persistPlan();
+    }
     renderAll();
   }
 
@@ -387,9 +504,22 @@ async function boot() {
     renderPlansBar(); // rename only — no re-hydrate
   }
 
-  // Clicking the map sets the pending distance so the day ends at the clicked
-  // point (snapped to the route). Clicks before the pending start are ignored.
+  // Normal mode: clicking the map sets the pending distance so the day ends
+  // at the clicked point. Day mode: a click inside the selected day's stretch
+  // drafts a custom stop there (label prompt in the controls block); clicks
+  // outside the stretch are ignored. Both snap to the route first.
   function handleRouteClick(lngLat) {
+    const day = selectedDay();
+    if (day) {
+      const { distanceKm } = snap(route, lngLat);
+      const km = Math.round(distanceKm * 10) / 10;
+      const lower = day.startKm === 0 ? -1 : day.startKm; // same km-0 widening as breaksForDay
+      if (km <= lower || km > day.endKm) return;
+      const [lng, lat] = pointAtDistance(route, km);
+      customStopDraft = { km, lat, lng };
+      renderPending();
+      return;
+    }
     if (hasReachedDresden()) return;
     const { distanceKm } = snap(route, lngLat);
     const start = pendingStartKm();
