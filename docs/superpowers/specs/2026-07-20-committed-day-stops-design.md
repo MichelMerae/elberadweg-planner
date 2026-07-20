@@ -39,9 +39,10 @@ automatically when day distances change. The gap is UI reach and the label.
   the user's label (required, non-empty after trim). Key stays `name@km`
   (`breakKey`), so identity/dedup/removal work unchanged.
 - New itinerary API: `updateBreak(key, {name?, note?})` — applies the patch,
-  validates (name non-empty if given), re-sorts, and returns the updated
-  break's (possibly new) key, or null for an unknown key. A patch that would
-  collide with an existing key is a no-op returning null.
+  validates (name non-empty if given), and returns the updated break's
+  (possibly new) key, or null for an unknown key. No re-sort is needed:
+  `routeDistanceKm` is never patched, so order cannot change. A patch that
+  would collide with an existing key is a no-op returning null.
 
 ## 4. Day selection mode (main.js / ui.js)
 
@@ -56,9 +57,11 @@ automatically when day distances change. The gap is UI reach and the label.
     button, pending-breaks list) for a day-mode header: *"Adding stops to
     Day N (km X → Y)"* + **Done** button.
   - The left panel renders food, sights, **and towns** whose
-    `routeDistanceKm` falls in the day's bucketing range — the same
-    `(start, end]` rule as `breaksForDay`, including the km-0 widening for
-    day 1 — with working ☕/⭐ toggles ("from" name = the day's `fromName`).
+    `routeDistanceKm` falls in `[startKm, endKm]` inclusive — the same
+    inclusive browse window pending mode already uses for POIs. (Break
+    *bucketing* onto day legs keeps its `(start, end]` rule with the km-0
+    widening; a place exactly at a day boundary shows in the list but
+    buckets to the previous day, identical to pending-mode behavior today.)
   - The map shows that stretch's POI markers; the ghost marker is hidden;
     day pins, break markers, favorite markers stay.
   - Day-target editing on any card stays live and re-buckets legs as today.
