@@ -64,6 +64,7 @@ function toPublicDay(day, index) {
  *   totalPlannedKm: () => number,
  *   addBreak: (place: object) => void,
  *   removeBreak: (key: string) => void,
+ *   updateBreak: (key: string, patch: {name?: string, note?: string}) => string|null,
  *   getBreaks: () => Array<object>,
  *   breaksInRange: (startKm: number, endKm: number) => Array<object>,
  *   hydrate: (input: Array<{targetKm: number, townChoice?: any}> | {days: Array<object>, breaks?: Array<object>}) => void,
@@ -160,6 +161,32 @@ export function createItinerary({ totalKm } = {}) {
     breaks = breaks.filter((b) => breakKey(b) !== key);
   }
 
+  // Edits a break in place: `note` (optional free text; empty string clears
+  // it) and/or `name` (a custom stop's label — its identity, so the key can
+  // change). Returns the updated break's key, or null for an unknown key, an
+  // empty name, or a rename that would collide with another break (no-op).
+  // routeDistanceKm is never patched, so order is preserved and no re-sort is
+  // needed.
+  function updateBreak(key, patch = {}) {
+    const target = breaks.find((b) => breakKey(b) === key);
+    if (!target) return null;
+    const next = { ...target };
+    if ('name' in patch) {
+      const name = typeof patch.name === 'string' ? patch.name.trim() : '';
+      if (!name) return null;
+      next.name = name;
+    }
+    if ('note' in patch) {
+      const note = typeof patch.note === 'string' ? patch.note.trim() : '';
+      if (note) next.note = note;
+      else delete next.note;
+    }
+    const nextKey = breakKey(next);
+    if (nextKey !== key && breaks.some((b) => breakKey(b) === nextKey)) return null;
+    breaks = breaks.map((b) => (breakKey(b) === key ? next : b));
+    return nextKey;
+  }
+
   function getBreaks() {
     return breaks.map((b) => ({ ...b }));
   }
@@ -218,6 +245,7 @@ export function createItinerary({ totalKm } = {}) {
     totalPlannedKm,
     addBreak,
     removeBreak,
+    updateBreak,
     getBreaks,
     breaksInRange,
     hydrate,

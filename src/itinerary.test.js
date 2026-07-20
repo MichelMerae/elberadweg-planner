@@ -503,3 +503,93 @@ describe('cross-module key contract', () => {
     expect(poiKey(place)).toBe(breakKey(place));
   });
 });
+
+describe('createItinerary - break notes & custom stops', () => {
+  it('keeps note and custom kind through addBreak/getBreaks', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ note: '15 min coffee' }));
+    itinerary.addBreak({ kind: 'custom', name: 'lunch, 2h at the top', routeDistanceKm: 55.5, lat: 53.1, lng: 10.2 });
+
+    const breaks = itinerary.getBreaks();
+    expect(breaks[0].note).toBe('15 min coffee');
+    expect(breaks[1]).toMatchObject({ kind: 'custom', name: 'lunch, 2h at the top' });
+  });
+
+  it('keeps note through a hydrate round-trip', () => {
+    const a = createItinerary({ totalKm: TOTAL_KM });
+    a.addDay(80);
+    a.addBreak(makeBreak({ note: 'try the cake' }));
+
+    const b = createItinerary({ totalKm: TOTAL_KM });
+    b.hydrate({ days: a.getDays().map((d) => ({ targetKm: d.targetKm })), breaks: a.getBreaks() });
+
+    expect(b.getBreaks()[0].note).toBe('try the cake');
+  });
+});
+
+describe('createItinerary - updateBreak', () => {
+  it('sets a note without changing the key or order', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ name: 'A', routeDistanceKm: 10 }));
+    itinerary.addBreak(makeBreak({ name: 'B', routeDistanceKm: 20 }));
+
+    const newKey = itinerary.updateBreak('A@10', { note: 'coffee' });
+
+    expect(newKey).toBe('A@10');
+    expect(itinerary.getBreaks().map((b) => b.name)).toEqual(['A', 'B']);
+    expect(itinerary.getBreaks()[0].note).toBe('coffee');
+  });
+
+  it('clears the note when given an empty string', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ note: 'old' }));
+    const key = breakKey(itinerary.getBreaks()[0]);
+
+    itinerary.updateBreak(key, { note: '' });
+
+    expect('note' in itinerary.getBreaks()[0]).toBe(false);
+  });
+
+  it('renames a break and returns the new key', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak({ kind: 'custom', name: 'lunch', routeDistanceKm: 30, lat: 53, lng: 10 });
+
+    const newKey = itinerary.updateBreak('lunch@30', { name: 'lunch, 2h' });
+
+    expect(newKey).toBe('lunch, 2h@30');
+    expect(itinerary.getBreaks()[0].name).toBe('lunch, 2h');
+  });
+
+  it('returns null and changes nothing for an unknown key', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak(makeBreak({ name: 'A', routeDistanceKm: 10 }));
+
+    expect(itinerary.updateBreak('nope@99', { note: 'x' })).toBeNull();
+    expect(itinerary.getBreaks()).toHaveLength(1);
+    expect('note' in itinerary.getBreaks()[0]).toBe(false);
+  });
+
+  it('returns null for an empty or whitespace-only name', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak({ kind: 'custom', name: 'lunch', routeDistanceKm: 30, lat: 53, lng: 10 });
+
+    expect(itinerary.updateBreak('lunch@30', { name: '   ' })).toBeNull();
+    expect(itinerary.getBreaks()[0].name).toBe('lunch');
+  });
+
+  it('returns null when a rename collides with an existing break', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak({ kind: 'custom', name: 'X', routeDistanceKm: 30, lat: 53, lng: 10 });
+    itinerary.addBreak({ kind: 'custom', name: 'Y', routeDistanceKm: 30, lat: 53, lng: 10 });
+
+    expect(itinerary.updateBreak('X@30', { name: 'Y' })).toBeNull();
+    expect(itinerary.getBreaks().map((b) => b.name).sort()).toEqual(['X', 'Y']);
+  });
+
+  it('trims the new name before applying it', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak({ kind: 'custom', name: 'lunch', routeDistanceKm: 30, lat: 53, lng: 10 });
+
+    expect(itinerary.updateBreak('lunch@30', { name: '  picnic  ' })).toBe('picnic@30');
+  });
+});
