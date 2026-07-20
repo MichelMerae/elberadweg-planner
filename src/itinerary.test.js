@@ -592,4 +592,14 @@ describe('createItinerary - updateBreak', () => {
 
     expect(itinerary.updateBreak('lunch@30', { name: '  picnic  ' })).toBe('picnic@30');
   });
+
+  it('applies a combined name+note patch in one call', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addBreak({ kind: 'custom', name: 'lunch', routeDistanceKm: 30, lat: 53, lng: 10 });
+
+    const newKey = itinerary.updateBreak('lunch@30', { name: 'lunch, 2h', note: 'bring sandwiches' });
+
+    expect(newKey).toBe('lunch, 2h@30');
+    expect(itinerary.getBreaks()[0]).toMatchObject({ name: 'lunch, 2h', note: 'bring sandwiches' });
+  });
 });

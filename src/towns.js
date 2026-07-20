@@ -1,5 +1,7 @@
-// Finds the towns near one endpoint of a day's ride, using a binary search
-// over the route-distance-sorted towns array to avoid scanning the whole list.
+// Town lookups over the route-distance-sorted towns array: townsNear ranks
+// towns around a day's endpoint (binary search + offset-weighted scoring),
+// townsInRange lists a committed day's stretch for day mode, and loadTowns
+// lazy-loads the dataset.
 
 import { lowerBound, upperBound } from './sorted-range.js';
 

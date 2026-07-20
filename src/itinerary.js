@@ -163,7 +163,9 @@ export function createItinerary({ totalKm } = {}) {
 
   // Edits a break in place: `note` (optional free text; empty string clears
   // it) and/or `name` (a custom stop's label — its identity, so the key can
-  // change). Returns the updated break's key, or null for an unknown key, an
+  // change). An explicit `note: undefined` also clears the note (the `'note'
+  // in patch` check sees the key); omit the field to leave a note untouched.
+  // Returns the updated break's key, or null for an unknown key, an
   // empty name, or a rename that would collide with another break (no-op).
   // routeDistanceKm is never patched, so order is preserved and no re-sort is
   // needed.
