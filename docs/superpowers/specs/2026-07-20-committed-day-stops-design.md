@@ -88,8 +88,8 @@ automatically when day distances change. The gap is UI reach and the label.
 - Every day-card leg (and pending-break row) gets a ✎ button opening an
   inline one-line text input (Enter/blur saves, Esc cancels):
   - place-kind breaks (town/food/sight): edits `note`; rendered after the
-    name as `🍴 Café Elbe · 15 min` when present. Empty input clears the
-    note.
+    name as `☕ Café Elbe · 15 min` when present (leg glyphs per §2). Empty
+    input clears the note.
   - custom breaks: edits the label (`name`) itself. Emptying is rejected
     (keep old value).
 - Saving goes through `updateBreak` + `persistPlan` + `renderAll`.
