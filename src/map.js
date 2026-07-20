@@ -59,15 +59,18 @@ function poiIcon(kind) {
   });
 }
 
-// A committed break: ☕ in a small amber-bordered white circle. Sized between
-// the numbered day pin (26px) and the POI dot (14px) so breaks read as
-// secondary waypoints on the day.
-const BREAK_ICON = L.divIcon({
-  className: 'break-marker',
-  html: '<span class="break-marker__glyph">☕</span>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
+// A committed break: ☕ (place stop) or 📌 (custom user-labeled stop) in a
+// small bordered white circle. Sized between the numbered day pin (26px) and
+// the POI dot (14px) so breaks read as secondary waypoints on the day.
+function breakIcon(kind) {
+  const custom = kind === 'custom';
+  return L.divIcon({
+    className: `break-marker${custom ? ' break-marker--custom' : ''}`,
+    html: `<span class="break-marker__glyph">${custom ? '📌' : '☕'}</span>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+}
 
 // A favorited place: a gold ⭐ with a soft white halo. Shown for every favorite
 // across the whole route (the list is user-curated and small — no density cap).
@@ -177,7 +180,7 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
     breakLayer.clearLayers();
     (breaks || []).forEach((b) => {
       const marker = L.marker([b.lat, b.lng], {
-        icon: BREAK_ICON,
+        icon: breakIcon(b.kind),
         keyboard: false,
         zIndexOffset: 450,
       }).bindTooltip(escapeHtml(b.name));
