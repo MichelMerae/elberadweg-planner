@@ -110,25 +110,36 @@ function debounce(fn, ms) {
  * @param {() => void} opts.callbacks.onNewPlan
  * @param {() => void} opts.callbacks.onDuplicatePlan
  * @param {() => void} opts.callbacks.onDeletePlan
+ * @param {() => void} opts.callbacks.onExitDayMode
+ * @param {(label: string) => void} opts.callbacks.onAddCustomStop
+ * @param {() => void} opts.callbacks.onCancelCustomStop
  */
 export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, itineraryEl, bannerEl, callbacks = {} }) {
   // --- Controls (built once) --------------------------------------------
   controlsEl.innerHTML = `
-    <h2 class="controls__heading" id="pending-heading">Day 1 — start at km 0</h2>
-    <div class="controls__row">
-      <input type="range" id="pending-range"
-             min="${SLIDER_MIN}" max="${SLIDER_MAX}" step="${SLIDER_STEP}" value="80" />
-      <label class="controls__num">
-        <input type="number" id="pending-number" min="1" step="1" value="80" />
-        <span>km</span>
-      </label>
+    <div id="pending-block">
+      <h2 class="controls__heading" id="pending-heading">Day 1 — start at km 0</h2>
+      <div class="controls__row">
+        <input type="range" id="pending-range"
+               min="${SLIDER_MIN}" max="${SLIDER_MAX}" step="${SLIDER_STEP}" value="80" />
+        <label class="controls__num">
+          <input type="number" id="pending-number" min="1" step="1" value="80" />
+          <span>km</span>
+        </label>
+      </div>
+      <div class="controls__buttons">
+        <button type="button" id="commit-btn" class="btn btn--primary">Commit day</button>
+        <button type="button" id="remove-btn" class="btn">Remove last day</button>
+        <button type="button" id="reset-btn" class="btn btn--danger">Reset trip</button>
+      </div>
+      <div class="controls__breaks" id="pending-breaks"></div>
     </div>
-    <div class="controls__buttons">
-      <button type="button" id="commit-btn" class="btn btn--primary">Commit day</button>
-      <button type="button" id="remove-btn" class="btn">Remove last day</button>
-      <button type="button" id="reset-btn" class="btn btn--danger">Reset trip</button>
-    </div>
-    <div class="controls__breaks" id="pending-breaks"></div>`;
+    <div id="day-mode" hidden>
+      <h2 class="controls__heading" id="day-mode-heading"></h2>
+      <p class="day-mode__hint">Hit ☕ on any place below, or click the route on the map to add your own stop.</p>
+      <div id="custom-stop-prompt" hidden></div>
+      <button type="button" id="day-mode-done" class="btn btn--primary">Done</button>
+    </div>`;
 
   const heading = controlsEl.querySelector('#pending-heading');
   const pendingBreaksEl = controlsEl.querySelector('#pending-breaks');
@@ -137,6 +148,11 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
   const commitBtn = controlsEl.querySelector('#commit-btn');
   const removeBtn = controlsEl.querySelector('#remove-btn');
   const resetBtn = controlsEl.querySelector('#reset-btn');
+  const pendingBlock = controlsEl.querySelector('#pending-block');
+  const dayModeEl = controlsEl.querySelector('#day-mode');
+  const dayModeHeading = controlsEl.querySelector('#day-mode-heading');
+  const promptEl = controlsEl.querySelector('#custom-stop-prompt');
+  const dayModeDone = controlsEl.querySelector('#day-mode-done');
 
   const emitPending = debounce((value) => {
     if (callbacks.onPendingChange) callbacks.onPendingChange(value);
@@ -169,6 +185,18 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
     if (window.confirm('Reset the whole trip? This clears every planned day.')) {
       if (callbacks.onReset) callbacks.onReset();
     }
+  });
+
+  dayModeDone.addEventListener('click', () => callbacks.onExitDayMode?.());
+
+  // Esc while in day mode: close the custom-stop prompt first if it's open,
+  // otherwise leave day mode. The prompt input and the inline leg editors
+  // stopPropagation on their own Esc, so they never double-trigger this.
+  let escState = { dayMode: false, promptOpen: false };
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !escState.dayMode) return;
+    if (escState.promptOpen) callbacks.onCancelCustomStop?.();
+    else callbacks.onExitDayMode?.();
   });
   // The pending-stretch breaks list lives inside the controls block; its ×
   // buttons remove a plan-level break (same callback as the day-card legs).
@@ -329,7 +357,19 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
     range.value = String(Math.min(Math.max(v, SLIDER_MIN), SLIDER_MAX));
   }
 
-  function renderControls({ dayNumber, startKm, reached, pendingBreaks = [] }) {
+  function renderControls({ dayNumber, startKm, reached, pendingBreaks = [], selectedDay = null, customStopDraft = null }) {
+    escState = { dayMode: Boolean(selectedDay), promptOpen: Boolean(selectedDay && customStopDraft) };
+    pendingBlock.hidden = Boolean(selectedDay);
+    dayModeEl.hidden = !selectedDay;
+
+    if (selectedDay) {
+      dayModeHeading.textContent =
+        `Adding stops to Day ${selectedDay.index + 1} (km ${round1(selectedDay.startKm)} → ${round1(selectedDay.endKm)})`;
+      renderCustomStopPrompt(customStopDraft, selectedDay);
+      return;
+    }
+
+    renderCustomStopPrompt(null, null);
     const disabled = Boolean(reached);
     range.disabled = disabled;
     number.disabled = disabled;
@@ -342,6 +382,49 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
       heading.classList.remove('controls__heading--done');
     }
     renderPendingBreaks(pendingBreaks, startKm);
+  }
+
+  // The "New stop at km K" prompt shown while a route click is pending a
+  // label. Guarded by data-km so unrelated re-renders (e.g. toggling a ☕
+  // elsewhere) don't wipe half-typed text; only a new click rebuilds it.
+  function renderCustomStopPrompt(draft, selectedDay) {
+    if (!draft || !selectedDay) {
+      promptEl.hidden = true;
+      promptEl.innerHTML = '';
+      delete promptEl.dataset.km;
+      return;
+    }
+    if (promptEl.dataset.km === String(draft.km)) return;
+    promptEl.dataset.km = String(draft.km);
+    promptEl.innerHTML = `
+      <div class="custom-stop">
+        <div class="custom-stop__title">New stop at km ${round1(draft.km)}
+          (${round1(draft.km - selectedDay.startKm)} km into the day)</div>
+        <input type="text" class="custom-stop__input" id="custom-stop-label" maxlength="120"
+               placeholder="e.g. lunch, 2h at the top" aria-label="Stop label" />
+        <div class="custom-stop__actions">
+          <button type="button" class="btn btn--sm btn--primary" id="custom-stop-add" disabled>Add stop</button>
+          <button type="button" class="btn btn--sm" id="custom-stop-cancel">Cancel</button>
+        </div>
+      </div>`;
+    promptEl.hidden = false;
+    const input = promptEl.querySelector('#custom-stop-label');
+    const addBtn = promptEl.querySelector('#custom-stop-add');
+    input.addEventListener('input', () => {
+      addBtn.disabled = !input.value.trim();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && input.value.trim()) {
+        callbacks.onAddCustomStop?.(input.value.trim());
+      } else if (e.key === 'Escape') {
+        e.stopPropagation(); // handled here; must not also exit day mode
+        callbacks.onCancelCustomStop?.();
+      }
+    });
+    addBtn.addEventListener('click', () => callbacks.onAddCustomStop?.(input.value.trim()));
+    promptEl.querySelector('#custom-stop-cancel')
+      .addEventListener('click', () => callbacks.onCancelCustomStop?.());
+    input.focus();
   }
 
   // Breaks committed beyond the last planned day (no day covers them yet), shown
@@ -386,7 +469,7 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
       </span>`;
   }
 
-  function renderTowns(towns, selectedKey, { dayStartKm = 0, fromName = 'your last stop', breakKeys, favoriteKeys } = {}) {
+  function renderTowns(towns, selectedKey, { dayStartKm = 0, fromName = 'your last stop', breakKeys, favoriteKeys, heading: townsHeading = 'Overnight options' } = {}) {
     currentTowns = towns || [];
     if (!currentTowns.length) {
       townsEl.innerHTML = '<p class="towns__empty">No towns near this stretch.</p>';
@@ -410,7 +493,7 @@ export function createUI({ controlsEl, plansEl, townsEl, poisEl, favoritesEl, it
           </div>`;
       })
       .join('');
-    townsEl.innerHTML = `<h2 class="towns__heading">Overnight options</h2>${items}`;
+    townsEl.innerHTML = `<h2 class="towns__heading">${esc(townsHeading)}</h2>${items}`;
   }
 
   function poiRow(poi, index, kind, dayStartKm, fromName, isBreak, isFav) {

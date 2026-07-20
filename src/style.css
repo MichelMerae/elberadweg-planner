@@ -1189,8 +1189,9 @@ input[type="number"]:disabled {
   box-shadow: 0 0 0 5px rgba(42, 157, 143, 0.35), 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 
-/* Break marker: ☕ in an amber-ringed white disc, sized between the numbered
-   day pin (26px) and the POI dot (14px). See map.js BREAK_ICON. */
+/* Break marker: ☕ (place stop) or 📌 (custom stop) in a ringed white disc,
+   sized between the numbered day pin (26px) and the POI dot (14px).
+   See map.js breakIcon(). */
 .break-marker {
   display: flex;
   align-items: center;
@@ -1282,4 +1283,43 @@ input[type="number"]:disabled {
 .break-marker--custom .break-marker__glyph {
   border-color: #2563eb;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(37, 99, 235, 0.28);
+}
+
+/* --- Day mode (adding stops to a committed day) --------------------------- */
+.day-mode__hint {
+  margin: 8px 0 12px;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+.custom-stop {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  background: var(--surface-hi);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.custom-stop__title {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.custom-stop__input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+}
+.custom-stop__input:focus-visible {
+  outline: none;
+  border-color: var(--river);
+}
+.custom-stop__actions {
+  display: flex;
+  gap: 8px;
 }
