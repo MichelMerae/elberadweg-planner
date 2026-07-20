@@ -593,3 +593,21 @@ describe('createPlanStore - activePlanId persistence', () => {
     expect(second.getActivePlan().id).toBe(originalId);
   });
 });
+
+describe('createPlanStore - break notes & custom stops', () => {
+  it('round-trips note and custom-kind break fields through save and reload', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    store.load();
+
+    const breaks = [
+      { name: 'Café X', kind: 'food', routeDistanceKm: 42, lat: 53, lng: 10, note: '15 min coffee' },
+      { name: 'lunch, 2h at the top', kind: 'custom', routeDistanceKm: 55.5, lat: 53.1, lng: 10.2 },
+    ];
+    store.saveActivePlan({ days: [{ targetKm: 80, townChoice: null }], breaks });
+
+    const reloaded = createPlanStore({ storage, routeVersion: 'r1' });
+    reloaded.load();
+    expect(reloaded.getActivePlan().breaks).toEqual(breaks);
+  });
+});
