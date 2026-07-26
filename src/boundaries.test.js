@@ -35,6 +35,19 @@ describe('boundaryBounds', () => {
     expect(boundaryBounds(list, 1, { totalKm: TOTAL_KM })).toEqual({ min: 85, max: TOTAL_KM });
   });
 
+  it('throws when opts is omitted entirely', () => {
+    expect(() => boundaryBounds(days(80, 160), 0)).toThrow(/totalKm/);
+  });
+
+  it('throws on a NaN totalKm', () => {
+    expect(() => boundaryBounds(days(80, 160), 0, { totalKm: NaN })).toThrow(/totalKm/);
+  });
+
+  it('accepts Infinity, leaving the last boundary unclamped above', () => {
+    const bounds = boundaryBounds(days(80, 160), 1, { totalKm: Infinity });
+    expect(bounds).toEqual({ min: 85, max: Infinity });
+  });
+
   it('never returns a max below its min for a squeezed day', () => {
     // Days 0 and 1 together span only 8 km — less than 2 × MIN_DAY_KM — so the
     // raw window would be inverted (min 5, max 3).

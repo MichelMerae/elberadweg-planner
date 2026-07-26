@@ -23,6 +23,13 @@ export const MIN_DAY_KM = 5;
  *   day yields a single legal position rather than an inverted window.
  */
 export function boundaryBounds(days, index, { totalKm, minDayKm = MIN_DAY_KM } = {}) {
+  // Fail on first use, not just on the last boundary: a forgotten totalKm
+  // would otherwise return correct windows everywhere except the final day,
+  // and the NaN it produced there gets persisted rather than thrown. Infinity
+  // is legitimate — an itinerary without a route length is unclamped above.
+  if (typeof totalKm !== 'number' || Number.isNaN(totalKm)) {
+    throw new Error(`boundaryBounds needs a numeric totalKm, got: ${totalKm}`);
+  }
   const prevEnd = index === 0 ? 0 : days[index - 1].endKm;
   const isLast = index === days.length - 1;
   const min = prevEnd + minDayKm;
