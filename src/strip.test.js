@@ -255,3 +255,24 @@ describe('createStrip - degenerate geometry', () => {
     }
   });
 });
+
+describe('createStrip - re-layout on a width change', () => {
+  // Every px in the DOM derives from the axis width at render time, so a resized
+  // window leaves blocks drawn at the old scale until something re-renders. This
+  // is the path a ResizeObserver drives: render() with no argument must redraw the
+  // state it already holds against the current width.
+  it('redraws retained state at the new width when called with no argument', () => {
+    let axisWidth = WIDTH;
+    el = document.createElement('div');
+    document.body.appendChild(el);
+    const strip = createStrip({ el, callbacks: {}, measureWidth: () => axisWidth });
+
+    strip.render({ days: days(325), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
+    expect(el.querySelector('.strip__block').style.width).toBe('650px'); // half of 1300
+
+    axisWidth = 700;
+    strip.render();
+
+    expect(el.querySelector('.strip__block').style.width).toBe('350px'); // half of 700
+  });
+});

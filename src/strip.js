@@ -117,7 +117,11 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
               aria-label="${esc(label)}" title="${esc(label)}"></button>`;
   }
 
-  function render(next) {
+  // Called with new state, or with none to re-lay-out the state already held —
+  // which is what a width change needs: the km values are unchanged, but every
+  // px in the DOM was derived from the old axis width. A ResizeObserver in
+  // main.js drives that path.
+  function render(next = state) {
     state = {
       days: next.days || [],
       totalKm: next.totalKm || 0,
