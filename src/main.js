@@ -3,11 +3,12 @@ import { loadRoute, pointAtDistance, snap } from './route.js';
 import { loadTowns, townsNear, townsInRange } from './towns.js';
 import { loadPois, poisInRange } from './pois.js';
 import { createItinerary, breakKey } from './itinerary.js';
-import { ARRIVED_EPSILON_KM } from './boundaries.js';
+import { ARRIVED_EPSILON_KM, MIN_DAY_KM } from './boundaries.js';
 import { createPlanStore } from './storage.js';
 import { createFavorites, favKey } from './favorites.js';
 import { createMap } from './map.js';
 import { createUI, townKey, poiKey } from './ui.js';
+import { createStrip } from './strip.js';
 import meta from './data/route.meta.json';
 
 const DEFAULT_TARGET_KM = 80;
@@ -71,6 +72,21 @@ async function boot() {
     customStopDraft = null;
   }
 
+  // --- Focus (which day the panels and the map are pointed at) ------------
+  // Exactly one day is focused whenever the plan has any days; the default is
+  // the last one. Not persisted — a reload or plan switch focuses the last day.
+  let focusedDayIndex = null;
+
+  function clampFocus() {
+    const count = itinerary.getDays().length;
+    focusedDayIndex = count ? Math.min(focusedDayIndex ?? count - 1, count - 1) : null;
+  }
+
+  function focusedDay() {
+    if (focusedDayIndex == null) return null;
+    return itinerary.getDays()[focusedDayIndex] ?? null;
+  }
+
   const map = createMap({
     routeFeature: route,
     onRouteClick: handleRouteClick,
@@ -116,6 +132,18 @@ async function boot() {
     },
   });
 
+  // The strip owns the whole-trip view. Boundary drags fire continuously with
+  // commit:false for live feedback and once with commit:true on release, so a
+  // drag writes to storage exactly once.
+  const strip = createStrip({
+    el: document.getElementById('strip'),
+    callbacks: {
+      onFocusDay: handleFocusDay,
+      onMoveBoundary: handleMoveBoundary,
+      onAddDay: handleAddDay,
+    },
+  });
+
   // Persist the active plan's committed state. Called ONLY after user
   // mutations — never at boot or right after a plan switch. Reason: a corrupt
   // stored plan hydrates to empty days; persisting straight after would
@@ -138,6 +166,9 @@ async function boot() {
     // Object form so the new plan's breaks replace the previous plan's — the
     // array form would leak breaks across a plan switch.
     itinerary.hydrate({ days: active?.days ?? [], breaks: active?.breaks ?? [] });
+    // A different plan's days — clearing focus makes clampFocus pick the new
+    // plan's last day rather than carrying over an index that merely still fits.
+    focusedDayIndex = null;
     pendingTarget = DEFAULT_TARGET_KM;
     pendingTown = null;
     ui.setPendingTarget(pendingTarget);
@@ -306,9 +337,20 @@ async function boot() {
   }
 
   function renderAll() {
+    clampFocus();
+    renderStrip();
     renderCommitted();
     renderPending();
     renderFavoritesSection();
+  }
+
+  function renderStrip() {
+    strip.render({
+      days: itinerary.getDays(),
+      totalKm,
+      focusedIndex: focusedDayIndex,
+      breaks: itinerary.getBreaks(),
+    });
   }
 
   // --- Callbacks ---------------------------------------------------------

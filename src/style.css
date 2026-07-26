@@ -54,15 +54,56 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Map + side panel side by side, full viewport height. */
-  display: flex;
+  /* Header, then the three-column body, then the timeline strip. */
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100vh;
   overflow: hidden;
 }
 
+#app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px;
+  height: 46px;
+  background: #1d1a14;
+  border-bottom: 1px solid var(--line);
+}
+
+#app-title {
+  font-family: var(--serif);
+  font-size: 17px;
+}
+
+#app-title span {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-left: 10px;
+}
+
+/* The ODbL data credit (see index.html). Yields before the title and the plans
+   bar on a narrow window rather than pushing either out of the header. */
+#app-credit {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--text-faint);
+}
+
+#app-body {
+  display: flex;
+  min-height: 0;
+}
+
 #map {
   flex: 1 1 auto;
-  height: 100vh;
+  height: 100%;
   background: #e7e4dd; /* soft tone under the tiles while they load */
 }
 
@@ -71,7 +112,7 @@ body {
    Left panel (#panel-left) owns what's along the way: food stops + sights. */
 #panel,
 #panel-left {
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -85,7 +126,6 @@ body {
   width: 380px;
   border-left: 1px solid var(--line);
   box-shadow: -18px 0 40px -24px rgba(0, 0, 0, 0.7);
-  animation: panel-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 #panel-left {
@@ -93,21 +133,6 @@ body {
   width: 340px;
   border-right: 1px solid var(--line);
   box-shadow: 18px 0 40px -24px rgba(0, 0, 0, 0.7);
-  animation: panel-in-left 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes panel-in {
-  from {
-    transform: translateX(26px);
-    opacity: 0;
-  }
-}
-
-@keyframes panel-in-left {
-  from {
-    transform: translateX(-26px);
-    opacity: 0;
-  }
 }
 
 #panel::-webkit-scrollbar,
@@ -126,52 +151,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #panel,
-  #panel-left {
-    animation: none;
-  }
   .summary__fill {
     animation: none;
   }
-}
-
-/* --- Headers (sticky) ----------------------------------------------------- */
-#panel-header,
-#panel-left-header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  padding: 18px var(--pad) 15px;
-  background: linear-gradient(180deg, #1d1a14, rgba(29, 26, 20, 0.94));
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--line);
-}
-
-#panel-header h1,
-#panel-left-header h1 {
-  margin: 0;
-  font-family: var(--serif);
-  font-optical-sizing: auto;
-  font-weight: 600;
-  font-size: 1.5rem;
-  line-height: 1.05;
-  letter-spacing: -0.015em;
-  color: var(--text);
-}
-
-/* The left panel is the companion, not the star — slightly smaller title. */
-#panel-left-header h1 {
-  font-size: 1.15rem;
-}
-
-#panel-header p,
-#panel-left-header p {
-  margin: 6px 0 0;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--text-faint);
 }
 
 /* Section blocks get shared horizontal padding + rhythm. */
@@ -201,9 +183,11 @@ body {
 }
 
 /* --- Plans bar (pick / rename / new / duplicate / delete a named plan) --- */
+/* Lives in the 46px app header now, so it carries no block spacing of its own
+   and must not grow past its content. Task 12 restyles it for the header. */
 #plans {
-  padding: 0 var(--pad);
-  margin-top: 14px;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 .plans__bar {
   display: flex;
@@ -1116,16 +1100,6 @@ input[type="number"]:disabled {
   font-weight: 400;
 }
 
-/* --- Footer / attribution ------------------------------------------------ */
-#panel-footer {
-  margin-top: auto;
-  padding: 14px var(--pad) 18px;
-  border-top: 1px solid var(--line-soft);
-  font-size: 0.66rem;
-  line-height: 1.5;
-  color: var(--text-faint);
-}
-
 /* =============================================================================
    Map markers (Leaflet divIcons — class names come from src/map.js).
    Restyled here for polish; sizes/anchors are unchanged so pins stay centred.
@@ -1379,4 +1353,174 @@ input[type="number"]:disabled {
 }
 .leg-edit__input:focus-visible {
   outline: none;
+}
+
+/* --- Timeline strip ------------------------------------------------------
+   The trip, drawn to scale: 650 km always fits the width, so this can never
+   overflow. Blocks and handles are absolutely positioned from px values that
+   strip-geometry.js computes. */
+/* 24px of side padding, not 16: a boundary handle at km == totalKm sits at the
+   axis's right edge and hangs 5px past it, plus a 3px hover ring. Padding (not
+   an axis margin) keeps the summary and scale lines aligned with the axis ends. */
+#strip {
+  border-top: 1px solid var(--line);
+  background: #1d1a14;
+  padding: 10px 24px 9px;
+  user-select: none;
+}
+
+.strip__summary {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.strip__summary b {
+  color: var(--text);
+}
+
+/* MUST stay overflow: visible — the last handle's overhang (see #strip) lives
+   outside the axis box, and clipping it would hide the boundary you grab to
+   move the end of the trip. */
+.strip__axis {
+  position: relative;
+  height: 46px;
+  overflow: visible;
+}
+
+.strip__block,
+.strip__remainder {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.strip__block {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.strip__block:hover {
+  background: var(--surface-hi);
+}
+
+.strip__block--focused {
+  background: #232c3d;
+  border-color: var(--river);
+  box-shadow: inset 0 0 0 1px var(--river);
+}
+
+.strip__block:focus-visible,
+.strip__handle:focus-visible {
+  outline: 2px solid var(--river);
+  outline-offset: 1px;
+}
+
+.strip__block-label {
+  display: block;
+  padding: 4px 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.strip__block-km {
+  color: var(--text-dim);
+}
+
+.strip__block-town {
+  display: block;
+  font-size: 10px;
+  color: var(--town);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.strip__glyph {
+  position: absolute;
+  bottom: 2px;
+  font-size: 10px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.strip__remainder {
+  border: 1px dashed var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  cursor: copy;
+}
+
+.strip__add {
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.strip__add:hover {
+  color: var(--text);
+  border-color: var(--river);
+}
+
+.strip__flag,
+.strip__finish {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.strip__finish {
+  position: absolute;
+  right: 0;
+  bottom: 4px;
+  color: var(--done);
+}
+
+/* The boundary itself: a thin grab bar straddling two blocks. 10 px wide, with
+   -7px insets giving it a ~24 px touch target. */
+.strip__handle {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 10px;
+  margin-left: -5px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: var(--river);
+  opacity: 0.85;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.strip__handle::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+}
+
+.strip__handle:hover,
+.strip__handle--dragging {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(91, 147, 255, 0.25);
+}
+
+.strip__scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 5px;
 }

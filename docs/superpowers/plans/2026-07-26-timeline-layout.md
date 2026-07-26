@@ -1550,6 +1550,55 @@ git commit -m "feat: render the trip as a to-scale timeline strip"
 - Modify: `src/strip.js`
 - Test: `src/strip.test.js`
 
+> ## CRITICAL — read before writing any code
+>
+> Task 7's review **measured in real Chromium** that a drag built the obvious way does not work, and that this task's own planned tests cannot detect the failure. Fix this first; everything else in the task is secondary.
+>
+> ### What breaks
+>
+> `strip.js` rebuilds the entire axis with `innerHTML` on every render, and Task 9's `handleMoveBoundary` calls `renderAll()` for both `commit:false` and `commit:true`. So **every `pointermove` destroys the handle element being dragged.** Pointer capture set on that handle dies with it, and every later move plus the `pointerup` lands outside `axisEl`, never reaching the delegated listener. Measured trace:
+>
+> ```
+> pointerdown  captured=true
+> pointermove  x=200 -> RE-RENDER
+>    [window saw moves the axis did NOT get: y=250, y=150]
+>    [window pointerup  axis did NOT get it]  dragging=STILL LATCHED
+> ```
+>
+> So a drag that strays outside the 46 px axis band — most drags — moves the boundary one step, freezes, and **never fires `commit:true`, so nothing is persisted.**
+>
+> The latched state is the destructive part: `dragging` stays non-null, so afterwards merely *hovering* the axis re-enters the handler and the boundary follows the mouse, rewriting the plan, until a click finally commits wherever it landed. This is the same family as the two bugs on this project that silently destroyed the user's whole plan.
+>
+> Three further consequences, measured: **keyboard focus is lost on every nudge** (`document.activeElement` is `BODY` after a render), so a keyboard user gets one arrow-key nudge per Tab — which defeats note 3 below; `.strip__handle--dragging` never appears, wiped by the first move's render; and `role="slider"` value changes are never announced, because the element is recreated rather than having `aria-valuenow` updated.
+>
+> ### Why the planned tests can't see it
+>
+> `onMoveBoundary` is a bare `vi.fn()` that never re-renders, and the `drag()` helper re-dispatches on a handle reference that therefore stays attached. Measured: events dispatched on a *detached* handle never reach the axis listener. In the real app delegation stops dead; in the test it never stops. **The suite will certify a broken drag.**
+>
+> ### The fix — keep the rendering model, keep no interaction state in disposable DOM
+>
+> 1. **Capture on the axis, not the handle:** `axisEl.setPointerCapture(e.pointerId)`, released on `axisEl`. The axis survives the re-render. Verified working in the same browser harness: all moves arrive, an off-axis `pointerup` commits, `dragging` clears.
+> 2. **`touch-action: none` moves up to `.strip__axis`** (keep it on the handle too) — Task 9 owns that CSS line and has been told.
+> 3. **Drag and focus become things `render` re-emits:**
+>    - put `dragIndex` in `state`; `handle(index)` adds `strip__handle--dragging` when `index === dragIndex`.
+>    - restore focus inside `render()`: before the `innerHTML` write, read `document.activeElement.closest('[data-boundary-index],[data-day-index]')` and its dataset; after, re-`focus({ preventScroll: true })` the matching new node. `preventScroll` matters — the strip sits at the bottom of a `height:100vh; overflow:hidden` body. Keying on **both** attributes also fixes note 4: Enter on a block calls `onFocusDay` → re-render → the block is replaced → focus lost.
+> 4. **Belt and braces so `dragging` can never stay latched:** handle `lostpointercapture` → `endDrag`, and/or bail out of `pointermove` when `e.buttons === 0`.
+> 5. **Add a test whose `onMoveBoundary` actually re-renders** — e.g. `vi.fn((i, endKm) => strip.render({ ...state, days: withBoundary(i, endKm) }))` — then assert `commit:true` still fires after a move, and that focus survives a keyboard nudge. Without this the suite keeps passing for the wrong reason.
+>
+> ### Also fix here (Important, from the same review)
+>
+> **Breaks render only at tier `full`** (`strip.js:141`), so on any day under 64 px (~30 km at desktop width) every break glyph vanishes — a 20 km day with a café shows nothing, and the tooltip doesn't mention it either. The tier gate conflates two budgets that don't compete: the label is horizontal text at the top, a glyph is a 12 px mark at `bottom: 2px`. Preferred fix: **hoist glyphs to an axis-level layer** — render them as siblings of the blocks at absolute axis km. They then work at every tier, never clip against `overflow: hidden`, and the `containerLeft` parameter and its entire class of bug disappear (they are already `pointer-events: none`, so block clicks still pass through). Cost: they fall outside the focused-block highlight, and the `positions a glyph relative to its own block` test becomes moot rather than deleted-to-hide-something. Cheaper alternative: drop the `tier === 'full'` condition and accept slight clipping. Either way, put the break names or count in the block's `title` so an obscured cluster stays identifiable.
+>
+> ### Minors worth taking while you're in here
+>
+> - **`clientWidth` vs `rect.width` mismatch:** `strip.js:58` measures with integer-truncated `clientWidth` while `strip.js:178` maps clicks with fractional `rect.width`, so on a 1300.5 px axis drawn edges and click→km use two different scales. Use `getBoundingClientRect().width || FALLBACK_WIDTH` in both.
+> - **`BREAK_GLYPH[b.kind]` is a raw object lookup** (`strip.js:86`), so a hand-edited plan with `kind: "toString"` interpolates a function body into the markup. Not XSS, but use `Object.hasOwn(BREAK_GLYPH, b.kind) ? … : '📌'`. Note the present `'☕'` fallback also mislabels an unknown kind as a coffee stop; `📌` (custom) is the honest default.
+> - **Tab order is all blocks → add button → all handles**, not left-to-right along the trip. Handles are absolutely positioned, so source order only buys paint order: interleave day/handle in source order and give `.strip__handle { z-index: 1 }`. Only worth doing once focus restoration lands.
+>
+> ### One scope decision this review settled
+>
+> A day below ~14 px is invisible (tier `none`, no label), unidentifiable (`title` never fires on touch, needs ~1 s hover, unreachable by keyboard) **and unclickable** — the two flanking handles' 24 px grab zones cover an 11 px block entirely. Do **not** fix this with a minimum block width; that breaks the to-scale invariant and the seam test. The strip is simply not a complete interface for very short days: **Task 10's focused-day panel and its `‹ ›` stepper are the accessible path for them and must not be cut.**
+
 **Three things Task 6's review established, which change how this task should be built:**
 
 1. **Latch the handle index at `pointerdown` and never re-derive it during the drag.** `hitTestHandle` is stateless nearest-wins, so re-hit-testing on `pointermove` would make the drag *switch handles mid-gesture* the moment the pointer crosses a crowded neighbour's midpoint. The code below already latches (`dragging = { index }`, then `dragging.index` throughout) — keep it that way, and don't "improve" it into a live lookup.
