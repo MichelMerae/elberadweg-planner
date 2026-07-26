@@ -777,12 +777,12 @@ Expected: PASS. The three original `setTownChoice` tests use towns without `rout
 
 - [ ] **Step 5: Write the failing storage test**
 
-Snapping is what first puts fractional lengths into storage, so pin the round-trip and the unchanged schema version. Append to `src/storage.test.js`:
+Snapping is what first puts fractional lengths into storage, so pin the round-trip and the unchanged schema version. Append to `src/storage.test.js` — the double is the existing factory `createFakeStorage()` (do not add another), `PLANS_KEY` is already defined at the top of that file, and the persisted field is `schemaVersion`, not `version`:
 
 ```js
 describe('createPlanStore - snapped fractional lengths', () => {
   it('round-trips a fractional targetKm through a save and reload', () => {
-    const storage = new MemoryStorage();
+    const storage = createFakeStorage();
     const store = createPlanStore({ storage, routeVersion: 'v1' });
     store.load();
     store.saveActivePlan({
@@ -801,17 +801,17 @@ describe('createPlanStore - snapped fractional lengths', () => {
   });
 
   it('still writes schema version 2 — the timeline work needs no migration', () => {
-    const storage = new MemoryStorage();
+    const storage = createFakeStorage();
     const store = createPlanStore({ storage, routeVersion: 'v1' });
     store.load();
     store.saveActivePlan({ days: [{ targetKm: 76.2, townChoice: null }], breaks: [] });
 
-    expect(JSON.parse(storage.getItem('elberadweg-plans')).version).toBe(2);
+    expect(JSON.parse(storage.getItem(PLANS_KEY)).schemaVersion).toBe(2);
   });
 });
 ```
 
-Reuse the existing test-double and imports at the top of `src/storage.test.js` — if the fake storage class there is named differently from `MemoryStorage`, use that name instead; do not add a second double.
+The double, the key constant and the schema field name above were all checked against the real `src/storage.test.js` and `src/storage.js`. Do not add a second double.
 
 - [ ] **Step 6: Run the storage tests**
 
