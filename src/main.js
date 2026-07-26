@@ -1,6 +1,6 @@
 import './style.css';
-import { loadRoute, pointAtDistance, snap } from './route.js';
-import { loadTowns, townsNear, townsInRange } from './towns.js';
+import { loadRoute, createRouteIndex, pointAtKm, stretchCoords, snap } from './route.js';
+import { loadTowns, townsNear } from './towns.js';
 import { loadPois, poisInRange } from './pois.js';
 import { createItinerary, breakKey } from './itinerary.js';
 import { ARRIVED_EPSILON_KM, MIN_DAY_KM } from './boundaries.js';
@@ -8,12 +8,19 @@ import { createPlanStore } from './storage.js';
 import { createFavorites, favKey } from './favorites.js';
 import { createMap } from './map.js';
 import { createUI, townKey, poiKey } from './ui.js';
+import { round1 } from './ui-util.js';
 import { createStrip } from './strip.js';
+import { createDayPanel } from './day-panel.js';
+import { createPlaces } from './places.js';
 import meta from './data/route.meta.json';
 
 const DEFAULT_TARGET_KM = 80;
 const ROUTE_CHANGED_MESSAGE =
   'The route data changed since you last planned this trip — day distances may have shifted.';
+
+// Sentinel for "the camera is framing the whole route", which is what an empty
+// plan gets — it has no focused stretch to key on.
+const WHOLE_ROUTE = 'whole-route';
 
 async function boot() {
   // POI data is optional: if it fails to load (e.g. build:data never ran), the
@@ -30,6 +37,12 @@ async function boot() {
   const totalKm = meta.totalKm;
   const poisMissing = pois == null;
   const poiData = pois || [];
+
+  // Built once: every render turns km into map coordinates (five day pins, the
+  // whole focused stretch), and a boundary drag re-renders on every pointermove.
+  // Straight off route.js's turf helpers that is ~250 ms a frame — measured — and
+  // off the index it is microseconds.
+  const routeIndex = createRouteIndex(route);
 
   // Storage owns the named plans; itinerary is now pure trip math fed from the
   // active plan via hydrate(). load() runs any v1→v2 migration and guarantees at
@@ -52,30 +65,14 @@ async function boot() {
   let planList = initial.plans.map((p) => ({ id: p.id, name: p.name }));
   let activePlanId = initial.activePlanId;
 
-  // --- Pending-day state (not yet committed) ----------------------------
-  let pendingTarget = DEFAULT_TARGET_KM;
-  let pendingTown = null;
-
-  // --- Day mode (adding stops to a committed day) ------------------------
-  // Which committed day is being edited (null = normal pending planning) and
-  // the route click awaiting a label ({km, lat, lng}). Not persisted.
-  let selectedDayIndex = null;
-  let customStopDraft = null;
-
-  function selectedDay() {
-    if (selectedDayIndex == null) return null;
-    return itinerary.getDays()[selectedDayIndex] ?? null;
-  }
-
-  function exitDayMode() {
-    selectedDayIndex = null;
-    customStopDraft = null;
-  }
-
   // --- Focus (which day the panels and the map are pointed at) ------------
   // Exactly one day is focused whenever the plan has any days; the default is
   // the last one. Not persisted — a reload or plan switch focuses the last day.
   let focusedDayIndex = null;
+
+  // A route click awaiting a label ({km, lat, lng}), always targeting the
+  // focused day. Not persisted.
+  let customStopDraft = null;
 
   function clampFocus() {
     const count = itinerary.getDays().length;
@@ -87,43 +84,36 @@ async function boot() {
     return itinerary.getDays()[focusedDayIndex] ?? null;
   }
 
+  // --- Camera policy ------------------------------------------------------
+  // Fit the focused stretch whenever it changes; during a drag only pan when the
+  // moving end is about to leave the viewport, then fit on release. A manual pan
+  // or zoom hands the camera to the user, and only the ⤢ buttons take it back.
+  //
+  // Declared above createMap because map.js frames the whole route from inside
+  // it, synchronously, and onUserMove closes over these.
+  const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  let cameraFollows = true;
+  // What the camera last framed: the focused day's index AND its span. Keying on
+  // the span too means a day whose boundary just moved gets reframed, while the
+  // many re-renders that leave the stretch alone (a ☕ toggle, a hover, a break
+  // edit) leave the user's own zoom where it is.
+  let lastFramedStretch = null;
+
   const map = createMap({
     routeFeature: route,
     onRouteClick: handleRouteClick,
     onPoiClick: handleSelectPoi,
     // Map-marker hover highlights the matching row in the left panel.
-    onPoiHover: (poi) => ui.highlightPoiRow(poi ? poiKey(poi) : null),
+    onPoiHover: (poi) => places.highlightPoiRow(poi ? poiKey(poi) : null),
+    onUserMove: () => {
+      cameraFollows = false;
+    },
   });
 
   const ui = createUI({
-    controlsEl: document.getElementById('controls'),
     plansEl: document.getElementById('plans'),
-    townsEl: document.getElementById('towns'),
-    poisEl: document.getElementById('pois'),
-    favoritesEl: document.getElementById('favorites'),
-    itineraryEl: document.getElementById('itinerary'),
     bannerEl: document.getElementById('banner'),
     callbacks: {
-      onPendingChange: handlePendingChange,
-      onCommit: handleCommit,
-      onRemoveLast: handleRemoveLast,
-      onReset: handleReset,
-      onSelectTown: handleSelectTown,
-      onSelectPoi: handleSelectPoi,
-      onToggleBreak: handleToggleBreak,
-      onRemoveBreak: handleRemoveBreak,
-      onToggleFavorite: handleToggleFavorite,
-      // A favorite row's body click and a fav map-marker click both pan/highlight
-      // — identical to a POI select, so reuse it.
-      onSelectFavorite: handleSelectPoi,
-      // Panel-row hover highlights the matching marker on the map.
-      onPoiRowHover: (poi) => map.setPoiHighlight(poi),
-      onEditDay: handleEditDay,
-      onAddStops: handleAddStops,
-      onExitDayMode: handleExitDayMode,
-      onAddCustomStop: handleAddCustomStop,
-      onCancelCustomStop: handleCancelCustomStop,
-      onEditBreak: handleEditBreak,
       onSelectPlan: handleSelectPlan,
       onRenamePlan: handleRenamePlan,
       onNewPlan: handleNewPlan,
@@ -153,6 +143,66 @@ async function boot() {
   // the whole fix; that is what render() with no argument does.
   new ResizeObserver(() => strip.render()).observe(stripEl);
 
+  // The right panel: the focused day and nothing else.
+  const dayPanel = createDayPanel({
+    el: document.getElementById('day-panel'),
+    callbacks: {
+      onEditDay: handleEditDay,
+      onSplitDay: handleSplitDay,
+      onDeleteDay: handleDeleteDay,
+      onFocusDay: handleFocusDay,
+      onRemoveBreak: handleRemoveBreak,
+      onEditBreak: handleEditBreak,
+      onAddCustomStop: handleAddCustomStop,
+      onCancelCustomStop: handleCancelCustomStop,
+    },
+  });
+
+  // The left panel: favorites, overnight candidates, food and sights.
+  const places = createPlaces({
+    el: document.getElementById('places'),
+    callbacks: {
+      onSelectTown: handleSelectTown,
+      // A favorite row's body click and a fav map-marker click both pan/highlight
+      // — identical to a POI select, so places routes both here.
+      onSelectPoi: handleSelectPoi,
+      onToggleBreak: handleToggleBreak,
+      onToggleFavorite: handleToggleFavorite,
+      // Panel-row hover highlights the matching marker on the map.
+      onPoiRowHover: (poi) => map.setPoiHighlight(poi),
+    },
+  });
+
+  const mapControlsEl = document.getElementById('map-controls');
+
+  // The buttons sit inside the Leaflet container, so every event they see also
+  // reaches the map: a click would draft a custom stop on the focused day and a
+  // press would start a pan. Leaflet's own disableClickPropagation is behind
+  // map.js's import, so guard from the outside.
+  ['mousedown', 'touchstart', 'dblclick'].forEach((type) =>
+    mapControlsEl.addEventListener(type, (e) => e.stopPropagation()),
+  );
+
+  mapControlsEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const action = e.target.closest('[data-action]')?.dataset.action;
+    if (action === 'focus-day') {
+      // The only way back to an auto-following camera once a manual pan or zoom
+      // has switched it off.
+      cameraFollows = true;
+      lastFramedStretch = null;
+      renderCamera();
+      return;
+    }
+    if (action === 'whole-route') {
+      // Deliberately leaves cameraFollows off: the next re-render must not yank
+      // the view back to the focused day.
+      cameraFollows = false;
+      lastFramedStretch = null;
+      map.fitWholeRoute({ animate: !prefersReducedMotion });
+    }
+  });
+
   // Persist the active plan's committed state. Called ONLY after user
   // mutations — never at boot or right after a plan switch. Reason: a corrupt
   // stored plan hydrates to empty days; persisting straight after would
@@ -167,20 +217,19 @@ async function boot() {
     renderBanner();
   }
 
-  // Loads the active plan into the itinerary and resets the pending day. Used at
-  // boot and on every plan switch — hydrate + render only, no persist.
+  // Loads the active plan into the itinerary. Used on every plan switch —
+  // hydrate + render only, no persist.
   function hydrateActivePlan() {
     const active = store.getActivePlan();
-    exitDayMode(); // a different plan's days — day-mode selection is stale
     // Object form so the new plan's breaks replace the previous plan's — the
     // array form would leak breaks across a plan switch.
     itinerary.hydrate({ days: active?.days ?? [], breaks: active?.breaks ?? [] });
-    // A different plan's days — clearing focus makes clampFocus pick the new
-    // plan's last day rather than carrying over an index that merely still fits.
+    // A different plan's days: the draft stop belongs to a day that no longer
+    // exists, and clearing focus makes clampFocus pick the new plan's last day
+    // rather than carrying over an index that merely still fits.
+    customStopDraft = null;
     focusedDayIndex = null;
-    pendingTarget = DEFAULT_TARGET_KM;
-    pendingTown = null;
-    ui.setPendingTarget(pendingTarget);
+    lastFramedStretch = null; // a different stretch — frame it
     renderBanner();
     renderAll();
   }
@@ -200,197 +249,171 @@ async function boot() {
     else ui.hideBanner();
   }
 
-  function pendingStartKm() {
-    return itinerary.totalPlannedKm();
-  }
-
   // The plan is complete when the last endKm is within the shared arrival
   // tolerance of the route total (endKm clamps to totalKm, so it never quite
   // exceeds it). The strip collapses its remainder on the same constant.
   function hasReachedDresden() {
-    return pendingStartKm() >= totalKm - ARRIVED_EPSILON_KM;
+    return itinerary.totalPlannedKm() >= totalKm - ARRIVED_EPSILON_KM;
   }
 
-  // The pending day's reference for day-relative distances: the last committed
-  // day's overnight town, "Hamburg" before any day is committed, or "your last
-  // stop" when the last committed day has no town chosen. Twin of ui.js
-  // dayFromName (day cards) — keep the Hamburg / "your last stop" literals in sync.
-  function pendingFromName() {
-    const days = itinerary.getDays();
-    if (!days.length) return 'Hamburg';
-    return days[days.length - 1].townChoice?.name ?? 'your last stop';
+  // "from X" for a day: the previous day's overnight town, "Hamburg" for day 0,
+  // "your last stop" when the previous day has no town chosen.
+  function fromNameFor(index) {
+    if (index === 0) return 'Hamburg';
+    return itinerary.getDays()[index - 1].townChoice?.name ?? 'your last stop';
   }
 
-  // Passed into renderItinerary so each day card derives its own break legs by
-  // km range (editing a day re-buckets breaks automatically). Constraint: a
-  // km-0 break must own a leg somewhere — the (start, end] rule would exclude it
-  // from day 1 (startKm 0) with no removal path, so widen the lower bound for
-  // the first day. Later days start > 0 and are unaffected.
+  // A day's own breaks, by km range, so editing a day re-buckets them
+  // automatically. Constraint: a km-0 break must own a leg somewhere — the
+  // (start, end] rule would exclude it from day 1 (startKm 0) with no removal
+  // path, so widen the lower bound for the first day. Later days start > 0 and
+  // are unaffected.
   function breaksForDay(day) {
     const start = day.startKm === 0 ? -1 : day.startKm;
     return itinerary.breaksInRange(start, day.endKm);
   }
 
-  // Renders committed days: numbered map pins, break markers, itinerary cards.
-  function renderCommitted() {
-    const days = itinerary.getDays();
-    map.setDayPins(days.map((day) => ({ index: day.index, coord: pointAtDistance(route, day.endKm) })));
-    map.setBreakMarkers(itinerary.getBreaks());
-    ui.renderItinerary({ days, totalKm, reached: hasReachedDresden(), breaksForDay, selectedDayIndex });
-  }
-
-  // Renders the (global) favorites list + its always-visible map markers. The
-  // list is plan-independent, but the day tags depend on the active plan's days,
-  // so this re-runs on every renderAll (boot, mutations, plan switches).
-  function renderFavoritesSection() {
-    const favs = favorites.list();
-    // Non-prefixed break keys (name@km) so a favorite that's also a committed
-    // break shows its ☕ filled here too — same shape origin rows check against.
-    const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
-    ui.renderFavorites({ favorites: favs, days: itinerary.getDays(), breakKeys });
-    map.setFavoriteMarkers(favs);
-  }
-
-  // Drives both POI panel sections and the map markers for a given stretch.
-  // When POI data is missing, shows the boot note instead and clears markers.
-  function drawPois(food, sights, startKm, fromName, breakKeys, favoriteKeys) {
-    if (poisMissing) {
-      ui.renderPoisNote('No POI data — run npm run build:data');
-      map.setPoiMarkers([]);
-      return;
-    }
-    ui.renderPois({ food, sights, dayStartKm: startKm, fromName, breakKeys, favoriteKeys });
-    map.setPoiMarkers([...food, ...sights]);
-  }
-
-  // Renders the pending day: ghost marker, candidate towns, POIs, control state.
-  function renderPending() {
-    const dayForStops = selectedDay();
-    if (dayForStops) return renderDayMode(dayForStops);
-    const reached = hasReachedDresden();
-    const startKm = pendingStartKm();
-    const fromName = pendingFromName();
-    // breakKeys drives the active state of the ☕ row actions; pendingBreaks are
-    // the breaks past the last committed day (shown in the controls block).
-    const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
-    // favoriteKeys are kind-prefixed (favKey: `${kind}:${name}@${km}`) so ui can
-    // mark the ⭐ active on town/food/sight rows; it's global, not per-stretch.
-    const favoriteKeys = new Set(favorites.list().map(favKey));
-    // Same km-0 constraint as breaksForDay: before any day is committed the
-    // pending stretch starts at 0, so widen the lower bound to keep a km-0 break
-    // in this list rather than orphaning its pin.
-    const pendingStart = startKm === 0 ? -1 : startKm;
-    const pendingBreaks = itinerary.breaksInRange(pendingStart, Infinity);
-
-    ui.renderControls({
-      dayNumber: itinerary.getDays().length + 1,
-      startKm,
-      reached,
-      pendingBreaks,
-    });
-
-    if (reached) {
-      map.setGhost(null);
-      map.setTownHighlight(null);
-      ui.renderTowns([], null, { dayStartKm: startKm, fromName, breakKeys, favoriteKeys });
-      drawPois([], [], startKm, fromName, breakKeys, favoriteKeys);
-      return;
-    }
-
-    const ghostKm = Math.min(startKm + pendingTarget, totalKm);
-    map.setGhost(pointAtDistance(route, ghostKm));
-
-    const candidates = townsNear(towns, ghostKm);
-    ui.renderTowns(candidates, townKey(pendingTown), { dayStartKm: startKm, fromName, breakKeys, favoriteKeys });
-    map.setTownHighlight(pendingTown ? [pendingTown.lng, pendingTown.lat] : null);
-
-    const food = poisInRange(poiData, startKm, ghostKm, { kind: 'food' });
-    const sights = poisInRange(poiData, startKm, ghostKm, { kind: 'sight' });
-    drawPois(food, sights, startKm, fromName, breakKeys, favoriteKeys);
-  }
-
-  // Day mode: the same left panel + map markers as pending planning, but for
-  // a committed day's stretch. Bucketing stays (start, end] — matching
-  // breaksForDay — so every ☕ added here lands on the selected day's legs.
-  function renderDayMode(day) {
-    const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
-    const favoriteKeys = new Set(favorites.list().map(favKey));
-    // Twin of ui.js dayFromName — same literals as pendingFromName.
-    const fromName =
-      day.index === 0 ? 'Hamburg' : itinerary.getDays()[day.index - 1].townChoice?.name ?? 'your last stop';
-
-    ui.renderControls({
-      dayNumber: day.index + 1,
-      startKm: day.startKm,
-      reached: hasReachedDresden(),
-      pendingBreaks: [],
-      selectedDay: day,
-      customStopDraft,
-    });
-
-    map.setGhost(null);
-    map.setTownHighlight(null);
-
-    const dayTowns = townsInRange(towns, day.startKm, day.endKm);
-    ui.renderTowns(dayTowns, null, {
-      dayStartKm: day.startKm,
-      fromName,
-      breakKeys,
-      favoriteKeys,
-      heading: 'Towns on this stretch',
-    });
-
-    const food = poisInRange(poiData, day.startKm, day.endKm, { kind: 'food' });
-    const sights = poisInRange(poiData, day.startKm, day.endKm, { kind: 'sight' });
-    drawPois(food, sights, day.startKm, fromName, breakKeys, favoriteKeys);
-  }
-
-  function renderAll() {
-    clampFocus();
-    renderStrip();
-    renderCommitted();
-    renderPending();
-    renderFavoritesSection();
-  }
-
-  function renderStrip() {
+  function renderStrip(focusedIndex) {
     strip.render({
       days: itinerary.getDays(),
       totalKm,
-      focusedIndex: focusedDayIndex,
+      focusedIndex,
       breaks: itinerary.getBreaks(),
     });
   }
 
-  // --- Callbacks ---------------------------------------------------------
-
-  function handlePendingChange(target) {
-    pendingTarget = target;
-    pendingTown = null; // endpoint moved; drop the stale overnight choice
-    renderPending();
+  function renderDayPanel(day) {
+    dayPanel.render({
+      day,
+      dayCount: itinerary.getDays().length,
+      breaks: day ? breaksForDay(day) : [],
+      fromName: day ? fromNameFor(day.index) : 'Hamburg',
+      customStopDraft,
+    });
   }
 
-  function handleSelectTown(town) {
-    // Day mode: town rows are browse-only (like POI rows) — pan to the town,
-    // but never touch the pending day's overnight choice or persist.
-    if (selectedDay()) {
-      map.panTo([town.lng, town.lat]);
+  // The left panel is scoped to the focused day: candidates, food and sights all
+  // come from that stretch. With no day focused, only favorites make sense.
+  function renderPlaces(day) {
+    const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
+    const favs = favorites.list();
+    // Kind-prefixed (favKey: `${kind}:${name}@${km}`), unlike breakKeys — places
+    // builds the matching lookups per section.
+    const favoriteKeys = new Set(favs.map(favKey));
+    const startKm = day ? day.startKm : 0;
+    const endKm = day ? day.endKm : 0;
+    const food = day && !poisMissing ? poisInRange(poiData, startKm, endKm, { kind: 'food' }) : [];
+    const sights = day && !poisMissing ? poisInRange(poiData, startKm, endKm, { kind: 'sight' }) : [];
+
+    places.render({
+      // 1-BASED here — the strip and the day panel both count days from 0.
+      dayNumber: day ? day.index + 1 : null,
+      startKm,
+      endKm,
+      fromName: day ? fromNameFor(day.index) : 'Hamburg',
+      towns: day ? townsNear(towns, day.endKm) : [],
+      selectedTownKey: day?.townChoice ? townKey(day.townChoice) : null,
+      food,
+      sights,
+      favorites: favs,
+      days: itinerary.getDays(),
+      breakKeys,
+      favoriteKeys,
+      poisMissing,
+    });
+    map.setPoiMarkers([...food, ...sights]);
+    map.setFavoriteMarkers(favs);
+  }
+
+  // Numbered boundary pins, the map's twin of the strip handles. map.js emits raw
+  // lng/lat and ignores a rebuild while a pin is in flight; snapping to the route
+  // and the 0.1 km grid are ours.
+  function renderDayPins() {
+    map.setDayPins(
+      itinerary.getDays().map((day) => ({ index: day.index, coord: pointAtKm(routeIndex, day.endKm) })),
+      {
+        draggable: true,
+        onDragBoundary: (index, lngLat, commit) => {
+          handleMoveBoundary(index, round1(snap(route, lngLat).distanceKm), { commit });
+        },
+      },
+    );
+  }
+
+  // The focused stretch, as the route's own vertices. Both the thick highlight
+  // and the fit want the same thing: the real shape of the day, not a sampled
+  // approximation of it.
+  function focusedCoords(day) {
+    return day ? stretchCoords(routeIndex, day.startKm, day.endKm) : [];
+  }
+
+  function renderCamera({ dragging = false } = {}) {
+    const day = focusedDay();
+    map.setRouteHighlight(focusedCoords(day));
+    if (!day) {
+      if (cameraFollows && lastFramedStretch !== WHOLE_ROUTE) {
+        lastFramedStretch = WHOLE_ROUTE;
+        map.fitWholeRoute({ animate: !prefersReducedMotion });
+      }
       return;
     }
-    pendingTown = town;
-    // renderPending() already redraws the towns list (with this town selected),
-    // the ghost, and the town highlight from pendingTown — reuse it instead of
-    // duplicating the ghostKm formula here. We only add the pan-to-town.
-    renderPending();
-    map.panTo([town.lng, town.lat]);
+    if (!cameraFollows) return;
+    if (dragging) {
+      // Don't fight the drag: only nudge when the boundary nears the edge. This
+      // does nothing for a PIN drag — map.js holds our camera still and lets
+      // Leaflet's own autoPan carry the marker past the edge instead — but it is
+      // what keeps a strip-handle drag's endpoint on screen.
+      const end = pointAtKm(routeIndex, day.endKm);
+      if (!map.isWellInsideView(end)) map.panTo(end);
+      return;
+    }
+    const key = `${day.index}:${round1(day.startKm)}:${round1(day.endKm)}`;
+    if (lastFramedStretch === key) return;
+    lastFramedStretch = key;
+    map.focusRange(focusedCoords(day), { animate: !prefersReducedMotion });
+  }
+
+  // `dragging` marks a boundary-drag preview, which arrives on every pointermove.
+  // Everything that describes the moving boundary has to keep up with it; the
+  // left panel does not, and measurably cannot — rebuilding its ~600 rows and
+  // handing the map up to 80 fresh POI markers costs more than a frame, for a
+  // stretch the user is in the middle of choosing and is not reading. It catches
+  // up on release, which is also the only render the breaks can have changed in.
+  function renderAll({ dragging = false } = {}) {
+    clampFocus();
+    // One focused day, named three ways: the strip takes a 0-based index (null
+    // when nothing is focused), the day panel takes the record (0-based .index),
+    // and places takes a 1-based number. Derived together, here, so the +1 can
+    // never drift out of sight of the two that don't want it.
+    const day = focusedDay();
+    renderStrip(day ? day.index : null);
+    renderDayPanel(day);
+    if (!dragging) {
+      renderPlaces(day);
+      map.setBreakMarkers(itinerary.getBreaks());
+    }
+    renderDayPins();
+    renderCamera({ dragging });
+  }
+
+  // --- Place callbacks ---------------------------------------------------
+
+  // An overnight town IS the day's end, so choosing one snaps the boundary there
+  // (the neighbour absorbs the change) — that is itinerary.setTownChoice's job.
+  function handleSelectTown(town) {
+    const day = focusedDay();
+    if (!day) return;
+    itinerary.setTownChoice(day.index, town);
     persistPlan();
+    renderAll();
+    map.panTo([town.lng, town.lat]);
   }
 
   // Row/marker click on a POI (also reused for favorite rows/markers): highlight
   // the matching panel row and pan the map to it — view-only. Committing happens
   // through the explicit ☕ break / ⭐ favorite actions, never a plain click.
   function handleSelectPoi(poi) {
-    ui.highlightPoiRow(poiKey(poi));
+    places.highlightPoiRow(poiKey(poi));
     map.panTo([poi.lng, poi.lat]);
   }
 
@@ -405,7 +428,7 @@ async function boot() {
     renderAll();
   }
 
-  // × on a day-card leg or a pending-break row removes that break by key.
+  // × on a leg removes that break by key.
   function handleRemoveBreak(key) {
     itinerary.removeBreak(key);
     persistPlan();
@@ -421,82 +444,6 @@ async function boot() {
     renderAll();
   }
 
-  function handleCommit() {
-    if (hasReachedDresden()) return;
-    const day = itinerary.addDay(pendingTarget);
-    if (pendingTown) itinerary.setTownChoice(day.index, pendingTown);
-    persistPlan();
-    pendingTarget = DEFAULT_TARGET_KM;
-    pendingTown = null;
-    ui.setPendingTarget(pendingTarget);
-    renderAll();
-  }
-
-  function handleRemoveLast() {
-    itinerary.removeLastDay();
-    if (selectedDayIndex != null && selectedDayIndex >= itinerary.getDays().length) exitDayMode();
-    persistPlan();
-    renderAll();
-  }
-
-  function handleReset() {
-    itinerary.reset();
-    exitDayMode();
-    persistPlan();
-    pendingTarget = DEFAULT_TARGET_KM;
-    pendingTown = null;
-    ui.setPendingTarget(pendingTarget);
-    renderAll();
-  }
-
-  function handleEditDay(index, target) {
-    itinerary.editDay(index, target);
-    // A resized day can strand the pending custom-stop draft outside the
-    // selected day's stretch — drop the draft, keep day mode.
-    const day = selectedDay();
-    if (customStopDraft && day) {
-      const lower = day.startKm === 0 ? -1 : day.startKm;
-      if (customStopDraft.km <= lower || customStopDraft.km > day.endKm) customStopDraft = null;
-    }
-    persistPlan();
-    renderAll();
-  }
-
-  // + Add stops on a day card: enter day mode for that day; clicking the
-  // selected day's own button (labeled "Done adding stops") exits instead.
-  function handleAddStops(index) {
-    if (selectedDayIndex === index) return handleExitDayMode();
-    selectedDayIndex = index;
-    customStopDraft = null;
-    renderAll();
-  }
-
-  function handleExitDayMode() {
-    exitDayMode();
-    renderAll();
-  }
-
-  // Add-stop prompt confirmed: the draft becomes a plan-level custom break.
-  function handleAddCustomStop(label) {
-    const day = selectedDay();
-    if (!day || !customStopDraft || !label) return;
-    itinerary.addBreak({
-      kind: 'custom',
-      name: label,
-      routeDistanceKm: customStopDraft.km,
-      lat: customStopDraft.lat,
-      lng: customStopDraft.lng,
-    });
-    customStopDraft = null;
-    persistPlan();
-    renderAll();
-  }
-
-  function handleCancelCustomStop() {
-    customStopDraft = null;
-    renderPending();
-  }
-
   // ✎ save on a leg: custom stops edit their label (name = identity), place
   // breaks edit the free note. updateBreak returning null (stale key,
   // collision, blank name) is fine — the re-render restores canonical state.
@@ -510,17 +457,49 @@ async function boot() {
     renderAll();
   }
 
-  // --- Strip callbacks ---------------------------------------------------
+  // --- Day callbacks -----------------------------------------------------
 
   function handleFocusDay(index) {
     focusedDayIndex = index;
+    // The draft belongs to the day it was clicked on. Carried onto another day it
+    // would read as a negative distance into it, and confirming it would add the
+    // stop to the day the user just left.
+    customStopDraft = null;
+    renderAll();
+  }
+
+  function handleEditDay(index, target) {
+    itinerary.editDay(index, target);
+    // A resized day can strand the draft outside the day's stretch — drop it.
+    const day = focusedDay();
+    if (customStopDraft && day) {
+      const lower = day.startKm === 0 ? -1 : day.startKm;
+      if (customStopDraft.km <= lower || customStopDraft.km > day.endKm) customStopDraft = null;
+    }
+    persistPlan();
+    renderAll();
+  }
+
+  function handleSplitDay(index) {
+    if (!itinerary.splitDay(index)) return; // too short — the model refused
+    persistPlan();
+    renderAll();
+  }
+
+  function handleDeleteDay(index) {
+    itinerary.deleteDay(index);
+    // focusedDayIndex is deliberately left alone: clampFocus turns it into the
+    // day that slid into the deleted one's place, or the new last day when the
+    // deleted one was last.
+    customStopDraft = null; // its day is gone
+    persistPlan();
     renderAll();
   }
 
   function handleMoveBoundary(index, endKm, { commit } = {}) {
     itinerary.moveBoundary(index, endKm);
     if (commit) persistPlan();
-    renderAll();
+    renderAll({ dragging: !commit });
   }
 
   // A remainder click gives an absolute end km; the + button gives null, meaning
@@ -539,9 +518,48 @@ async function boot() {
     const startKm = itinerary.totalPlannedKm();
     const fallback = days.length ? days[days.length - 1].targetKm : DEFAULT_TARGET_KM;
     const length = endKm == null ? fallback : Math.max(MIN_DAY_KM, endKm - startKm);
-    itinerary.addDay(Math.round(length * 10) / 10);
+    itinerary.addDay(round1(length));
     focusedDayIndex = itinerary.getDays().length - 1;
+    customStopDraft = null;
     persistPlan();
+    renderAll();
+  }
+
+  // --- Custom stops ------------------------------------------------------
+
+  // A route click adds a stop to the focused day. Moving a boundary is dragging
+  // its pin or its strip handle — the click no longer means two different things
+  // depending on a mode.
+  function handleRouteClick(lngLat) {
+    const day = focusedDay();
+    if (!day) return;
+    const { distanceKm } = snap(route, lngLat);
+    const km = round1(distanceKm);
+    const lower = day.startKm === 0 ? -1 : day.startKm; // same km-0 widening as breaksForDay
+    if (km <= lower || km > day.endKm) return;
+    const [lng, lat] = pointAtKm(routeIndex, km);
+    customStopDraft = { km, lat, lng };
+    renderAll();
+  }
+
+  // Add-stop prompt confirmed: the draft becomes a plan-level custom break.
+  function handleAddCustomStop(label) {
+    const day = focusedDay();
+    if (!day || !customStopDraft || !label) return;
+    itinerary.addBreak({
+      kind: 'custom',
+      name: label,
+      routeDistanceKm: customStopDraft.km,
+      lat: customStopDraft.lat,
+      lng: customStopDraft.lng,
+    });
+    customStopDraft = null;
+    persistPlan();
+    renderAll();
+  }
+
+  function handleCancelCustomStop() {
+    customStopDraft = null;
     renderAll();
   }
 
@@ -595,32 +613,6 @@ async function boot() {
     const entry = planList.find((p) => p.id === activePlanId);
     if (entry) entry.name = plan.name;
     renderPlansBar(); // rename only — no re-hydrate
-  }
-
-  // Normal mode: clicking the map sets the pending distance so the day ends
-  // at the clicked point. Day mode: a click inside the selected day's stretch
-  // drafts a custom stop there (label prompt in the controls block); clicks
-  // outside the stretch are ignored. Both snap to the route first.
-  function handleRouteClick(lngLat) {
-    const day = selectedDay();
-    if (day) {
-      const { distanceKm } = snap(route, lngLat);
-      const km = Math.round(distanceKm * 10) / 10;
-      const lower = day.startKm === 0 ? -1 : day.startKm; // same km-0 widening as breaksForDay
-      if (km <= lower || km > day.endKm) return;
-      const [lng, lat] = pointAtDistance(route, km);
-      customStopDraft = { km, lat, lng };
-      renderPending();
-      return;
-    }
-    if (hasReachedDresden()) return;
-    const { distanceKm } = snap(route, lngLat);
-    const start = pendingStartKm();
-    if (distanceKm <= start) return;
-    pendingTarget = Math.round(distanceKm - start);
-    pendingTown = null;
-    ui.setPendingTarget(pendingTarget);
-    renderPending();
   }
 
   renderPlansBar();

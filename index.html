@@ -34,21 +34,19 @@
     <div id="app-body">
       <aside id="panel-left">
         <div id="places"></div>
-        <!-- Legacy containers. The current ui.js writes into these on creation and
-             throws on a null element, so they must exist until the module that
-             replaces them lands. Task 11 folds both into #places. -->
-        <div id="favorites"></div>
-        <div id="pois"></div>
       </aside>
-      <div id="map"></div>
+      <div id="map">
+        <!-- Camera controls, overlaid on the map they act on. Inside #map so they
+             ride along with it; main.js keeps their events from reaching Leaflet
+             underneath. -->
+        <div id="map-controls">
+          <button type="button" class="map-btn" data-action="focus-day">⤢ this day</button>
+          <button type="button" class="map-btn" data-action="whole-route">⤢ whole route</button>
+        </div>
+      </div>
       <aside id="panel">
         <div id="banner" class="banner" hidden></div>
         <div id="day-panel"></div>
-        <!-- Legacy containers, as above. Task 10 replaces #controls and #itinerary
-             with #day-panel; #towns moves into #places in Task 11. -->
-        <div id="controls"></div>
-        <div id="towns"></div>
-        <div id="itinerary"></div>
       </aside>
     </div>
     <div id="strip"></div>
