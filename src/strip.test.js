@@ -273,12 +273,17 @@ describe('createStrip - boundary drag', () => {
   });
 
   it('does not focus a day on the click that ends a drag', () => {
-    const { axis, handle } = mountLive([80, 160]);
+    const { axis, handle, block } = mountLive([80, 160]);
 
     fire(handle(0), 'pointerdown', { x: 160 });
     fire(axis, 'pointermove', { x: 240 });
     fire(axis, 'pointerup', { x: 240, buttons: 0 });
-    fire(axis, 'click', { x: 240, buttons: 0 });
+    // Dispatched on the BLOCK, which is what a browser targets with the click
+    // that follows a release over one. Aiming it at the axis instead matches
+    // neither [data-day-index] nor [data-boundary-index], so onFocusDay could
+    // not fire whether or not the gesture suppressed the click — the assertion
+    // below would hold with the suppression deleted.
+    fire(block(0), 'click', { x: 240, buttons: 0 });
 
     expect(callbacks.onFocusDay).not.toHaveBeenCalled();
   });
@@ -317,7 +322,7 @@ describe('createStrip - boundary drag', () => {
     // Below the drag threshold this is a click, not a drag. It has to fall
     // through to focusing the day, or a plan of near-minimum days — whose blocks
     // are narrower than the handles covering them — could never be selected.
-    const { axis, handle } = mountLive([80, 160]);
+    const { axis, handle, block } = mountLive([80, 160]);
 
     fire(handle(0), 'pointerdown', { x: 158 });
     fire(axis, 'pointerup', { x: 159, buttons: 0 });
@@ -326,20 +331,39 @@ describe('createStrip - boundary drag', () => {
     expect(callbacks.onFocusDay).toHaveBeenCalledWith(0);
     expect(callbacks.onFocusDay).toHaveBeenCalledTimes(1);
 
-    fire(axis, 'click', { x: 159, buttons: 0 }); // the click the browser sends next
+    // The click the browser sends next, on the block it was released over: the
+    // gesture has already focused the day, so this must not focus it again.
+    fire(block(0), 'click', { x: 159, buttons: 0 });
     expect(callbacks.onFocusDay).toHaveBeenCalledTimes(1);
   });
 
+  // A press that never moved counts as one interaction, not two. Suppressing its
+  // trailing click must not leave the suppression armed for the NEXT click.
   it('still focuses a block clicked after a gesture', () => {
     const { axis, handle, block } = mountLive([80, 160]);
 
     fire(handle(0), 'pointerdown', { x: 158 });
     fire(axis, 'pointerup', { x: 159, buttons: 0 });
-    fire(axis, 'click', { x: 159, buttons: 0 });
+    fire(block(0), 'click', { x: 159, buttons: 0 });
     block(1).click();
 
     expect(callbacks.onFocusDay).toHaveBeenLastCalledWith(1);
     expect(callbacks.onFocusDay).toHaveBeenCalledTimes(2);
+  });
+
+  it('treats a move below the drag threshold as a click, not a drag', () => {
+    // A press wobbles by a pixel or two before it releases. Without a threshold
+    // that wobble starts a drag, which both moves the boundary and suppresses the
+    // click — so a day narrow enough to sit inside its own boundaries' grab
+    // tolerance could never be focused by clicking it.
+    const { axis, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 155 }); // 5 px from the boundary, inside day 1
+    fire(axis, 'pointermove', { x: 157 }); // 2 px of travel
+    fire(axis, 'pointerup', { x: 157, buttons: 0 });
+
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+    expect(callbacks.onFocusDay).toHaveBeenCalledWith(0);
   });
 
   // Everything below is the anti-latch guarantee. A drag that stays latched is
