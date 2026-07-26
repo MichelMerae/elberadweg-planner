@@ -1,5 +1,13 @@
+import { clampBoundaryKm } from './boundaries.js';
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+// Stored lengths are user-facing numbers that get persisted, so keep them at one
+// decimal — snapping to a town at km 76.2345 must not write 76.2345 to storage.
+function round1(n) {
+  return Math.round(n * 10) / 10;
 }
 
 function isValidTargetKm(targetKm) {
@@ -28,7 +36,7 @@ function isValidBreak(place) {
 
 /**
  * Shapes an internal day record into the public, defensive-copy form
- * returned by getDays()/addDay()/editDay()/setTownChoice().
+ * returned by getDays()/addDay()/editDay()/moveBoundary()/setTownChoice().
  */
 function toPublicDay(day, index) {
   return {
@@ -58,6 +66,7 @@ function toPublicDay(day, index) {
  *   getDays: () => Array<{index: number, targetKm: number, startKm: number, endKm: number, townChoice: any|null}>,
  *   addDay: (targetKm: number) => object,
  *   editDay: (index: number, targetKm: number) => object,
+ *   moveBoundary: (index: number, endKm: number) => object,
  *   setTownChoice: (index: number, town: any) => object,
  *   removeLastDay: () => void,
  *   reset: () => void,
@@ -122,12 +131,32 @@ export function createItinerary({ totalKm } = {}) {
     return toPublicDay(days[days.length - 1], days.length - 1);
   }
 
+  // Moves the boundary at the END of days[index] to endKm. Local: the delta is
+  // handed to the next day, so days beyond the neighbour never move. The last
+  // boundary has no neighbour, so moving it extends or shrinks the plan — that
+  // is the append/trim gesture.
+  function moveBoundary(index, endKm) {
+    assertValidIndex(index);
+    if (typeof endKm !== 'number' || !Number.isFinite(endKm)) {
+      throw new Error(`endKm must be a finite number, got: ${endKm}`);
+    }
+    const target = clampBoundaryKm(days, index, endKm, { totalKm: total });
+    const delta = round1(target - days[index].endKm);
+    if (delta === 0) return toPublicDay(days[index], index);
+    days[index].targetKm = round1(days[index].targetKm + delta);
+    const next = days[index + 1];
+    if (next) next.targetKm = round1(next.targetKm - delta);
+    recomputeFrom(index);
+    return toPublicDay(days[index], index);
+  }
+
+  // The typed-distance path: setting a day's length is moving its boundary to
+  // start + length, with the same local semantics and the same clamps.
   function editDay(index, targetKm) {
     assertValidIndex(index);
     assertValidTargetKm(targetKm);
-    days[index].targetKm = targetKm;
-    recomputeFrom(index);
-    return toPublicDay(days[index], index);
+    const startKm = index === 0 ? 0 : days[index - 1].endKm;
+    return moveBoundary(index, startKm + targetKm);
   }
 
   function setTownChoice(index, town) {
@@ -241,6 +270,7 @@ export function createItinerary({ totalKm } = {}) {
     getDays,
     addDay,
     editDay,
+    moveBoundary,
     setTownChoice,
     removeLastDay,
     reset,

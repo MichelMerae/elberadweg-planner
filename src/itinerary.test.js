@@ -48,8 +48,105 @@ describe('createItinerary - clamping', () => {
   });
 });
 
-describe('createItinerary - editDay', () => {
-  it('recomputes the chain for the edited day and all downstream days', () => {
+describe('createItinerary - moveBoundary', () => {
+  it('moves one boundary and lets the next day absorb the delta', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+    itinerary.addDay(80); // boundaries at 80 / 160 / 240 / 320
+
+    itinerary.moveBoundary(2, 265);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80 });
+    expect(days[1]).toMatchObject({ startKm: 80, endKm: 160 });
+    expect(days[2]).toMatchObject({ startKm: 160, endKm: 265, targetKm: 105 });
+    expect(days[3]).toMatchObject({ startKm: 265, endKm: 320, targetKm: 55 });
+  });
+
+  it('leaves days beyond the neighbour completely untouched', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    [80, 80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
+    // TOTAL_KM is 380, so day 4 is clamped from the start: {320, 380}.
+
+    itinerary.moveBoundary(1, 130);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80 });    // before the boundary: still
+    expect(days[2]).toMatchObject({ startKm: 130, endKm: 240 }); // the neighbour: absorbs the 30 km
+    expect(days[3]).toMatchObject({ startKm: 240, endKm: 320 }); // beyond: untouched
+    expect(days[4]).toMatchObject({ startKm: 320, endKm: 380 }); // beyond: untouched, still clamped
+  });
+
+  it('clamps so the edited day keeps MIN_DAY_KM', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 1);
+
+    expect(itinerary.getDays()[0].endKm).toBe(5);
+  });
+
+  it('clamps so the neighbour keeps MIN_DAY_KM', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 300);
+
+    const days = itinerary.getDays();
+    expect(days[0].endKm).toBe(155);
+    expect(days[1]).toMatchObject({ startKm: 155, endKm: 160, targetKm: 5 });
+  });
+
+  it('extends the plan when the last boundary moves out', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 120);
+
+    expect(itinerary.getDays()[0]).toMatchObject({ endKm: 120, targetKm: 120 });
+    expect(itinerary.totalPlannedKm()).toBe(120);
+  });
+
+  it('clamps the last boundary to totalKm', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, TOTAL_KM + 100);
+
+    expect(itinerary.getDays()[0].endKm).toBe(TOTAL_KM);
+  });
+
+  it('rounds to one decimal so stored lengths stay tidy', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 76.2345);
+
+    const days = itinerary.getDays();
+    expect(days[0].targetKm).toBe(76.2);
+    expect(days[1].targetKm).toBe(83.8);
+  });
+
+  it('throws on an out-of-range index', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    expect(() => itinerary.moveBoundary(5, 50)).toThrow();
+  });
+
+  it('throws on a non-finite endKm', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    expect(() => itinerary.moveBoundary(0, Number.NaN)).toThrow();
+  });
+});
+
+describe('createItinerary - editDay (local, typed distance)', () => {
+  it('sets the edited day length and lets the neighbour absorb it', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(80);
     itinerary.addDay(80);
@@ -58,12 +155,12 @@ describe('createItinerary - editDay', () => {
     itinerary.editDay(0, 100);
 
     const days = itinerary.getDays();
-    expect(days[0]).toMatchObject({ startKm: 0, endKm: 100 });
-    expect(days[1]).toMatchObject({ startKm: 100, endKm: 180 });
-    expect(days[2]).toMatchObject({ startKm: 180, endKm: 260 });
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 100, targetKm: 100 });
+    expect(days[1]).toMatchObject({ startKm: 100, endKm: 160, targetKm: 60 });
+    expect(days[2]).toMatchObject({ startKm: 160, endKm: 240, targetKm: 80 });
   });
 
-  it('clamps a downstream day pushed past totalKm by an edit', () => {
+  it('clamps a length that would starve the neighbour', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(80);
     itinerary.addDay(80);
@@ -71,8 +168,8 @@ describe('createItinerary - editDay', () => {
     itinerary.editDay(0, 350);
 
     const days = itinerary.getDays();
-    expect(days[0]).toMatchObject({ startKm: 0, endKm: 350 });
-    expect(days[1]).toMatchObject({ startKm: 350, endKm: TOTAL_KM });
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 155 });
+    expect(days[1]).toMatchObject({ startKm: 155, endKm: 160 });
   });
 
   it('throws on an out-of-range index', () => {
@@ -480,11 +577,11 @@ describe('createItinerary - break re-bucketing across day edits', () => {
     expect(itinerary.breaksInRange(0, 80).map((b) => b.name)).toEqual(['Stop']);
     expect(itinerary.breaksInRange(80, 160)).toHaveLength(0);
 
-    // Shorten day 0 to 60: day0 = (0,60], day1 = (60,140]; the break moves to day 1.
+    // Shorten day 0 to 60: day0 = (0,60], day1 = (60,160]; the break moves to day 1.
     itinerary.editDay(0, 60);
     const days = itinerary.getDays();
     expect(days[0]).toMatchObject({ startKm: 0, endKm: 60 });
-    expect(days[1]).toMatchObject({ startKm: 60, endKm: 140 });
+    expect(days[1]).toMatchObject({ startKm: 60, endKm: 160 });
     expect(itinerary.breaksInRange(days[0].startKm, days[0].endKm)).toHaveLength(0);
     expect(
       itinerary.breaksInRange(days[1].startKm, days[1].endKm).map((b) => b.name),
