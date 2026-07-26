@@ -309,6 +309,52 @@ describe('createItinerary - setTownChoice', () => {
     expect(itinerary.getDays()[0].endKm).toBe(80);
   });
 
+  it('resizes the plan when the last day gets a town', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80); // plan ends at km 160
+
+    itinerary.setTownChoice(1, { name: 'Dömitz', routeDistanceKm: 150 });
+
+    const days = itinerary.getDays();
+    // The last boundary has no neighbour to absorb the change, so the plan's own
+    // end moves: sleeping at km 150 on your last planned night means the plan ends
+    // there, and the distance still to ride to Dresden grows to match.
+    expect(days[1]).toMatchObject({ startKm: 80, endKm: 150, targetKm: 70 });
+    expect(itinerary.totalPlannedKm()).toBe(150);
+    expect(days).toHaveLength(2);
+  });
+
+  it('clamps a town that sits before the day can legally end', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.setTownChoice(0, { name: 'Too Early', routeDistanceKm: 2 });
+
+    const days = itinerary.getDays();
+    // The lower clamp, the mirror of the starve case above.
+    expect(days[0].endKm).toBe(MIN_DAY_KM);
+    expect(days[1]).toMatchObject({ startKm: MIN_DAY_KM, endKm: 160, targetKm: 155 });
+    expect(days[0].townChoice.routeDistanceKm).toBe(2);
+  });
+
+  it('records a town even when the boundary has nowhere legal to move', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(6);
+    itinerary.addDay(3); // the pair spans 9 km, under 2 x MIN_DAY_KM
+
+    itinerary.setTownChoice(0, { name: 'Wedged', routeDistanceKm: 8 });
+
+    const days = itinerary.getDays();
+    // moveBoundary refuses outright — no position leaves both days their minimum.
+    // The town is still recorded, so the panel can show it alongside the note that
+    // the boundary could not reach it.
+    expect(days[0]).toMatchObject({ endKm: 6, targetKm: 6 });
+    expect(days[1]).toMatchObject({ startKm: 6, endKm: 9 });
+    expect(days[0].townChoice.routeDistanceKm).toBe(8);
+  });
+
   it('ignores a town whose route position is not a real number', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(80);
