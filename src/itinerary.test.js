@@ -940,3 +940,58 @@ describe('createItinerary - deleteDay', () => {
     expect(() => itinerary.deleteDay(3)).toThrow();
   });
 });
+
+// Both data-loss bugs found in review had the same shape: the in-memory plan
+// looked fine and persisted fine, then hydrate rejected it and dropped every day.
+// Assert the property directly rather than enumerating the cases we happen to know.
+describe('createItinerary - every emitted plan survives a reload', () => {
+  function reloadCount(itinerary) {
+    const stored = itinerary.getDays().map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice }));
+    const fresh = createItinerary({ totalKm: TOTAL_KM });
+    fresh.hydrate(stored);
+    return fresh.getDays().length;
+  }
+
+  function expectLoadable(itinerary, label) {
+    const days = itinerary.getDays();
+    for (const day of days) {
+      expect(day.targetKm, `${label}: targetKm must stay positive`).toBeGreaterThan(0);
+      expect(day.endKm, `${label}: day must not invert`).toBeGreaterThanOrEqual(day.startKm);
+    }
+    expect(reloadCount(itinerary), `${label}: plan must survive a reload`).toBe(days.length);
+  }
+
+  it('survives a distance edit on a sub-minimum pair', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(2);
+    itinerary.addDay(2);
+    itinerary.addDay(50);
+
+    itinerary.editDay(0, 30);
+
+    expectLoadable(itinerary, 'editDay on a sub-minimum pair');
+  });
+
+  it('survives deleting a vestigial day left past a shrunk route', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.hydrate([{ targetKm: 400 }, { targetKm: 10 }, { targetKm: 10 }]);
+
+    itinerary.deleteDay(1);
+
+    expectLoadable(itinerary, 'deleteDay merging vestigial days');
+  });
+
+  it('survives split, delete and boundary moves across a normal plan', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    [80, 80, 80].forEach((km) => itinerary.addDay(km));
+
+    itinerary.moveBoundary(0, 76.25);
+    expectLoadable(itinerary, 'after moveBoundary');
+    itinerary.splitDay(1);
+    expectLoadable(itinerary, 'after splitDay');
+    itinerary.deleteDay(0);
+    expectLoadable(itinerary, 'after deleteDay');
+    itinerary.editDay(0, 12.34);
+    expectLoadable(itinerary, 'after editDay');
+  });
+});

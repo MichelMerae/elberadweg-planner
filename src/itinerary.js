@@ -199,7 +199,9 @@ export function createItinerary({ totalKm } = {}) {
   // end is where the original day ended (that is still where you sleep); the new
   // first half starts with none. Deriving the second half as `length - first`
   // rather than rounding it independently keeps the two provably summing to the
-  // original. Returns null when the day is too short to split.
+  // original — assuming the span is already at 0.1 km precision, which every
+  // write path guarantees (round1 or integer input); a raw x.x5 span would gain
+  // 0.05 km here. Returns null when the day is too short to split.
   function splitDay(index) {
     assertValidIndex(index);
     const day = days[index];
@@ -224,6 +226,14 @@ export function createItinerary({ totalKm } = {}) {
   // inflated by a totalKm clamp. The last day has no next day, so deleting it
   // truncates the plan. Breaks are plan-level and re-bucket themselves from the
   // new ranges.
+  //
+  // The merged length is floored at MIN_DAY_KM: two vestigial days stranded past
+  // a shrunk route span zero km, and hydrate rejects a non-positive length by
+  // dropping the whole plan on the next reload. Floor rather than refuse — the
+  // opposite of moveBoundary's guard — because the user asked to delete this day
+  // and a button that silently does nothing is worse. A stored length longer than
+  // the real span is already a permitted state; the end stays clamped at totalKm,
+  // so nothing moves.
   function deleteDay(index) {
     assertValidIndex(index);
     if (index === days.length - 1) {
@@ -231,7 +241,7 @@ export function createItinerary({ totalKm } = {}) {
       return;
     }
     const next = days[index + 1];
-    next.targetKm = round1(next.endKm - days[index].startKm);
+    next.targetKm = Math.max(round1(next.endKm - days[index].startKm), MIN_DAY_KM);
     days.splice(index, 1);
     recomputeFrom(index);
   }
