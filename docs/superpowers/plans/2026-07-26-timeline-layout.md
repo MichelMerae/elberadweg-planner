@@ -1802,7 +1802,7 @@ The app runs with the strip live at the end of this task; the old right-panel co
 
 - [ ] **Step 1: Restructure `index.html`**
 
-Replace the `<body>` contents with the four zones plus the strip:
+Replace the `<body>` contents with the new zones **plus the legacy containers**, which have to survive this task:
 
 ```html
   <body>
@@ -1815,11 +1815,21 @@ Replace the `<body>` contents with the four zones plus the strip:
     <div id="app-body">
       <aside id="panel-left">
         <div id="places"></div>
+        <!-- Legacy containers. The current ui.js writes into these on creation and
+             throws on a null element, so they must exist until the module that
+             replaces them lands. Task 11 folds both into #places. -->
+        <div id="favorites"></div>
+        <div id="pois"></div>
       </aside>
       <div id="map"></div>
       <aside id="panel">
         <div id="banner" class="banner" hidden></div>
         <div id="day-panel"></div>
+        <!-- Legacy containers, as above. Task 10 replaces #controls and #itinerary
+             with #day-panel; #towns moves into #places in Task 11. -->
+        <div id="controls"></div>
+        <div id="towns"></div>
+        <div id="itinerary"></div>
       </aside>
     </div>
     <div id="strip"></div>
@@ -1827,7 +1837,9 @@ Replace the `<body>` contents with the four zones plus the strip:
   </body>
 ```
 
-The removed `#panel-left-header`, `#favorites`, `#pois`, `#towns`, `#controls`, `#itinerary` and `#panel-footer` are replaced by `#places`, `#day-panel` and `#strip`. The OSM attribution moves into the strip's scale line (Task 13 wires the text; keep the credit visible — ODbL requires it).
+**Why the legacy containers stay:** this task mounts the strip but keeps the existing `ui.js`, and `createUI` runs `controlsEl.innerHTML = …` the moment it is called (`ui.js:121`). Delete `#controls` and `main.js` hands it `null`, `createUI` throws, and the app boots to a white screen — which is the opposite of this task's promise that nothing is unreachable in between. Each legacy container is removed by the task that replaces its content: `#controls`/`#itinerary` in Task 10, `#favorites`/`#pois`/`#towns` in Task 11.
+
+`#panel-left-header` and `#panel-footer` are genuinely gone now — nothing renders into them. The OSM attribution the footer carried moves into the strip's scale line (wired in Task 14; keep the credit visible, ODbL requires it).
 
 - [ ] **Step 2: Replace the layout shell in `src/style.css`**
 
