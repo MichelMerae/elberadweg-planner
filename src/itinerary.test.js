@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createItinerary, breakKey } from './itinerary.js';
+import { MIN_DAY_KM } from './boundaries.js';
 
 const TOTAL_KM = 380; // Hamburg -> Dresden, approx
 
@@ -769,7 +770,10 @@ describe('createItinerary - splitDay', () => {
     itinerary.addDay(100);
     itinerary.addDay(80);
 
-    itinerary.splitDay(0);
+    // The return value is the FIRST half — the day still at `index`, matching
+    // what moveBoundary/editDay/setTownChoice return. Asserted so the choice is
+    // pinned rather than incidental.
+    expect(itinerary.splitDay(0)).toMatchObject({ index: 0, startKm: 0, endKm: 50 });
 
     const days = itinerary.getDays();
     expect(days).toHaveLength(3);
@@ -796,6 +800,22 @@ describe('createItinerary - splitDay', () => {
 
     expect(itinerary.splitDay(0)).toBeNull();
     expect(itinerary.getDays()).toHaveLength(1);
+  });
+
+  // Pins the threshold itself: exactly 2 x MIN_DAY_KM must SUCCEED, yielding two
+  // minimum-length days. Without this, `<` could drift to `<=` unnoticed, and the
+  // day panel's Split button (enabled on `length >= 2 * MIN_DAY_KM`) would then
+  // offer a split the model refuses.
+  it('splits a day of exactly two minimum days into two minimum days', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(2 * MIN_DAY_KM);
+
+    expect(itinerary.splitDay(0)).not.toBeNull();
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(2);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: MIN_DAY_KM, targetKm: MIN_DAY_KM });
+    expect(days[1]).toMatchObject({ startKm: MIN_DAY_KM, endKm: 2 * MIN_DAY_KM, targetKm: MIN_DAY_KM });
   });
 
   it('handles an odd length without losing a tenth of a km', () => {
