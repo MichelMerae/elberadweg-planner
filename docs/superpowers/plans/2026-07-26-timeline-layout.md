@@ -3416,7 +3416,7 @@ Tasks 10, 11 and 13 were executed in parallel, each scoped to its own module onl
 - Task 10 Step 5: `createDayPanel({ el: #day-panel (index.html:46), callbacks })`; `render({ day, dayCount, breaks, fromName, customStopDraft })`; `day: null` → empty state; `onEditDay` already delivers a round1'd positive `targetKm`; `handleDeleteDay` sets `focusedDayIndex = null` and lets `clampFocus` pick the survivor.
 - Task 11 Steps 4–5: `createPlaces({ el: #places (index.html:36), callbacks })` → `{ render, highlightPoiRow }`; pass the plan's `renderPlaces()` state object unchanged (`breakKeys` non-prefixed `name@km`, `favoriteKeys` prefixed `kind:name@km`, `dayNumber: null` when unfocused). Do NOT wire `onExpandSection` — it does not exist; the plan prose naming it (near the Step 3 code) is stale. Favorites body click fires `onSelectPoi`, which is behaviour-identical (`main.js:118` already maps `onSelectFavorite: handleSelectPoi`).
 - Redirect `ui.highlightPoiRow` → `places.highlightPoiRow` at `main.js:95` and `main.js:393`.
-- Never query `#custom-stop-prompt` via `document` — the id is duplicated (day-panel's persistent node + ui.js's legacy controls block) until the controls block dies.
+- Never query `#custom-stop-prompt` via `document` — the id is duplicated (day-panel's persistent node + ui.js's legacy controls block) until the controls block dies. **And post-03eeb77: in the empty state the prompt node is fully detached — `#custom-stop-prompt` does not exist in the DOM when the plan has no days.**
 
 **index.html:** `#map-controls` with the two `.map-btn` buttons (Task 13 Step 2); remove legacy `#controls`, `#towns`, `#pois`, `#favorites`, `#itinerary` containers as their replacements come online.
 
