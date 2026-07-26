@@ -3444,6 +3444,8 @@ Tasks 10, 11 and 13 were executed in parallel, each scoped to its own module onl
 - Create: `src/plans-bar.js`
 - Modify: `src/ui.js`, `src/main.js`, `src/style.css`
 
+> **Every `ui.js` line number in this section is stale — find the code by name.** Measured 2026-07-26 against the real file: `activePlanName` is at **174** (plan says 225), the `change` listener at **179** (plan says 230), the `click` listener at **195** (plan says 246), `renderPlans` at **633** (plan says 684). A uniform ~50-line drift from Task 5's `ui-util.js` extraction, which removed lines the plan was written against — the same drift the Task 11 review found in its own section. **And the integration pass moves `renderPlans` again**: it deletes `renderCustomStopPrompt`, `renderPendingBreaks`, `breakEditButton` and `startBreakEdit` (~150 lines, all *above* `renderPlans` and *below* the plans-bar state/listeners), so after integration the plans-bar block stays put around 174-208 while `renderPlans` moves up by roughly that much. The function names and the "verbatim move, `plansEl` → `el` rename only" instruction are correct and are what to trust.
+
 - [ ] **Step 1: Move the module**
 
 Create `src/plans-bar.js` holding `renderPlans`, the `currentPlans` / `activePlanId` tracking, `activePlanName`, and the two `plansEl` listeners — all four moved verbatim from `src/ui.js:222-259` (state + listeners) and `src/ui.js:684-705` (`renderPlans`), with `plansEl` renamed to `el` and `renderPlans` renamed to `render`:
