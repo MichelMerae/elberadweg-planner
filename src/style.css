@@ -1455,9 +1455,14 @@ input[type="number"]:disabled {
   text-overflow: ellipsis;
 }
 
+/* One layer for the whole axis, each break at its absolute route km — not a
+   child of its day, which clipped them against the block's overflow: hidden and
+   limited them to the widest label tier. z-index lifts them over the blocks that
+   follow them in source order; pointer-events: none keeps block clicks working. */
 .strip__glyph {
   position: absolute;
   bottom: 2px;
+  z-index: 1;
   font-size: 10px;
   transform: translateX(-50%);
   pointer-events: none;
@@ -1488,25 +1493,29 @@ input[type="number"]:disabled {
   border-color: var(--river);
 }
 
-.strip__flag,
-.strip__finish {
+.strip__flag {
   font-size: 11px;
   color: var(--text-faint);
 }
 
+/* Sits in the scale line, replacing "km 650 · Dresden". On the axis at right: 0
+   it collided with the last block and the last handle, which is what a finished
+   plan always leaves it doing. */
 .strip__finish {
-  position: absolute;
-  right: 0;
-  bottom: 4px;
   color: var(--done);
 }
 
 /* The boundary itself: a thin grab bar straddling two blocks. 10 px wide, with
-   -7px insets giving it a ~24 px touch target. */
+   -7px insets giving it a ~24 px touch target.
+
+   z-index because handles are interleaved with the blocks in source order (that
+   order is the tab order) — without it, day n+1 would paint over the left half
+   of the handle sitting on its own start. */
 .strip__handle {
   position: absolute;
   top: -3px;
   bottom: -3px;
+  z-index: 2;
   width: 10px;
   margin-left: -5px;
   padding: 0;

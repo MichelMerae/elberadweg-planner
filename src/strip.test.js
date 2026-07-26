@@ -520,7 +520,7 @@ describe('createStrip - blocks', () => {
     expect(glyph.style.left).toBe('100px'); // km 50 at 2 px/km
   });
 
-  it('shows breaks past the last day on the remainder', () => {
+  it('shows a break past the last planned day', () => {
     const strip = mount();
     strip.render({
       days: days(80),
@@ -529,15 +529,17 @@ describe('createStrip - blocks', () => {
       breaks: [{ name: 'Later', kind: 'sight', routeDistanceKm: 300 }],
     });
 
-    const glyph = el.querySelector('.strip__remainder .strip__glyph');
+    const glyph = el.querySelector('.strip__glyph');
     expect(glyph).not.toBeNull();
     expect(glyph.textContent).toBe('📷');
+    expect(glyph.style.left).toBe('600px'); // km 300 at 2 px/km
   });
 
-  // The fixture above puts its glyph inside a day that starts at km 0, where a
-  // renderer that forgot to subtract the container's own left edge would still
-  // land on the right pixel. Pin the offset on a day that starts elsewhere.
-  it('positions a glyph relative to its own block, not the axis', () => {
+  // Glyphs are one axis-level layer at absolute route km, not children of the day
+  // they fall in. Inside a block they were clipped by its overflow: hidden, had
+  // to have the block's own left edge subtracted, and — the reason this moved —
+  // could only be drawn at the widest label tier.
+  it('draws a glyph on the axis at its absolute km, not inside a block', () => {
     const strip = mount();
     strip.render({
       days: days(80, 160),
@@ -546,10 +548,68 @@ describe('createStrip - blocks', () => {
       breaks: [{ name: 'Café', kind: 'food', routeDistanceKm: 100 }],
     });
 
-    // Day 2 spans km 80-160, so its block starts at x 160. The glyph sits at
-    // km 100 -> x 200 on the axis, i.e. 40 px into its own block.
-    const glyph = el.querySelectorAll('.strip__block')[1].querySelector('.strip__glyph');
-    expect(glyph.style.left).toBe('40px');
+    const glyph = el.querySelector('.strip__glyph');
+    expect(glyph.parentElement.dataset.stripAxis).toBeDefined();
+    expect(glyph.style.left).toBe('200px'); // km 100 at 2 px/km
+    expect(el.querySelector('.strip__block .strip__glyph')).toBeNull();
+  });
+
+  // The bug: glyphs used to render only at the 'full' label tier, whose threshold
+  // is 88 px — about 39 km at desktop width. A 20 km day with a café showed
+  // nothing at all, and the tooltip did not mention it either.
+  it('shows a break on a day too narrow to carry a label', () => {
+    const strip = mount();
+    strip.render({
+      days: days(20, 200),
+      totalKm: TOTAL_KM,
+      focusedIndex: 0,
+      breaks: [{ name: 'Café', kind: 'food', routeDistanceKm: 10 }],
+    });
+
+    // 20 km is 40 px here: the day number fits, its km does not, and the 'full'
+    // tier that used to gate glyphs starts at 88 px.
+    const narrow = el.querySelectorAll('.strip__block')[0];
+    expect(narrow.querySelector('.strip__block-km')).toBeNull();
+    expect(el.querySelector('.strip__glyph').style.left).toBe('20px');
+  });
+
+  // A cluster of glyphs on a narrow day is one illegible smudge, so the day's
+  // tooltip has to name what is in it.
+  it('names a day’s breaks in its tooltip', () => {
+    const strip = mount();
+    strip.render({
+      days: days(100, 200),
+      totalKm: TOTAL_KM,
+      focusedIndex: 0,
+      breaks: [
+        { name: 'Café', kind: 'food', routeDistanceKm: 50 },
+        { name: 'Schloss', kind: 'sight', routeDistanceKm: 60 },
+        { name: 'Elsewhere', kind: 'food', routeDistanceKm: 150 },
+      ],
+    });
+
+    const title = el.querySelectorAll('.strip__block')[0].getAttribute('title');
+    expect(title).toContain('☕ Café');
+    expect(title).toContain('📷 Schloss');
+    expect(title).not.toContain('Elsewhere'); // that one is day 2's
+  });
+
+  it('falls back to a pin for an unrecognised break kind', () => {
+    const strip = mount();
+    strip.render({
+      days: days(100),
+      totalKm: TOTAL_KM,
+      focusedIndex: 0,
+      // A hand-edited plan can carry any string here. A bare property lookup on
+      // the glyph map interpolates Object.prototype members — 'toString' puts a
+      // function body in the markup — and '☕' as the fallback would also
+      // mislabel an unknown break as a coffee stop.
+      breaks: [{ name: 'Odd', kind: 'toString', routeDistanceKm: 50 }],
+    });
+
+    const glyph = el.querySelector('.strip__glyph');
+    expect(glyph.textContent).toBe('📌');
+    expect(el.querySelector('[data-strip-axis]').innerHTML).not.toContain('function');
   });
 });
 
@@ -598,6 +658,27 @@ describe('createStrip - focus and add', () => {
     expect(el.querySelector('.strip__remainder')).toBeNull();
     expect(el.querySelector('.strip__finish')).not.toBeNull();
   });
+
+  // At right: 0 on the axis the finish marker landed on top of the last block and
+  // underneath the last handle. The scale line already says where Dresden is, so
+  // it says "reached" there instead and collides with nothing.
+  it('puts the finish marker in the scale line, not on the axis', () => {
+    const strip = mount();
+    strip.render({ days: days(TOTAL_KM), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
+
+    const finish = el.querySelector('.strip__finish');
+    expect(finish.parentElement.classList.contains('strip__scale')).toBe(true);
+    expect(el.querySelector('[data-strip-axis] .strip__finish')).toBeNull();
+    expect(finish.textContent).toContain('650');
+  });
+
+  it('keeps the plain scale line while the trip is unfinished', () => {
+    const strip = mount();
+    strip.render({ days: days(80), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
+
+    expect(el.querySelector('.strip__finish')).toBeNull();
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 650 · Dresden');
+  });
 });
 
 describe('createStrip - handles', () => {
@@ -619,6 +700,24 @@ describe('createStrip - handles', () => {
     strip.render({ days: days(80), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
 
     expect(el.querySelector('.strip__handle').getAttribute('aria-valuemax')).toBe('650');
+  });
+
+  // Handles are absolutely positioned, so source order buys nothing visually
+  // (z-index keeps them above the blocks) — it is the tab order. Rendering all
+  // blocks and then all handles made a keyboard user cross the whole trip twice.
+  it('tabs left to right along the trip: day, its boundary, next day', () => {
+    const strip = mount();
+    strip.render({ days: days(80, 160), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
+
+    const order = [...el.querySelectorAll('.strip__block, .strip__handle, .strip__add')].map((node) =>
+      node.dataset.dayIndex !== undefined
+        ? `day${node.dataset.dayIndex}`
+        : node.dataset.boundaryIndex !== undefined
+          ? `boundary${node.dataset.boundaryIndex}`
+          : 'add',
+    );
+
+    expect(order).toEqual(['day0', 'boundary0', 'day1', 'boundary1', 'add']);
   });
 });
 

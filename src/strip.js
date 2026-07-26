@@ -98,17 +98,44 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
       <span>${right}</span>`;
   }
 
-  // Glyphs for the breaks inside [startKm, endKm], positioned by km relative to
-  // the container's own left edge (`containerLeft` is that container's rendered
-  // px left, so the offsets agree with where the browser actually put it).
-  function glyphs(startKm, endKm, containerLeft) {
+  /**
+   * The glyph for a break's kind.
+   *
+   * `kind` comes from a stored plan a user could have hand-edited, so a bare
+   * property lookup reaches Object.prototype — `kind: "toString"` interpolates a
+   * function body into the markup. And '☕' as the fallback mislabels an unknown
+   * break as a coffee stop; 📌 (custom) is the honest default.
+   */
+  function glyphFor(b) {
+    return Object.hasOwn(BREAK_GLYPH, b.kind) ? BREAK_GLYPH[b.kind] : '📌';
+  }
+
+  // Breaks inside (startKm, endKm]. Day 1 starts at km 0 and owns a break sitting
+  // exactly there, which is why the lower edge opens up for it.
+  function breaksIn(startKm, endKm) {
+    return state.breaks.filter(
+      (b) => b.routeDistanceKm > (startKm === 0 ? -1 : startKm) && b.routeDistanceKm <= endKm,
+    );
+  }
+
+  /**
+   * One glyph layer for the whole axis, each break at its absolute route km.
+   *
+   * These used to be children of the day they fell in, which cost three things: a
+   * block's `overflow: hidden` clipped them, every offset needed the block's own
+   * rendered left edge subtracted (a whole class of off-by-a-block bug), and they
+   * were gated behind the widest label tier — 88 px, about 39 km at desktop
+   * width — so a 20 km day with a café silently showed nothing. At axis level
+   * they work at every tier. They are pointer-events: none, so clicks still reach
+   * the block underneath.
+   */
+  function glyphLayer() {
     const opts = axisOpts();
     return state.breaks
-      .filter((b) => b.routeDistanceKm > (startKm === 0 ? -1 : startKm) && b.routeDistanceKm <= endKm)
+      .filter((b) => Number.isFinite(b.routeDistanceKm) && b.routeDistanceKm >= 0 && b.routeDistanceKm <= state.totalKm)
       .map((b) => {
-        const x = kmToX(b.routeDistanceKm, opts) - containerLeft;
-        const glyph = BREAK_GLYPH[b.kind] || '☕';
-        return `<span class="strip__glyph" style="left:${round1(x)}px" title="${esc(b.name)}">${glyph}</span>`;
+        const x = kmToX(b.routeDistanceKm, opts);
+        return `<span class="strip__glyph" style="left:${round1(x)}px" title="${esc(b.name)}">${glyphFor(b)}</span>`;
       })
       .join('');
   }
@@ -174,40 +201,54 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
     summaryEl.innerHTML = summary();
 
     const layout = stripLayout(state.days, axisOpts());
+    // Day then its own boundary, left to right along the trip. Handles are
+    // absolutely positioned and lifted by z-index, so source order costs nothing
+    // visually and buys the tab order: all blocks and then all handles made a
+    // keyboard user cross the whole route twice to reach day 2's end.
     const blocks = layout.blocks
       .map((block) => {
         const day = state.days[block.index];
         const box = span(block.x, block.width);
         const focused = block.index === state.focusedIndex ? ' strip__block--focused' : '';
         const town = day.townChoice ? ` — ${day.townChoice.name}` : '';
-        const title = `Day ${block.index + 1} · ${round1(day.endKm - day.startKm)} km · km ${round1(day.startKm)} → ${round1(day.endKm)}${town}`;
+        // Name the breaks: on a narrow day their glyphs overlap into one
+        // illegible cluster, and a 5 km day is ~11 px wide.
+        const marks = breaksIn(day.startKm, day.endKm);
+        const marked = marks.length ? ` · ${marks.map((b) => `${glyphFor(b)} ${b.name}`).join(', ')}` : '';
+        const title = `Day ${block.index + 1} · ${round1(day.endKm - day.startKm)} km · km ${round1(day.startKm)} → ${round1(day.endKm)}${town}${marked}`;
         return `
           <div class="strip__block${focused}" data-day-index="${block.index}" role="button" tabindex="0"
                style="left:${box.left}px;width:${box.width}px" title="${esc(title)}">
             ${blockLabel(block, day)}
-            ${block.tier === 'full' ? glyphs(day.startKm, day.endKm, box.left) : ''}
-          </div>`;
+          </div>${handle(block.index)}`;
       })
       .join('');
 
     const { remainder } = layout;
     const tailBox = span(remainder.x, remainder.width);
+    const arrived = state.days.length > 0 && tailBox.width <= 0;
     const tail =
       tailBox.width > 0
         ? `<div class="strip__remainder" style="left:${tailBox.left}px;width:${tailBox.width}px">
-             ${glyphs(remainder.startKm, remainder.endKm, tailBox.left)}
              <button type="button" class="strip__add" data-action="add-day">+ add a day</button>
              <span class="strip__flag">⚑ Dresden</span>
            </div>`
-        : '<span class="strip__finish">⚑ Dresden reached</span>';
+        : '';
 
     const restore = focusedSelector();
-    axisEl.innerHTML = blocks + tail + state.days.map((_, i) => handle(i)).join('');
+    axisEl.innerHTML = blocks + tail + glyphLayer();
     // preventScroll: the strip sits at the bottom of a height:100vh,
     // overflow:hidden body, and scrolling that to "reveal" the handle shoves the
     // whole app off screen.
     if (restore) axisEl.querySelector(restore)?.focus({ preventScroll: true });
-    scaleEl.innerHTML = `<span>km 0 · Hamburg</span><span>km ${round1(state.totalKm)} · Dresden</span>`;
+    // The finish marker lives here rather than on the axis: at right: 0 over a
+    // collapsed remainder it sat on top of the last block and underneath the last
+    // handle. The scale line already names Dresden, so it says "reached" instead.
+    scaleEl.innerHTML =
+      `<span>km 0 · Hamburg</span>` +
+      (arrived
+        ? `<span class="strip__finish">⚑ km ${round1(state.totalKm)} · Dresden reached</span>`
+        : `<span>km ${round1(state.totalKm)} · Dresden</span>`);
   }
 
   // --- Interaction -------------------------------------------------------
