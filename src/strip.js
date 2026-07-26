@@ -286,14 +286,17 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
   }
 
   function emitMove(index, clientX, commit) {
+    // A latched index can outlive the day it belongs to: switching plans
+    // re-renders the strip with a different set of days mid-gesture, and
+    // deriving bounds from a stale index then reads endKm of undefined.
+    if (!state.days[index]) return;
     const km = proposeKm(index, kmAtClientX(clientX));
     if (km === null) {
       // The window collapsed under the drag. Nothing legal left to ask for, but a
       // release still has to reach main.js once so the moves already applied get
       // persisted; the boundary's own value is a no-op move that does that.
-      const current = commit ? state.days[index]?.endKm : undefined;
-      if (current === undefined) return;
-      callbacks.onMoveBoundary?.(index, round1(current), { commit: true });
+      if (!commit) return;
+      callbacks.onMoveBoundary?.(index, round1(state.days[index].endKm), { commit: true });
       return;
     }
     // Previews only: don't spend a full axis rebuild on a pointer that hasn't

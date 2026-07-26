@@ -423,6 +423,28 @@ describe('createStrip - boundary drag', () => {
     expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
   });
 
+  it('survives the day list shrinking under a live drag', () => {
+    // Switching plans re-renders the strip with a different set of days, so a
+    // latched boundary index can end up with no day behind it. Deriving bounds
+    // from that index then reads days[index + 1].endKm of undefined.
+    const errors = [];
+    const onError = (e) => errors.push(e.message || String(e.error));
+    window.addEventListener('error', onError);
+    const { axis, strip, handle } = mountLive([80, 160, 240]);
+
+    fire(handle(2), 'pointerdown', { x: 480 });
+    callbacks.onMoveBoundary.mockImplementation(() => {
+      strip.render({ days: days(80), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
+    });
+    fire(axis, 'pointermove', { x: 520 });
+    fire(axis, 'pointermove', { x: 560 });
+    fire(axis, 'pointerup', { x: 560, buttons: 0 });
+    window.removeEventListener('error', onError);
+
+    expect(errors).toEqual([]);
+    expect(axis.querySelector('.strip__handle--dragging')).toBeNull();
+  });
+
   it('does not drag a boundary that has nowhere legal to go', () => {
     const { axis, moves, handle } = mountLive([6, 9]);
 
