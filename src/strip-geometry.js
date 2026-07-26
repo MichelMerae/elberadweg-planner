@@ -19,14 +19,14 @@ function positive(n) {
 
 /** Route km -> x on the axis, clamped to the axis. */
 export function kmToX(km, { totalKm, width } = {}) {
-  if (!positive(totalKm) || !positive(width)) return 0;
+  if (!positive(totalKm) || !positive(width) || !Number.isFinite(km)) return 0;
   const clamped = Math.min(Math.max(km, 0), totalKm);
   return (clamped / totalKm) * width;
 }
 
 /** x on the axis -> route km, clamped to the route. */
 export function xToKm(x, { totalKm, width } = {}) {
-  if (!positive(totalKm) || !positive(width)) return 0;
+  if (!positive(totalKm) || !positive(width) || !Number.isFinite(x)) return 0;
   const clamped = Math.min(Math.max(x, 0), width);
   return (clamped / width) * totalKm;
 }
@@ -45,7 +45,13 @@ export function labelTier(width) {
 
 /**
  * Pixel layout for the strip: one block per day plus the trailing unplanned
- * remainder. Blocks are contiguous and to scale.
+ * remainder. Blocks are to scale, and contiguous as long as the caller passes
+ * a properly chained day list (which the itinerary model guarantees).
+ *
+ * A block's `width` can be NEGATIVE for an inverted day (endKm before startKm),
+ * which the model can transiently hold on pathological stored data. That is
+ * deliberate: `x + width` must keep equalling `kmToX(endKm)` so handle positions
+ * stay truthful. **Renderers clamp width at zero; hit-testing relies on the sum.**
  *
  * @param {Array<{startKm: number, endKm: number}>} days
  * @param {{totalKm: number, width: number}} opts

@@ -1115,7 +1115,7 @@ export function hitTestHandle(x, layout, { tolerance = HANDLE_TOLERANCE_PX } = {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/strip-geometry.test.js`
-Expected: PASS, 17 tests.
+Expected: PASS, 15 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1141,6 +1141,13 @@ No new behaviour, so no new test; the existing sub-epsilon layout test and `hasR
 **Files:**
 - Create: `src/strip.js`, `src/strip.test.js`
 - Modify: `package.json` (add `jsdom` dev dependency)
+
+**Four constraints from Task 6's review — the geometry is deliberately float and unclamped, so the renderer owns these:**
+
+1. **Verify the labels actually fit at the tier boundaries.** `labelTier`'s thresholds (64 / 30 / 14 px) encode font metrics that don't exist until this task. At a 1400 px axis over 650.24 km (2.15 px/km) they mean: full tier ≥ 29.7 km, km tier ≥ 13.9 km, number tier ≥ 6.5 km — so ordinary 55–80 km days land at 118–172 px with plenty of room. But `number` at 14 px barely fits a two-digit day at an 11 px font, and `km` at 30 px cannot fit `65 km` (~33–38 px) without shrinking or stacking. Check both at exactly 64 / 30 / 14 px with a two-digit day number; if they clip, raise the constants in `strip-geometry.js` and move the `labelTier` boundary fixtures with them. Nothing else depends on the values.
+2. **Clamp negative block widths at render, never in geometry.** An inverted day yields a negative `width` on purpose, so that `x + width` keeps equalling `kmToX(endKm)` and handle positions stay truthful. CSS `width: -100px` is invalid, gets ignored, and a positioned div then renders at `auto` — visible garbage. Use `Math.max(0, block.width)` in the render path only.
+3. **Never round `x` and `width` independently.** 0.1 km is ~0.2 px, so rounding in geometry would destroy the km grid; adjacent edges already agree to ~1e-13 and fractional CSS renders seamlessly. If you round at all, round cumulatively — `left = round(x)`, `width = round(x + w) - round(x)` — or independent rounding will scatter 1 px seams and overlaps along the axis.
+4. **Give the axis a couple of px of horizontal breathing room.** The last handle renders at x ≈ the axis width, so `overflow: hidden` on the strip would clip it in half.
 
 - [ ] **Step 1: Install jsdom**
 
@@ -1542,6 +1549,18 @@ git commit -m "feat: render the trip as a to-scale timeline strip"
 **Files:**
 - Modify: `src/strip.js`
 - Test: `src/strip.test.js`
+
+**Three things Task 6's review established, which change how this task should be built:**
+
+1. **Latch the handle index at `pointerdown` and never re-derive it during the drag.** `hitTestHandle` is stateless nearest-wins, so re-hit-testing on `pointermove` would make the drag *switch handles mid-gesture* the moment the pointer crosses a crowded neighbour's midpoint. The code below already latches (`dragging = { index }`, then `dragging.index` throughout) — keep it that way, and don't "improve" it into a live lookup.
+
+2. **Decide `hitTestHandle`'s fate — it is currently dead code.** As written below, handles are real `<button>` elements and the browser does the hit-testing, so `strip.js` never calls `hitTestHandle` at all. That is a worse deal than it looks: `MIN_DAY_KM = 5` puts two handles ~10.8 px apart at desktop width, while the CSS gives each a 24 px grab area via `::after { inset: -7px }` — so their zones *overlap* and z-order decides the winner rather than proximity. Grabbing a short day's boundary becomes luck.
+
+   The better interaction, and the reason the function exists: handle `pointerdown` on the **axis**, use `hitTestHandle(pointerX - axisRect.left, layout)` to latch the *nearest* boundary within tolerance, and keep the buttons purely for rendering and keyboard focus. That needs a small drag threshold (~3 px) so a press-and-release without movement still falls through to focusing the block under the pointer — otherwise a narrow day, which lies entirely inside its own boundaries' tolerance, could never be focused by clicking it.
+
+   Pick one and say which in your report: adopt the geometry path, or keep the DOM path and **delete `hitTestHandle` plus its four tests** in Task 14. Do not leave a tested-but-uncalled function sitting in the module.
+
+3. **Confirm the keyboard path can reach every boundary.** With pointer grabbing unreliable at 10.8 px spacing, arrow-key adjustment is the only guaranteed way to edit a 5 km day. Every handle must be tab-reachable and adjustable, including ones whose blocks render at tier `none` with no visible label.
 
 - [ ] **Step 1: Write the failing test**
 

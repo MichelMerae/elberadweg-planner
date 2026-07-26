@@ -35,6 +35,16 @@ describe('kmToX / xToKm', () => {
     expect(kmToX(100, { totalKm: TOTAL_KM, width: 0 })).toBe(0);
     expect(xToKm(100, { totalKm: 0, width: WIDTH })).toBe(0);
   });
+
+  // Defense in depth. The model throws on a non-finite endKm, so this shouldn't be
+  // reachable — but a NaN here would propagate silently into a CSS length, where it
+  // renders as garbage rather than failing, and this project has already shipped two
+  // bugs whose whole problem was looking fine until much later.
+  it('degrades to 0 rather than NaN for a non-finite position', () => {
+    expect(kmToX(Number.NaN, { totalKm: TOTAL_KM, width: WIDTH })).toBe(0);
+    expect(kmToX(Infinity, { totalKm: TOTAL_KM, width: WIDTH })).toBe(0);
+    expect(xToKm(Number.NaN, { totalKm: TOTAL_KM, width: WIDTH })).toBe(0);
+  });
 });
 
 describe('labelTier', () => {
