@@ -83,7 +83,7 @@ Index convention: API arguments are **0-based day indices** matching the existin
 
 Worked example (the one validated in brainstorming): four 80 km days, boundaries 80/160/240/320. Dragging boundary 3 from km 240 to 265 gives day 3 = 105 km and day 4 = 55 km. Days 1–2 untouched, day 5 still starts at km 320, every break and favorite keeps the day it was on.
 
-`splitDay(i)` inserts a boundary at the day's midpoint, producing two days that sum to the original. The new day has no `townChoice`. Disabled (button disabled, `title` explains) when the day is shorter than `2 * MIN_DAY_KM`.
+`splitDay(i)` inserts a boundary at the day's midpoint, producing two days that sum to the original. The **second** half keeps the original `townChoice` — its end is where the original day ended, so that is still where you sleep — and the new first half starts with none. Disabled (button disabled, `title` explains) when the day is shorter than `2 * MIN_DAY_KM`.
 
 `deleteDay(i)` removes the boundary at the **end** of day `i`, merging it into day `i+1`, which keeps its own end — so nothing downstream moves. On the last day it truncates the plan (today's `removeLastDay`). Deleting the only day leaves an empty plan.
 
