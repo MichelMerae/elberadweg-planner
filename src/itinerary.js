@@ -261,7 +261,8 @@ export function createItinerary({ totalKm } = {}) {
   // Choosing where you sleep is choosing where the day ends, so a town choice
   // snaps the boundary to the town's position along the route — a day's km then
   // means the distance you actually ride. The town's perpendicular offsetKm is
-  // never folded in; the UI shows it separately. Snapping clamps like any
+  // never folded in; the UI shows it separately. Snapping clamps — or refuses,
+  // for a wedged pair with no legal boundary between them — like any
   // boundary move, and the day panel derives its "stopped at" note by comparing
   // townChoice.routeDistanceKm against endKm. Clearing a choice leaves the
   // boundary where it is.

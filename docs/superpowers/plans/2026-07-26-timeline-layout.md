@@ -2445,7 +2445,7 @@ export function createDayPanel({ el, callbacks = {} }) {
     const km = day.townChoice?.routeDistanceKm;
     if (typeof km !== 'number' || Math.abs(km - day.endKm) <= SNAP_EPSILON_KM) return '';
     return `<p class="day-panel__snap-note">${esc(day.townChoice.name)} sits at km ${round1(km)};
-      keeping every day at least ${MIN_DAY_KM} km stopped this boundary at km ${round1(day.endKm)}.</p>`;
+      this day ends at km ${round1(day.endKm)}.</p>`;
   }
 
   function render({ day, dayCount, breaks = [], fromName = 'your last stop', customStopDraft = null }) {

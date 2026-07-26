@@ -96,7 +96,9 @@ Worked example (the one validated in brainstorming): four 80 km days, boundaries
 `setTownChoice(i, town)` records the town **and** moves the boundary to `town.routeDistanceKm` through `moveBoundary`, so the neighbour absorbs the difference. A day's km then means the distance you actually ride.
 
 - The town's off-route detour (`offsetKm`) is displayed separately (`+0.33 km off route`) and never folded into the day's km.
-- If the snap target is outside the clamp window (a town within `MIN_DAY_KM` of the next boundary), the boundary clamps and the day panel shows a note. Worked example: day 3 ends at km 240, day 4 ends at km 268, and you choose a town at km 265. The upper clamp is `268 - 5 = 263`, so the boundary stops at km 263 and the note reads *"Rosenhof sits at km 265; day 4 can't be shorter than 5 km, so the boundary stopped at km 263."* The town choice is still recorded.
+- If the snap target is outside the clamp window (a town within `MIN_DAY_KM` of the next boundary), the boundary clamps and the day panel shows a note. Worked example: day 3 ends at km 240, day 4 ends at km 268, and you choose a town at km 265. The upper clamp is `268 - 5 = 263`, so the boundary stops at km 263 and the note reads *"Rosenhof sits at km 265; this day ends at km 263."* The town choice is still recorded.
+
+  The note deliberately states **no cause**. The same mismatch arises three ways — the clamp, a refusal on a wedged pair, or the user simply typing a length or dragging the handle after choosing the town (last-writer-wins) — and the model records only the mismatch, not which of them produced it. Wording that blamed the minimum-day rule would be a plain lie in the last case, where nothing stopped the boundary and the user moved it deliberately.
 - Clearing a town choice leaves the boundary where it is.
 
 ### 5. Focused day panel (right)
