@@ -542,6 +542,26 @@ describe('createPlaces - escaping', () => {
     expect(row.querySelector('.poi__cat').textContent).toBe('<b>viewpoint</b>');
   });
 
+  // A food row puts the name in a text position AND in the data-poi-key
+  // attribute, so one name has to survive both escapings at once. Asserted three
+  // ways, because no single one covers it: the text position's content, the
+  // absence of any element the payload could have created, and the key
+  // round-tripping out of the attribute (a raw < is legal inside a quoted
+  // attribute value, so serialized markup is not evidence either way).
+  it('keeps a hostile POI name out of both the text and the key attribute', () => {
+    const places = mount();
+    const p = poi(NASTY, 195);
+    places.render(renderArgs({ food: [p] }));
+
+    const row = el.querySelector('[data-place-section="food"]');
+    expect(row.querySelector('img')).toBeNull();
+    expect(row.querySelector('.poi__name').textContent).toBe(NASTY);
+    expect(row.dataset.poiKey).toBe(`${NASTY}@195`);
+
+    places.highlightPoiRow(`${NASTY}@195`);
+    expect(row.classList.contains('poi--hover')).toBe(true);
+  });
+
   // A quote in a name would close the data-poi-key attribute early and break
   // both the row's identity and the aria-labels built from it.
   it('round-trips a quote-bearing name through the attributes it lands in', () => {
