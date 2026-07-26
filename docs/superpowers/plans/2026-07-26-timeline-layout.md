@@ -973,6 +973,17 @@ describe('stripLayout', () => {
     const layout = stripLayout(days(TOTAL_KM), { totalKm: TOTAL_KM, width: WIDTH });
     expect(layout.remainder.width).toBe(0);
   });
+
+  // Real data note (found reviewing Task 2): route.meta.json carries
+  // totalKm 650.24, while boundary edits quantize lengths to the 0.1 km grid, so
+  // a finished plan tops out at km 650.2 and leaves 0.04 km un-closable. A bare
+  // `width > 0` check would render a one-pixel dashed sliver with a "+ add a day"
+  // button in it forever. main.js already treats within-0.5 km as arrived
+  // (DRESDEN_EPSILON_KM), so use the same tolerance here.
+  it('treats a sub-epsilon remainder as finished, so an off-grid totalKm leaves no sliver', () => {
+    const layout = stripLayout(days(650.2), { totalKm: 650.24, width: WIDTH });
+    expect(layout.remainder.width).toBe(0);
+  });
 });
 
 describe('hitTestHandle', () => {
@@ -1551,6 +1562,22 @@ describe('createStrip - keyboard adjustment', () => {
 
     // max is 155 - 5 = 150, so the boundary can't move right at all.
     expect(callbacks.onMoveBoundary).toHaveBeenCalledWith(0, 150, { commit: true });
+  });
+
+  // Found reviewing Task 2: when a pair of days together spans less than
+  // 2 x MIN_DAY_KM, boundaryBounds collapses the window to a single legal
+  // position, so a drag to the RIGHT can snap the boundary LEFT — the handle
+  // jumps the opposite way to the gesture. Rare (needs a sub-10 km pair) but
+  // jarring. A drag on a degenerate window should do nothing at all.
+  it('does not move a boundary whose window has collapsed to one position', () => {
+    const strip = mount();
+    strip.render({ days: days(6, 9), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
+    const handle = el.querySelector('.strip__handle');
+    el.querySelector('.strip__axis').getBoundingClientRect = () => ({ left: 0, width: WIDTH, top: 0, height: 46 });
+
+    handle.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
   });
 
   it('ignores keys that aren't arrows', () => {
