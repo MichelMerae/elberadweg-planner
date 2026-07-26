@@ -102,6 +102,7 @@ body {
 }
 
 #map {
+  position: relative; /* containing block for #map-controls */
   flex: 1 1 auto;
   height: 100%;
   background: #e7e4dd; /* soft tone under the tiles while they load */
@@ -156,30 +157,17 @@ body {
   }
 }
 
-/* Section blocks get shared horizontal padding + rhythm. */
-#controls,
-#towns,
-#pois,
-#favorites,
-#itinerary {
+/* The left panel's sections carry the shared horizontal padding, not #places
+   itself — .places__scope is sticky and has to span the panel's full width. */
+#places {
+  padding-bottom: 24px;
+}
+#places > .pois,
+#places > .pois__note {
   padding: 0 var(--pad);
 }
-#favorites {
-  margin-top: 16px;
-}
-#controls {
-  margin-top: 16px;
-}
-#towns {
-  margin-top: 22px;
-}
-#pois {
-  margin-top: 16px;
-  padding-bottom: 24px;
-}
-#itinerary {
-  margin-top: 22px;
-  padding-bottom: 24px;
+#places > .pois:first-of-type {
+  margin-top: 14px;
 }
 
 /* --- Plans bar (pick / rename / new / duplicate / delete a named plan) --- */
@@ -634,6 +622,11 @@ input[type="number"]:disabled {
 .pois--sight .pois__summary::before {
   background: #2a9d8f;
   box-shadow: 0 0 0 3px rgba(42, 157, 143, 0.18);
+}
+/* Overnight candidates: amber, the same colour as the town dots on the map. */
+.pois--town .pois__summary::before {
+  background: var(--town);
+  box-shadow: 0 0 0 3px rgba(246, 167, 35, 0.18);
 }
 .pois__count {
   color: var(--text-dim);
@@ -1122,6 +1115,14 @@ input[type="number"]:disabled {
 .pin-icon--start {
   background: #157f3c;
 }
+/* Leaflet marks a draggable marker's icon but adds no affordance of its own, and
+   a day pin that can be dragged along the route has to look like it. */
+.pin-icon.leaflet-marker-draggable {
+  cursor: grab;
+}
+.pin-icon.leaflet-marker-draggable:active {
+  cursor: grabbing;
+}
 
 .town-icon__dot {
   display: block;
@@ -1204,30 +1205,6 @@ input[type="number"]:disabled {
     drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
-/* Ghost marker: the proposed day-end — distinct, outlined, pulsing, non-interactive. */
-.ghost-icon__dot {
-  display: block;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(37, 99, 235, 0.35);
-  border: 2px solid var(--river-deep);
-  animation: ghost-pulse 1.4s ease-in-out infinite;
-}
-@keyframes ghost-pulse {
-  0%,
-  100% {
-    transform: scale(0.8);
-    opacity: 0.7;
-    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 1;
-    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
-  }
-}
-
 /* --- Leaflet controls: light touch to match the app --------------------- */
 .leaflet-bar a,
 .leaflet-bar a:hover {
@@ -1244,12 +1221,6 @@ input[type="number"]:disabled {
 .leaflet-control-attribution {
   font-size: 0.66rem;
   background: rgba(255, 255, 255, 0.82) !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ghost-icon__dot {
-    animation: none;
-  }
 }
 
 /* Custom (user-labeled) stop marker: 📌 with a blue ring, distinguishing it
@@ -1557,4 +1528,201 @@ input[type="number"]:disabled {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* --- Focused day panel --------------------------------------------------- */
+.day-panel {
+  padding: 14px var(--pad) 20px;
+}
+
+.day-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.day-panel__title {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.day-panel__stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.day-panel__from {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-dim);
+  margin: 2px 0 14px;
+}
+
+.day-panel__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.day-panel__field > span:first-child {
+  flex: 1;
+}
+
+.day-panel__field input[type="number"] {
+  width: 68px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: right;
+  color: var(--text);
+  background: var(--surface-hi);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 3px 6px;
+}
+
+.day-panel__overnight {
+  flex-wrap: wrap;
+}
+
+.day-panel__overnight-name {
+  color: var(--town);
+  font-size: 13px;
+}
+
+.day-panel__overnight-name--none {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.day-panel__hint {
+  flex: 1 0 100%;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 2px 0 0;
+}
+
+.day-panel__snap-note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--town);
+  background: rgba(246, 167, 35, 0.09);
+  border-left: 2px solid var(--town);
+  border-radius: 0 6px 6px 0;
+  padding: 6px 9px;
+  margin: 0 0 8px;
+}
+
+.day-panel__section {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 16px 0 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.day-panel__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+/* --- Left panel: scope header + row caps --------------------------------- */
+.places__scope {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px var(--pad);
+  background: #1d1a14;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.places__scope b {
+  color: var(--text);
+}
+
+.places__scope-range {
+  color: var(--river);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.places__more {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: center;
+  margin: 8px 0 2px;
+}
+
+.places__more button {
+  font: inherit;
+  color: var(--river);
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --- Map overlay controls ------------------------------------------------ */
+/* These live inside the Leaflet container, so the stacking order has to clear
+   every pane AND .leaflet-control-container (z-index 800) — a marker or the
+   attribution must never take a click meant for these. main.js keeps their
+   events from reaching the map underneath. */
+#map-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.map-btn {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(25, 23, 18, 0.82);
+  border: 1px solid rgba(242, 237, 226, 0.18);
+  border-radius: 999px;
+  padding: 6px 11px;
+  cursor: pointer;
+  backdrop-filter: blur(3px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.map-btn:hover {
+  background: rgba(25, 23, 18, 0.95);
+  border-color: var(--river);
+}
+
+.map-btn:focus-visible {
+  outline: none;
+  border-color: var(--river);
+  box-shadow: 0 0 0 3px rgba(91, 147, 255, 0.35);
 }
