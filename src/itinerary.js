@@ -37,7 +37,7 @@ function isValidBreak(place) {
 
 /**
  * Shapes an internal day record into the public, defensive-copy form
- * returned by getDays()/addDay()/editDay()/moveBoundary()/setTownChoice().
+ * returned by getDays()/addDay()/editDay()/moveBoundary()/splitDay()/setTownChoice().
  */
 function toPublicDay(day, index) {
   return {
