@@ -762,3 +762,161 @@ describe('createItinerary - updateBreak', () => {
     expect(itinerary.getBreaks()[0]).toMatchObject({ name: 'lunch, 2h', note: 'bring sandwiches' });
   });
 });
+
+describe('createItinerary - splitDay', () => {
+  it('splits a day in half, preserving the total', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(100);
+    itinerary.addDay(80);
+
+    itinerary.splitDay(0);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(3);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 50 });
+    expect(days[1]).toMatchObject({ startKm: 50, endKm: 100 });
+    expect(days[2]).toMatchObject({ startKm: 100, endKm: 180 });
+  });
+
+  it('gives the overnight town to the second half and none to the first', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(100);
+    itinerary.setTownChoice(0, { name: 'Lenzen' });
+
+    itinerary.splitDay(0);
+
+    const days = itinerary.getDays();
+    expect(days[0].townChoice).toBeNull();
+    expect(days[1].townChoice).toEqual({ name: 'Lenzen' });
+  });
+
+  it('refuses to split a day shorter than two minimum days', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(9);
+
+    expect(itinerary.splitDay(0)).toBeNull();
+    expect(itinerary.getDays()).toHaveLength(1);
+  });
+
+  it('handles an odd length without losing a tenth of a km', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(75.5);
+
+    itinerary.splitDay(0);
+
+    const days = itinerary.getDays();
+    expect(days[0].targetKm + days[1].targetKm).toBe(75.5);
+    expect(days[1].endKm).toBe(75.5);
+  });
+
+  it('splits by real span, not by an inflated stored length', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(300);
+    itinerary.addDay(200); // clamped to {300, 380}: span 80, stored targetKm 200
+
+    itinerary.splitDay(1);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(3);
+    expect(days[1]).toMatchObject({ startKm: 300, endKm: 340, targetKm: 40 });
+    expect(days[2]).toMatchObject({ startKm: 340, endKm: TOTAL_KM, targetKm: 40 });
+  });
+
+  it('throws on an out-of-range index', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    expect(() => itinerary.splitDay(0)).toThrow();
+  });
+});
+
+describe('createItinerary - deleteDay', () => {
+  it('merges a middle day into the next one and leaves the rest put', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    [80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
+
+    itinerary.deleteDay(1);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(3);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80 });
+    expect(days[1]).toMatchObject({ startKm: 80, endKm: 240, targetKm: 160 });
+    expect(days[2]).toMatchObject({ startKm: 240, endKm: 320 });
+  });
+
+  it('keeps the surviving day its overnight town', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+    itinerary.setTownChoice(1, { name: 'Lenzen' });
+
+    itinerary.deleteDay(0);
+
+    expect(itinerary.getDays()[0].townChoice).toEqual({ name: 'Lenzen' });
+  });
+
+  it('truncates the plan when the last day is deleted', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(60);
+
+    itinerary.deleteDay(1);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(1);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80 });
+  });
+
+  it('empties the plan when the only day is deleted', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    itinerary.deleteDay(0);
+
+    expect(itinerary.getDays()).toHaveLength(0);
+  });
+
+  it('is the inverse of splitDay', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(100);
+    itinerary.addDay(80);
+
+    itinerary.splitDay(0);
+    itinerary.deleteDay(0);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(2);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 100, targetKm: 100 });
+    expect(days[1]).toMatchObject({ startKm: 100, endKm: 180 });
+  });
+
+  it('keeps every break, re-bucketed across the merge', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+    itinerary.addBreak(makeBreak({ name: 'Stop', routeDistanceKm: 70 }));
+
+    itinerary.deleteDay(0);
+
+    const day = itinerary.getDays()[0];
+    expect(itinerary.getBreaks()).toHaveLength(1);
+    expect(itinerary.breaksInRange(day.startKm, day.endKm).map((b) => b.name)).toEqual(['Stop']);
+  });
+
+  it("preserves the surviving day's end when its stored length was inflated", () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.hydrate([{ targetKm: 100 }, { targetKm: 400 }]); // day 1 clamped to {100, 380}
+
+    itinerary.deleteDay(0);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(1);
+    // 380 is the real span of the merged day. Summing the two stored lengths would
+    // give 500 — end still clamped to 380, but the length inflated further.
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: TOTAL_KM, targetKm: 380 });
+  });
+
+  it('throws on an out-of-range index', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    expect(() => itinerary.deleteDay(3)).toThrow();
+  });
+});

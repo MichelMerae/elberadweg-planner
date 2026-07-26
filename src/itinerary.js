@@ -1,4 +1,4 @@
-import { clampBoundaryKm } from './boundaries.js';
+import { clampBoundaryKm, MIN_DAY_KM } from './boundaries.js';
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -68,6 +68,8 @@ function toPublicDay(day, index) {
  *   addDay: (targetKm: number) => object,
  *   editDay: (index: number, targetKm: number) => object,
  *   moveBoundary: (index: number, endKm: number) => object,
+ *   splitDay: (index: number) => object|null,
+ *   deleteDay: (index: number) => void,
  *   setTownChoice: (index: number, town: any) => object,
  *   removeLastDay: () => void,
  *   reset: () => void,
@@ -178,14 +180,58 @@ export function createItinerary({ totalKm } = {}) {
     return moveBoundary(index, startKm + targetKm);
   }
 
+  // Inserts a boundary at the day's midpoint, turning one day into two that sum
+  // to the original — so nothing downstream moves. The length comes from the
+  // day's real span, not its stored targetKm, which may be inflated if the day
+  // was clamped at totalKm. The SECOND half keeps the overnight town, because its
+  // end is where the original day ended (that is still where you sleep); the new
+  // first half starts with none. Deriving the second half as `length - first`
+  // rather than rounding it independently keeps the two provably summing to the
+  // original. Returns null when the day is too short to split.
+  function splitDay(index) {
+    assertValidIndex(index);
+    const day = days[index];
+    const length = day.endKm - day.startKm;
+    if (length < 2 * MIN_DAY_KM) return null;
+    const first = round1(length / 2);
+    const second = round1(length - first);
+    days.splice(
+      index,
+      1,
+      { targetKm: first, startKm: 0, endKm: 0, townChoice: null },
+      { targetKm: second, startKm: 0, endKm: 0, townChoice: day.townChoice ?? null },
+    );
+    recomputeFrom(index);
+    return toPublicDay(days[index], index);
+  }
+
+  // Removes the boundary at the END of days[index] by merging the day into the
+  // next one, which keeps its own end — so the trip past it is untouched. The
+  // merged length is derived from POSITIONS (the survivor's end minus the deleted
+  // day's start) rather than by summing two stored lengths, either of which may be
+  // inflated by a totalKm clamp. The last day has no next day, so deleting it
+  // truncates the plan. Breaks are plan-level and re-bucket themselves from the
+  // new ranges.
+  function deleteDay(index) {
+    assertValidIndex(index);
+    if (index === days.length - 1) {
+      days.pop();
+      return;
+    }
+    const next = days[index + 1];
+    next.targetKm = round1(next.endKm - days[index].startKm);
+    days.splice(index, 1);
+    recomputeFrom(index);
+  }
+
+  function removeLastDay() {
+    if (days.length) deleteDay(days.length - 1);
+  }
+
   function setTownChoice(index, town) {
     assertValidIndex(index);
     days[index].townChoice = town ?? null;
     return toPublicDay(days[index], index);
-  }
-
-  function removeLastDay() {
-    days.pop();
   }
 
   function reset() {
@@ -290,6 +336,8 @@ export function createItinerary({ totalKm } = {}) {
     addDay,
     editDay,
     moveBoundary,
+    splitDay,
+    deleteDay,
     setTownChoice,
     removeLastDay,
     reset,
