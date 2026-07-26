@@ -149,6 +149,7 @@ export function createMap({
   // down when the marker is removed) and moving the camera (a pane shift slides
   // the icon out from under the cursor).
   let draggingPinIndex = null;
+  let pendingInvalidate = false;
 
   // fitBounds/panTo end in zoomend, which would look exactly like the user
   // taking over, and Leaflet flags nothing. So treat zoomend as ours for a short
@@ -286,6 +287,11 @@ export function createMap({
         marker.on('dragend', (e) => {
           // Cleared before the commit: that render is the one meant to rebuild.
           draggingPinIndex = null;
+          // Before the commit as well, so the stretch is framed at the real size.
+          if (pendingInvalidate) {
+            pendingInvalidate = false;
+            invalidate();
+          }
           if (typeof onDragBoundary !== 'function') return;
           const { lat, lng } = e.target.getLatLng();
           onDragBoundary(index, [lng, lat], true);
@@ -423,8 +429,14 @@ export function createMap({
 
   // Through moveProgrammatically like every other camera move of ours: a resize
   // pans the map by half the size change, which would slide a dragged pin away
-  // from the cursor just as a fit would.
+  // from the cursor just as a fit would. This one can't simply be dropped though
+  // — a container whose size the map never learned stays wrong long after the
+  // drag — so it waits for the release instead.
   function invalidate() {
+    if (draggingPinIndex !== null) {
+      pendingInvalidate = true;
+      return;
+    }
     moveProgrammatically(() => {
       map.invalidateSize();
     });
