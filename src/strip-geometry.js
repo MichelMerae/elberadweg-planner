@@ -4,9 +4,17 @@
 
 import { ARRIVED_EPSILON_KM } from './boundaries.js';
 
-const TIER_FULL_PX = 64;   // number + km + break glyphs
-const TIER_KM_PX = 30;     // number + km
-const TIER_NUMBER_PX = 14; // number only
+// Measured in Chromium at the real 11px Archivo, worst case a two-digit day
+// number, and including the label's 12px padding and the block's 2px border:
+// "12" needs 27.1px and "12 30.5 km" needs 68.8px. (A three-digit day number
+// needs 75.1px, so it clips at the km tier's lower edge — that takes a plan of
+// 100+ days, which on a 650 km route means every day near the 5 km minimum.)
+// The 'full' threshold is the one judgement rather than a measurement: its first
+// line is the km tier's, and the 18px above it are so the second line has room
+// to say something about the town before the ellipsis bites.
+const TIER_FULL_PX = 88;   // number + km, plus the town line and break glyphs
+const TIER_KM_PX = 70;     // number + km
+const TIER_NUMBER_PX = 28; // number only
 const HANDLE_TOLERANCE_PX = 12;
 
 function positive(n) {

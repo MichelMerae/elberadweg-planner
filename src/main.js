@@ -135,14 +135,23 @@ async function boot() {
   // The strip owns the whole-trip view. Boundary drags fire continuously with
   // commit:false for live feedback and once with commit:true on release, so a
   // drag writes to storage exactly once.
+  const stripEl = document.getElementById('strip');
   const strip = createStrip({
-    el: document.getElementById('strip'),
+    el: stripEl,
     callbacks: {
       onFocusDay: handleFocusDay,
       onMoveBoundary: handleMoveBoundary,
       onAddDay: handleAddDay,
     },
   });
+
+  // Every px in the strip's DOM derives from the axis width at render time, so a
+  // width change (resizing the window, opening devtools) would otherwise leave
+  // blocks and handles drawn at the old scale — and a remainder click, which
+  // measures the axis rect live, would then disagree with them about where a km
+  // sits. No km changes, so re-laying-out the state the strip already holds is
+  // the whole fix; that is what render() with no argument does.
+  new ResizeObserver(() => strip.render()).observe(stripEl);
 
   // Persist the active plan's committed state. Called ONLY after user
   // mutations — never at boot or right after a plan switch. Reason: a corrupt
@@ -498,6 +507,41 @@ async function boot() {
       else itinerary.updateBreak(key, { note: value });
       persistPlan();
     }
+    renderAll();
+  }
+
+  // --- Strip callbacks ---------------------------------------------------
+
+  function handleFocusDay(index) {
+    focusedDayIndex = index;
+    renderAll();
+  }
+
+  function handleMoveBoundary(index, endKm, { commit } = {}) {
+    itinerary.moveBoundary(index, endKm);
+    if (commit) persistPlan();
+    renderAll();
+  }
+
+  // A remainder click gives an absolute end km; the + button gives null, meaning
+  // "another day the length of the last one" (80 km for the first day).
+  //
+  // Two clamps on the computed length. MIN_DAY_KM is the floor: a click within
+  // 5 km of the plan end — or, from a caller that measured against something
+  // other than the remainder, before it — would otherwise append a day shorter
+  // than the model allows, or an inverted one. And the result is rounded to the
+  // 0.1 km grid: addDay stores the length verbatim, so this is the one entry
+  // point that could put an off-grid boundary into the plan (every other write
+  // path rounds), and a remainder click is off-grid by nature.
+  function handleAddDay(endKm) {
+    if (hasReachedDresden()) return;
+    const days = itinerary.getDays();
+    const startKm = itinerary.totalPlannedKm();
+    const fallback = days.length ? days[days.length - 1].targetKm : DEFAULT_TARGET_KM;
+    const length = endKm == null ? fallback : Math.max(MIN_DAY_KM, endKm - startKm);
+    itinerary.addDay(Math.round(length * 10) / 10);
+    focusedDayIndex = itinerary.getDays().length - 1;
+    persistPlan();
     renderAll();
   }
 

@@ -1416,6 +1416,13 @@ input[type="number"]:disabled {
   box-shadow: inset 0 0 0 1px var(--river);
 }
 
+/* :hover out-specifies --focused, so without this the focused day reverts to the
+   plain grey hover fill exactly while you are pointing at it — as if the click
+   had dropped the focus it just set. Stay in the blue, one step brighter. */
+.strip__block--focused:hover {
+  background: #2a3548;
+}
+
 .strip__block:focus-visible,
 .strip__handle:focus-visible {
   outline: 2px solid var(--river);

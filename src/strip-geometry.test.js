@@ -50,12 +50,12 @@ describe('kmToX / xToKm', () => {
 describe('labelTier', () => {
   it('degrades detail as a block narrows', () => {
     expect(labelTier(120)).toBe('full');
-    expect(labelTier(64)).toBe('full');
-    expect(labelTier(63)).toBe('km');
-    expect(labelTier(30)).toBe('km');
-    expect(labelTier(29)).toBe('number');
-    expect(labelTier(14)).toBe('number');
-    expect(labelTier(13)).toBe('none');
+    expect(labelTier(88)).toBe('full');
+    expect(labelTier(87)).toBe('km');
+    expect(labelTier(70)).toBe('km');
+    expect(labelTier(69)).toBe('number');
+    expect(labelTier(28)).toBe('number');
+    expect(labelTier(27)).toBe('none');
   });
 });
 
