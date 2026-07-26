@@ -3426,7 +3426,8 @@ Tasks 10, 11 and 13 were executed in parallel, each scoped to its own module onl
 **Browser verification watchlist (things jsdom could not check):**
 - `onUserMove`: initial load must NOT fire it; the first manual pan/zoom fires it exactly once. (The plan's original listener ordering would have swallowed the first user gesture — fixed in `moveProgrammatically`, spec-verified against Leaflet source.)
 - Rapid un-animated `panTo`/`focusRange` during a boundary drag: Leaflet's `setView` → `_stop()` can fire a synchronous `moveend` that clears `programmatic` early → spurious `onUserMove` → camera-follow silently off mid-drag. If observed, harden `moveProgrammatically` (clear only on the last pending settle), not the call sites.
-- Re-rendering day pins on every boundary callback may destroy the marker mid-drag (same class as Task 8's Critical C1) — pending Task 13's quality-review verdict; integration must follow whatever it prescribes (skip `setDayPins` while dragging, or diff-update positions).
+- ~~Re-rendering day pins on every boundary callback may destroy the marker mid-drag~~ **Confirmed by Task 13's quality review as Critical (worse than Task 8's C1: Leaflet's `removeHooks` unsubscribes `dragend` before `finishDrag`, so the commit event NEVER fires) and fixed in map.js**: `setDayPins` is non-destructive while a pin drag is in flight (dragged-index module state), camera moves (`focusRange`/`fitWholeRoute`) are skipped during a pin drag, `dragend` is un-gated (only user drags ever fire it), and the `programmatic` boolean + `once` was replaced by a `programmaticUntil` time window (~400 ms) for `zoomend` — a generation counter is insufficient because `setView`'s `_stop()` fires the PREVIOUS move's settle event synchronously before the new move starts. Integration verifies all of this in the browser.
+- Task 11 quality review, integration-relevant: **`.pois--town` needs a legend-dot rule** (`background: var(--town)` on `.pois--town .pois__summary::before` — the other three sections have one; without it the towns section renders a blank 9 px indent). And **the left panel is now on the drag-preview hot path**: `renderAll()` per pointermove rebuilds ~97 KB / ~1300 DOM nodes in places.js alone (402 KB expanded). Watch drag smoothness at integration; the decision (skip section re-renders during `commit:false` previews, or rAF-coalesce panel renders) is recorded at Task 14.
 - The dashed muted route + thick highlight contrast on the canvas renderer; pin drag feel.
 - Strip focus restoration when the focused day is deleted from the day panel: DOM focus drops to `<body>` (`strip.js` restore finds no match). Fold a nearest-surviving-index fallback in if cheap; otherwise record.
 - Day-panel: an unrelated re-render with an open custom-stop draft keeps the text but drops focus (effectively unreachable; strictly better than the old behaviour).
@@ -3793,6 +3794,18 @@ EOF
 > - **Pre-existing (Task 7): `aria-valuenow` can sit outside `[min, max]`** on hand-edited squeezed stored data (`days(10, 12)` → boundary 0 reports now 10, max 7). Only reachable from pathological storage.
 > - The mid-drag collapsed-window commit-in-place branch (strip.js `endDrag`) is untested insurance — only reachable by swapping the day list mid-gesture; fine to leave, noted so nobody mistakes silence for coverage.
 > - **Handle hover glow is narrower than the grab tolerance** since the `::after` hit-area vestige was deleted (86b5689): the glow needs the pointer on the 10 px bar, while `hitTestHandle` grabs within 12 px. Restoring the wider affordance honestly would need JS hover hit-testing on pointermove — decide there whether it's worth it or the asymmetry is fine.
+>
+> **From Task 13's quality review (map.js):**
+> - **Keyboard panning never reaches `onUserMove`** — arrow keys go through `panBy` (only `moveend`, no `dragend`/`zoomend`), so a keyboard user's pan is undone by the next render. Gating `moveend` with the `programmaticUntil` window would catch it; only safe now that the window exists.
+> - Magic numbers in map.js against the module's own convention: `padding: [48,48]`/`[28,28]`, `maxZoom: 13` (a product decision deserving a name), highlight `weight: 7`/`opacity: 0.95` inline below a named `ROUTE_STYLE`, and `'#2563eb'` duplicated between route style and highlight — one constant keeps them in sync by construction.
+> - `focusRange` accepts a single coord and fits a zero-area bounds (lands at maxZoom centred on the point) while `setRouteHighlight` requires two — accidental asymmetry; decide or document.
+>
+> **From Task 11's quality review (places.js):**
+> - **Drag-preview render cost decision** (the Important one): `renderAll()` per `commit:false` pointermove rebuilds the whole left panel (~97 KB innerHTML at real data scale, 402 KB expanded) plus day panel plus Leaflet markers. Decide: skip panel/section re-renders during previews, or coalesce panel renders into rAF with only the strip synchronous. Measure in the browser first.
+> - `expanded` state survives a plan switch whose focused day spans identical km (no plan id in the render args to key on) — accepted as a decision, recorded so it isn't an accident.
+> - `render` with `towns: null` throws where old ui.js tolerated it (destructuring defaults only fire on `undefined`) — optionally re-add `|| []` tolerance.
+> - Test boilerplate: a `renderArgs(overrides)` helper would kill the six-empty-fields repetition across 23+ tests; the 451-element `many` fixture is built twice.
+> - Orphan BEM names inherited from ui.js (`meta__abs` with no `.meta` block; `pois--town`/`pois--fav` naming towns/favs as POIs) — not worth churning, recorded.
 
 - [ ] **Step 1: Delete dead CSS**
 
