@@ -1126,6 +1126,16 @@ git commit -m "feat: pure geometry for the timeline strip"
 
 ---
 
+## Task 6b: Single source of truth for "arrived"
+
+Found reviewing Task 6. `strip-geometry.js` defines `FINISHED_EPSILON_KM = 0.5` and `main.js` defines `DRESDEN_EPSILON_KM = 0.5`, and they must agree: if they drift, the strip collapses its remainder while `main.js` still reports distance left to ride (or the reverse), which is a visible contradiction between two parts of the same screen.
+
+Move the constant into `src/boundaries.js` as `ARRIVED_EPSILON_KM` — it is already the shared pure-domain module, imported by `itinerary.js` and (from Task 7) `strip.js`, and "how close counts as arrived" is a domain fact rather than a geometry one. Then import it in both `strip-geometry.js` and `main.js`, deleting both local copies. `strip-geometry.js` importing another pure module does not compromise its testability — the constraint on it is no DOM, no Leaflet, no data modules.
+
+No new behaviour, so no new test; the existing sub-epsilon layout test and `hasReachedDresden` both keep it honest.
+
+---
+
 ## Task 7: Strip rendering
 
 **Files:**
