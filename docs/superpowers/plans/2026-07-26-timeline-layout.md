@@ -1845,6 +1845,15 @@ keys nudge 1 km (5 with shift) as the accessible replacement for the slider.
 EOF
 ```
 
+**Task 8 outcome (2026-07-26).** Commits `4d109f4`, `67affc6`, `7b1d594`, `54849af` + a final minors batch. Spec review: compliant after two test fixes; the reviewer mutation-tested (12 mutations, all killed after the fixes). Quality review: APPROVED, no Critical/Important. Decisions settled here, do not re-open:
+
+- **`hitTestHandle` adopted** — drag hit-testing is geometric on the axis (`pointerdown` → nearest boundary within 12 px, 3 px drag threshold, index latched); the handle `<button>`s exist for rendering and keyboard focus only. This also fixed the picket-fence problem (handles wider than minimum-length blocks).
+- **Break glyphs live on an axis-level layer** at absolute route km (`z-index: 1`, `pointer-events: none`), visible at every tier; each block's `title` names its breaks. The `containerLeft` parameter is gone.
+- **Accepted extras:** the `.strip__live` screen-reader region (a `role="slider"` recreated per render can never announce its own `aria-valuenow`); handle-click → `onFocusDay` fallback; same-km preview dedupe; `proposeKm` local to strip.js (boundaryBounds + clamp + null on a collapsed window) instead of `clampBoundaryKm` by name.
+- **The drag survives the innerHTML rebuild model:** capture on the axis, all interaction state in module closures, focus restoration in `render()` keyed on `[data-boundary-index],[data-day-index]` with `preventScroll`, four drag exits (pointerup, pointercancel, lostpointercapture, `buttons === 0`), pointerId filters on move AND release, day-deletion guard mid-drag. Verified in real Chromium: off-axis release commits, persistence survives reload, no latched state, focus survives consecutive keyboard nudges.
+
+Deferred findings are recorded at Task 10 (focus fallback on deletion) and Task 14 (structure/naming/predicate consolidation).
+
 ---
 
 ## Task 9: Layout shell and mount the strip
@@ -2274,6 +2283,8 @@ git commit -m "feat: grid layout shell with the timeline strip mounted"
 **Files:**
 - Create: `src/day-panel.js`, `src/day-panel.test.js`
 - Modify: `src/main.js`, `src/ui.js`, `src/style.css`
+
+> **From Task 8's quality review — becomes reachable when this task adds deletion:** the strip's focus restoration (`strip.js`, `focusedSelector` → re-focus after the innerHTML write) no-ops when the focused day or boundary no longer exists, dropping keyboard focus to `<body>` so the user restarts tabbing from the top of the document. Unreachable today (deleting requires focus on a control outside the axis), but once Delete lives in this panel, deleting the focused day should fall back to the nearest surviving index rather than losing focus. Also note: the strip is deliberately not a complete interface for very short days — this panel's `‹ ›` stepper is their accessible path and must not be cut.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3741,6 +3752,15 @@ EOF
 
 **Files:**
 - Modify: `src/style.css`, `README.md`, `docs/superpowers/plans/2026-07-26-timeline-layout.md`
+
+> **Deferred minors from Task 8's quality review** (all judged not worth churn while later tasks still build on strip.js):
+>
+> - **Split the markup builders out of `strip.js` (~474 lines).** `summary`, `glyphFor`, `breaksIn`, `glyphLayer`, `blockLabel`, `handle` are pure functions of `(state, layout)` — moving them to a `strip-markup.js` drops `createStrip` to ~300 lines of state machine and makes the markup testable without a DOM. Naming nits for the same pass: `handle(index)` returns markup but collides with `handleEl`/main.js's `handleX` callbacks (→ `handleMarkup`); `width` is a function named like a value; `emitMove`'s positional boolean doesn't match the `{ commit }` shape it emits; `announce` is defined below both its callers.
+> - **The "nowhere legal to go" rule is encoded three times** — `boundaryBounds` floors max at min (boundaries.js), `proposeKm` reads `min >= max` (strip.js), `moveBoundary` re-derives it from the resulting length (itinerary.js). Grow the predicate in `boundaries.js` (e.g. `canMoveBoundary`, or a window that returns null) so all three callers read one definition.
+> - **`pointerAxis` overrides the `measureWidth` injection:** it uses `rect.width || width()` where `{ left: rect.left, width: width() }` is equivalent in production and makes the injected seam authoritative — tests then stop having to stub the rect AND pass `measureWidth` in agreement.
+> - **`press()` in strip.test.js stops at `keydown`**, so nothing exercises the browser's Enter → synthesised click on a real `<button>` — the exact blind spot two review findings lived in. Worth a helper that models it.
+> - **Pre-existing (Task 7): `aria-valuenow` can sit outside `[min, max]`** on hand-edited squeezed stored data (`days(10, 12)` → boundary 0 reports now 10, max 7). Only reachable from pathological storage.
+> - The mid-drag collapsed-window commit-in-place branch (strip.js `endDrag`) is untested insurance — only reachable by swapping the day list mid-gesture; fine to leave, noted so nobody mistakes silence for coverage.
 
 - [ ] **Step 1: Delete dead CSS**
 
