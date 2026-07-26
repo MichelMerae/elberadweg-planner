@@ -216,13 +216,15 @@ describe('createItinerary - moveBoundary', () => {
   it('leaves days beyond the neighbour completely untouched', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     [80, 80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
+    // TOTAL_KM is 380 in this file, so day 4 is clamped from the start: {320, 380}.
 
     itinerary.moveBoundary(1, 130);
 
     const days = itinerary.getDays();
-    expect(days[2]).toMatchObject({ startKm: 240, endKm: 320 });
-    expect(days[3]).toMatchObject({ startKm: 320, endKm: 400 });
-    expect(days[4]).toMatchObject({ startKm: 400, endKm: 480 });
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80 });    // before the boundary: still
+    expect(days[2]).toMatchObject({ startKm: 130, endKm: 240 }); // the neighbour: absorbs the 30 km
+    expect(days[3]).toMatchObject({ startKm: 240, endKm: 320 }); // beyond: untouched
+    expect(days[4]).toMatchObject({ startKm: 320, endKm: 380 }); // beyond: untouched, still clamped
   });
 
   it('clamps so the edited day keeps MIN_DAY_KM', () => {
