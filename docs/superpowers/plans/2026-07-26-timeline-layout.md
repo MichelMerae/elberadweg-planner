@@ -270,14 +270,42 @@ describe('createItinerary - moveBoundary', () => {
 
   it('rounds to one decimal so stored lengths stay tidy', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
-    itinerary.addDay(80);
+    itinerary.addDay(80.1); // fractional, so the assignment-site rounding actually matters
     itinerary.addDay(80);
 
     itinerary.moveBoundary(0, 76.2345);
 
     const days = itinerary.getDays();
     expect(days[0].targetKm).toBe(76.2);
-    expect(days[1].targetKm).toBe(83.8);
+    expect(days[1].targetKm).toBe(83.9);
+  });
+
+  // Both of these pin the position-derived arithmetic above. A day clamped at
+  // totalKm stores a targetKm larger than its span, and the earlier delta-based
+  // version shrank that length without moving the boundary — so the first drag of
+  // a day added near Dresden did nothing visible.
+  it('moves the boundary on the first drag even when the stored length overshot the route', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(300);
+    itinerary.addDay(200); // endKm clamps to 380 while targetKm stays 200
+
+    itinerary.moveBoundary(1, 350);
+
+    expect(itinerary.getDays()[1]).toMatchObject({ startKm: 300, endKm: 350, targetKm: 50 });
+  });
+
+  it("preserves the neighbour's end and normalises its inflated length", () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.hydrate([{ targetKm: 100 }, { targetKm: 400 }]); // day 1 clamped to {100, 380}
+
+    itinerary.moveBoundary(0, 150);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ endKm: 150 });
+    // 230 is day 1's real span. Normalising an inflated neighbour is intended, not
+    // incidental: a drag is explicit intent on this boundary pair, unlike hydrate,
+    // where the stored plan must survive intact for the route-changed banner.
+    expect(days[1]).toMatchObject({ startKm: 150, endKm: TOTAL_KM, targetKm: 230 });
   });
 
   it('throws on an out-of-range index', () => {
@@ -379,12 +407,20 @@ Add `moveBoundary` and replace `editDay` (currently lines 125-131):
     if (typeof endKm !== 'number' || !Number.isFinite(endKm)) {
       throw new Error(`endKm must be a finite number, got: ${endKm}`);
     }
+    const day = days[index];
     const target = clampBoundaryKm(days, index, endKm, { totalKm: total });
-    const delta = round1(target - days[index].endKm);
-    if (delta === 0) return toPublicDay(days[index], index);
-    days[index].targetKm = round1(days[index].targetKm + delta);
+    // Rounded delta purely as the no-op guard: it absorbs sub-0.05 km drag jitter
+    // that would otherwise rewrite lengths for no visible movement.
+    if (round1(target - day.endKm) === 0) return toPublicDay(day, index);
     const next = days[index + 1];
-    if (next) next.targetKm = round1(next.targetKm - delta);
+    // Derive both lengths from the boundary POSITIONS rather than adding a delta
+    // to the stored length. A day clamped at totalKm carries a targetKm larger
+    // than its real span (addDay and hydrate both permit it), and a delta applied
+    // to that inflated length shrinks it without moving the boundary — the drag
+    // looks stuck until the overshoot burns off. Positions can't drift that way.
+    const nextEnd = next ? next.endKm : null;
+    day.targetKm = round1(target - day.startKm);
+    if (next) next.targetKm = round1(nextEnd - target);
     recomputeFrom(index);
     return toPublicDay(days[index], index);
   }
