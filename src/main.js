@@ -3,6 +3,7 @@ import { loadRoute, pointAtDistance, snap } from './route.js';
 import { loadTowns, townsNear, townsInRange } from './towns.js';
 import { loadPois, poisInRange } from './pois.js';
 import { createItinerary, breakKey } from './itinerary.js';
+import { ARRIVED_EPSILON_KM } from './boundaries.js';
 import { createPlanStore } from './storage.js';
 import { createFavorites, favKey } from './favorites.js';
 import { createMap } from './map.js';
@@ -10,9 +11,6 @@ import { createUI, townKey, poiKey } from './ui.js';
 import meta from './data/route.meta.json';
 
 const DEFAULT_TARGET_KM = 80;
-// The plan is considered complete when the last endKm is within this of the
-// route total (endKm clamps to totalKm, so it never quite exceeds it).
-const DRESDEN_EPSILON_KM = 0.5;
 const ROUTE_CHANGED_MESSAGE =
   'The route data changed since you last planned this trip — day distances may have shifted.';
 
@@ -166,8 +164,11 @@ async function boot() {
     return itinerary.totalPlannedKm();
   }
 
+  // The plan is complete when the last endKm is within the shared arrival
+  // tolerance of the route total (endKm clamps to totalKm, so it never quite
+  // exceeds it). The strip collapses its remainder on the same constant.
   function hasReachedDresden() {
-    return pendingStartKm() >= totalKm - DRESDEN_EPSILON_KM;
+    return pendingStartKm() >= totalKm - ARRIVED_EPSILON_KM;
   }
 
   // The pending day's reference for day-relative distances: the last committed

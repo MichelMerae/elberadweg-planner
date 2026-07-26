@@ -2,16 +2,12 @@
 // modules. The strip maps the WHOLE route onto the axis width, so every km has
 // exactly one x and 650 km always fits — the strip can never overflow.
 
+import { ARRIVED_EPSILON_KM } from './boundaries.js';
+
 const TIER_FULL_PX = 64;   // number + km + break glyphs
 const TIER_KM_PX = 30;     // number + km
 const TIER_NUMBER_PX = 14; // number only
 const HANDLE_TOLERANCE_PX = 12;
-
-// Boundary edits quantize lengths to the 0.1 km grid while the real route is
-// 650.24 km long, so a finished plan stops ~0.04 km short of Dresden. Without a
-// tolerance the strip would render a permanent one-pixel dashed remainder with an
-// "+ add a day" button inside it. Mirrors main.js's DRESDEN_EPSILON_KM.
-const FINISHED_EPSILON_KM = 0.5;
 
 function positive(n) {
   return typeof n === 'number' && Number.isFinite(n) && n > 0;
@@ -69,8 +65,9 @@ export function stripLayout(days, { totalKm, width } = {}) {
   const x = kmToX(plannedKm, { totalKm, width });
   const axisWidth = positive(width) ? width : 0;
   // Within the arrival tolerance the plan counts as finished, so the remainder
-  // collapses rather than leaving an un-closable sliver (see FINISHED_EPSILON_KM).
-  const arrived = totalKm - plannedKm <= FINISHED_EPSILON_KM;
+  // collapses rather than leaving a permanent one-pixel dashed sliver with an
+  // "+ add a day" button inside it (see ARRIVED_EPSILON_KM).
+  const arrived = totalKm - plannedKm <= ARRIVED_EPSILON_KM;
   const remainderWidth = arrived ? 0 : Math.max(0, axisWidth - x);
   return {
     blocks,

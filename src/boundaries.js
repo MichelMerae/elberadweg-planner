@@ -9,6 +9,16 @@
 export const MIN_DAY_KM = 5;
 
 /**
+ * How close to the end of the route counts as having arrived, in km.
+ *
+ * Boundary edits quantize to the 0.1 km grid while the real route is 650.24 km
+ * long, so a finished plan stops ~0.04 km short of Dresden. Every part of the
+ * screen must agree on that: the strip collapsing its remainder while the day
+ * panel still offers "142 m left to ride" is one plan contradicting itself.
+ */
+export const ARRIVED_EPSILON_KM = 0.5;
+
+/**
  * The km window boundary `index` may be moved to.
  *
  * The lower bound keeps day `index` at least `minDayKm` long. The upper bound
