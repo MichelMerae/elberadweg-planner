@@ -1,6 +1,7 @@
 node_modules/
 dist/
 src/data/route.raw.osm.json
+.superpowers/
 
 # OS cruft
 .DS_Store
