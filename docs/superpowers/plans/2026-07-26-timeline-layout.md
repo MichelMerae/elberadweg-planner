@@ -3430,7 +3430,10 @@ Tasks 10, 11 and 13 were executed in parallel, each scoped to its own module onl
 - Task 11 quality review, integration-relevant: **`.pois--town` needs a legend-dot rule** (`background: var(--town)` on `.pois--town .pois__summary::before` — the other three sections have one; without it the towns section renders a blank 9 px indent). And **the left panel is now on the drag-preview hot path**: `renderAll()` per pointermove rebuilds ~97 KB / ~1300 DOM nodes in places.js alone (402 KB expanded). Watch drag smoothness at integration; the decision (skip section re-renders during `commit:false` previews, or rAF-coalesce panel renders) is recorded at Task 14.
 - The dashed muted route + thick highlight contrast on the canvas renderer; pin drag feel.
 - Strip focus restoration when the focused day is deleted from the day panel: DOM focus drops to `<body>` (`strip.js` restore finds no match). Fold a nearest-surviving-index fallback in if cheap; otherwise record.
-- Day-panel: an unrelated re-render with an open custom-stop draft keeps the text but drops focus (effectively unreachable; strictly better than the old behaviour).
+- ~~Day-panel: an unrelated re-render with an open custom-stop draft keeps the text but drops focus~~ **Upgraded by Task 10's quality review to fix-now** (every re-render dropped focus to `<body>`, breaking the keyboard stepper): day-panel gets strip.js's focus-restoration pattern. Integration still verifies focus behaviour end-to-end in the browser.
+- **`handleFocusDay` must clear `customStopDraft`** (like `handleAddStops` and `handleEditDay` already do) — a stale draft otherwise follows onto the wrong day; day-panel also guards panel-side (out-of-span draft renders as no draft), but the semantic fix belongs in main.js.
+- **The three modules name the focused day three different ways** — strip `focusedIndex` (0-based nullable), day-panel `day`/`day.index` (0-based), places `dayNumber` (1-based, `!= null` guarded). Derive all three from one local in adjacent lines in `renderAll`, and mind the `+ 1`.
+- **Integration must not add a document-level Escape handler blindly**: day-panel installs no keydown listener (all real buttons — correct), but ui.js used to stop Escape propagation from the distance input; an app-level Escape would now also fire while a user Esc-reverts their typing.
 
 ---
 
@@ -3799,6 +3802,14 @@ EOF
 > - **Keyboard panning never reaches `onUserMove`** — arrow keys go through `panBy` (only `moveend`, no `dragend`/`zoomend`), so a keyboard user's pan is undone by the next render. Gating `moveend` with the `programmaticUntil` window would catch it; only safe now that the window exists.
 > - Magic numbers in map.js against the module's own convention: `padding: [48,48]`/`[28,28]`, `maxZoom: 13` (a product decision deserving a name), highlight `weight: 7`/`opacity: 0.95` inline below a named `ROUTE_STYLE`, and `'#2563eb'` duplicated between route style and highlight — one constant keeps them in sync by construction.
 > - `focusRange` accepts a single coord and fits a zero-area bounds (lands at maxZoom centred on the point) while `setRouteHighlight` requires two — accidental asymmetry; decide or document.
+>
+> **From Task 10's quality review (day-panel.js):**
+> - **Lift `glyphFor` into `ui-util.js`**: `BREAK_GLYPH[b.kind] || '☕'` survives in day-panel.js and twice in ui.js while strip.js already guards with `Object.hasOwn(...) ? … : '📌'` — a `kind: "toString"` interpolates a function body, and an unknown kind renders ☕ in the panel but 📌 in the strip simultaneously. One shared helper fixes three copies.
+> - `dayCount` has no default: `render({ day })` shows "3 of undefined" and `2 >= NaN` leaves `›` enabled past the end. `dayCount = 0` fails safe.
+> - A break exactly at the day's end renders a duplicate "0 km" final leg (the asymmetric twin of the `at the start` guard) — reachable by ☕-ing the overnight town.
+> - The `done`-guard comment in the inline editor names a blur that never fires (removing a focused element fires no blur, jsdom or browser); real behaviour: a re-render mid-note-edit silently discards the editor. Rewrite the comment honestly, state whether the discard asymmetry vs the custom-stop prompt is deliberate, and add the pinning test.
+> - Test consolidation: a `renderDay(overrides)` helper (~18 verbatim mount+render repetitions); `DAY` fixtures carry a `targetKm` the panel never reads.
+> - `poiKey` (ui-util) and `breakKey` (itinerary) are two character-identical implementations of one format — one should import the other.
 >
 > **From Task 11's quality review (places.js):**
 > - **Drag-preview render cost decision** (the Important one): `renderAll()` per `commit:false` pointermove rebuilds the whole left panel (~97 KB innerHTML at real data scale, 402 KB expanded) plus day panel plus Leaflet markers. Decide: skip panel/section re-renders during previews, or coalesce panel renders into rAF with only the strip synchronous. Measure in the browser first.
