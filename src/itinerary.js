@@ -4,8 +4,9 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-// Stored lengths are user-facing numbers that get persisted, so keep them at one
-// decimal — snapping to a town at km 76.2345 must not write 76.2345 to storage.
+// Boundary edits write user-facing lengths that get persisted, so keep them at
+// one decimal — a drag snapping to a town at km 76.2345 must not write 76.2345
+// to storage. addDay and hydrate store lengths as given.
 function round1(n) {
   return Math.round(n * 10) / 10;
 }
@@ -142,9 +143,13 @@ export function createItinerary({ totalKm } = {}) {
     }
     const day = days[index];
     const target = clampBoundaryKm(days, index, endKm, { totalKm: total });
-    // Rounded delta purely as the no-op guard: it absorbs sub-0.05 km drag jitter
-    // that would otherwise rewrite lengths for no visible movement.
-    if (round1(target - day.endKm) === 0) return toPublicDay(day, index);
+    // Position unchanged AND the stored length already matches it: nothing to do.
+    // The second term matters — a day clamped at totalKm stores a length longer
+    // than its span, and skipping on delta alone would leave that stale value in
+    // storage and in the returned day.
+    if (round1(target - day.endKm) === 0 && round1(target - day.startKm) === day.targetKm) {
+      return toPublicDay(day, index);
+    }
     const next = days[index + 1];
     // Derive both lengths from the boundary POSITIONS rather than adding a delta
     // to the stored length. A day clamped at totalKm carries a targetKm larger
@@ -153,13 +158,19 @@ export function createItinerary({ totalKm } = {}) {
     // looks stuck until the overshoot burns off. Positions can't drift that way.
     const nextEnd = next ? next.endKm : null;
     day.targetKm = round1(target - day.startKm);
-    if (next) next.targetKm = round1(nextEnd - target);
+    // The neighbour's length comes off the REALIZED boundary (start + rounded
+    // length), not the requested target. Rounding both halves against the raw
+    // target lets them both round up at a .x5 step, adding 0.1 km to the pair and
+    // shifting every day beyond it — the one thing this function promises not to do.
+    if (next) next.targetKm = round1(nextEnd - (day.startKm + day.targetKm));
     recomputeFrom(index);
     return toPublicDay(days[index], index);
   }
 
   // The typed-distance path: setting a day's length is moving its boundary to
-  // start + length, with the same local semantics and the same clamps.
+  // start + length, with the same local semantics and the same clamps. An
+  // over-long length clamps rather than throws — assertValidTargetKm only
+  // rejects nonsense input, not lengths the boundary window can't fit.
   function editDay(index, targetKm) {
     assertValidIndex(index);
     assertValidTargetKm(targetKm);

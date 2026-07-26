@@ -132,6 +132,44 @@ describe('createItinerary - moveBoundary', () => {
     expect(days[1].targetKm).toBe(83.9);
   });
 
+  it('keeps days beyond the neighbour put even when the target lands between rounding steps', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    [80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
+
+    itinerary.moveBoundary(1, 156.25); // both halves would round up, adding 0.1 km to the pair
+
+    const days = itinerary.getDays();
+    expect(days[1].targetKm + days[2].targetKm).toBeCloseTo(160, 9); // the pair's span
+    expect(days[2].endKm).toBeCloseTo(240, 9);
+    expect(days[3]).toMatchObject({ targetKm: 80 });
+    expect(days[3].startKm).toBeCloseTo(240, 9);
+  });
+
+  it('ignores a sub-0.05 km jitter drag on a day whose length already matches', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 80.03);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ endKm: 80, targetKm: 80 });
+    expect(days[1]).toMatchObject({ startKm: 80, endKm: 160, targetKm: 80 });
+  });
+
+  it('still normalises an inflated length when the boundary cannot move', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(300);
+    itinerary.addDay(200); // clamped to {300, 380} while targetKm stays 200
+
+    const day = itinerary.editDay(1, 90); // clamps back to the boundary it already sits on
+
+    // Asserting the RETURN value: callers detect clamping by comparing it to what
+    // they asked for, so it has to reflect reality.
+    expect(day).toMatchObject({ startKm: 300, endKm: TOTAL_KM, targetKm: 80 });
+    expect(itinerary.getDays()[1].targetKm).toBe(80);
+  });
+
   it('moves the boundary on the first drag even when the stored length overshot the route', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(300);
