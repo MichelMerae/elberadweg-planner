@@ -8,6 +8,11 @@ import { MIN_DAY_KM } from './boundaries.js';
 
 const SNAP_EPSILON_KM = 0.05;
 
+const STEPPER_TWIN = {
+  '[data-action="focus-prev"]': '[data-action="focus-next"]',
+  '[data-action="focus-next"]': '[data-action="focus-prev"]',
+};
+
 // ✎ on a break leg. For place breaks it edits the free note; for custom stops it
 // edits the label itself (= the break's name).
 function breakEditButton(b) {
@@ -61,6 +66,19 @@ function startBreakEdit(btn, callbacks) {
     }
   });
   input.addEventListener('blur', () => finish(true));
+}
+
+// A draft belongs to the day it was clicked on, and focus can move off that day
+// (‹ ›, a strip click) while the draft is still open. Shown on the wrong day it
+// reads "(-65 km into the day)" and confirming it would add the stop to the day
+// the user left. main.js clears a stranded draft as well; this keeps the panel
+// honest whatever it is handed. The lower bound is exclusive because a day's
+// start km is the previous day's end — except at km 0, which belongs to the
+// first day (the same widening breaksForDay uses).
+function draftForDay(draft, day) {
+  if (!draft || !day) return null;
+  const lower = day.startKm === 0 ? -1 : day.startKm;
+  return draft.km > lower && draft.km <= day.endKm ? draft : null;
 }
 
 // The "New stop at km K" prompt shown while a route click is pending a label,
@@ -123,6 +141,58 @@ export function createDayPanel({ el, callbacks = {} }) {
   promptEl.id = 'custom-stop-prompt';
   promptEl.hidden = true;
 
+  // What the panel holds focus on, resolved to something that will still exist
+  // after render's innerHTML write destroys the node itself. Without this every
+  // control costs a keyboard user a fresh Tab journey through the document:
+  // ‹ › re-render, so does committing a distance, and the stepper is this panel's
+  // only reachable path to a day too short to grab in the strip.
+  //
+  // The panel's own controls are unique within it, so data-action identifies
+  // them. A leg's buttons repeat, so those carry their position among the legs
+  // instead of their break key: the key of a break that was just removed matches
+  // nothing, while the position is taken over by whichever leg slid into it.
+  function focusedTarget() {
+    const active = document.activeElement;
+    if (!active || !el.contains(active)) return null;
+    // The prompt survives a render verbatim, so its own nodes are the target —
+    // input, Add and Cancel alike.
+    if (promptEl.contains(active)) return { node: active };
+    if (active.matches('[data-day-distance]')) return { selector: '[data-day-distance]' };
+    const control = active.closest('[data-action]');
+    if (!control) return null;
+    const selector = `[data-action="${control.dataset.action}"]`;
+    const inLegs = [...el.querySelectorAll(`.day-card__leg ${selector}`)];
+    const at = inLegs.indexOf(control);
+    return at === -1 ? { selector } : { selector, at };
+  }
+
+  // preventScroll: the panel sits in a height:100vh, overflow:hidden body, and
+  // scrolling it to "reveal" a control shoves the whole app off screen.
+  function restoreFocus(target) {
+    if (!target) return;
+    if (target.node) {
+      if (el.contains(target.node)) target.node.focus({ preventScroll: true });
+      return;
+    }
+    if (target.at === undefined) {
+      const node = el.querySelector(target.selector);
+      if (node && !node.disabled) {
+        node.focus({ preventScroll: true });
+        return;
+      }
+      // Walking ‹ ›  to either end disables the button being pressed, and a
+      // disabled node can't hold focus — so hand it to the twin, which by
+      // definition is the way back. Only the stepper: the other controls' nearest
+      // neighbour is "Delete day", which is nowhere to land focus by accident.
+      const twin = STEPPER_TWIN[target.selector];
+      const back = twin && el.querySelector(twin);
+      if (back && !back.disabled) back.focus({ preventScroll: true });
+      return;
+    }
+    const inLegs = [...el.querySelectorAll(`.day-card__leg ${target.selector}`)];
+    inLegs[Math.min(target.at, inLegs.length - 1)]?.focus({ preventScroll: true });
+  }
+
   function legs(day, breaks) {
     const lines = [];
     let prevKm = day.startKm;
@@ -180,6 +250,7 @@ export function createDayPanel({ el, callbacks = {} }) {
 
   function render({ day, dayCount, breaks = [], fromName = 'your last stop', customStopDraft = null }) {
     current = { day, dayCount };
+    const focusTarget = focusedTarget();
     if (!day) {
       el.innerHTML = `
         <div class="day-panel day-panel--empty">
@@ -231,9 +302,12 @@ export function createDayPanel({ el, callbacks = {} }) {
         </div>
       </div>`;
     el.querySelector('[data-custom-stop-slot]').replaceWith(promptEl);
+    restoreFocus(focusTarget);
     // Built after the innerHTML swap so the prompt's own listeners survive it,
-    // and so its input is focusable — it is in the document by now.
-    renderCustomStopPrompt(customStopDraft, day, callbacks, promptEl);
+    // and so its input is focusable — it is in the document by now. After
+    // restoreFocus, too: a draft the user has just opened is a request for the
+    // prompt, and focusing its input outranks putting focus back where it was.
+    renderCustomStopPrompt(draftForDay(customStopDraft, day), day, callbacks, promptEl);
   }
 
   el.addEventListener('change', (e) => {

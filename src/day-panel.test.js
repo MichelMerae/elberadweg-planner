@@ -390,6 +390,77 @@ describe('createDayPanel - custom stop prompt', () => {
     expect(el.querySelector('.custom-stop__title').textContent).toContain('km 210');
   });
 
+  // A draft belongs to the day it was clicked on. Stepping to another day
+  // strands it: "(-65 km into the day)" is nonsense, and confirming it would add
+  // the stop to the day the user left. main.js clears a stranded draft too — this
+  // is the panel refusing to make a claim it can't back up.
+  it('ignores a draft that belongs to another day', () => {
+    const panel = mount();
+    panel.render({
+      day: { index: 3, targetKm: 40, startKm: 265, endKm: 305, townChoice: null },
+      dayCount: 4,
+      breaks: [],
+      fromName: 'Rosenhof',
+      customStopDraft: { km: 200 },
+    });
+
+    expect(el.querySelector('#custom-stop-prompt').hidden).toBe(true);
+    expect(el.querySelector('.custom-stop__title')).toBeNull();
+  });
+
+  it('ignores a draft past the day end', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 265.1 } });
+    expect(el.querySelector('#custom-stop-prompt').hidden).toBe(true);
+  });
+
+  it('keeps a draft sitting exactly on the day end', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 265 } });
+    expect(el.querySelector('.custom-stop__title').textContent).toContain('105 km into the day');
+  });
+
+  // Same km-0 widening as main.js's breaksForDay: a stop at km 0 belongs to the
+  // first day, whose start is also 0.
+  it('keeps a km-0 draft on the first day', () => {
+    const panel = mount();
+    panel.render({
+      day: { index: 0, targetKm: 80, startKm: 0, endKm: 80, townChoice: null },
+      dayCount: 1,
+      breaks: [],
+      fromName: 'Hamburg',
+      customStopDraft: { km: 0 },
+    });
+
+    const title = el.querySelector('.custom-stop__title').textContent;
+    expect(title).toContain('New stop at km 0');
+    expect(title).toContain('0 km into the day');
+  });
+
+  // ...but on any later day the start km belongs to the PREVIOUS day, whose end
+  // it is — otherwise one click would offer itself to two days.
+  it('ignores a draft on a later day own start km', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 160 } });
+    expect(el.querySelector('#custom-stop-prompt').hidden).toBe(true);
+  });
+
+  // The prompt node outlives the markup around it, so emptying the plan has to
+  // clear it explicitly or a later day inherits the label typed for a deleted one.
+  it('discards a typed label when the plan empties', () => {
+    const panel = mount();
+    const customStopDraft = { km: 200 };
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+    el.querySelector('#custom-stop-label').value = 'half typ';
+
+    panel.render({ day: null, dayCount: 0, breaks: [] });
+    expect(el.querySelector('#custom-stop-prompt')).toBeNull(); // not in the empty panel at all
+
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+    expect(el.querySelector('#custom-stop-label').value).toBe('');
+    expect(el.querySelector('#custom-stop-prompt').hidden).toBe(false);
+  });
+
   it('refreshes the distance into the day when the day start moves', () => {
     const panel = mount();
     const customStopDraft = { km: 200 };
@@ -403,6 +474,156 @@ describe('createDayPanel - custom stop prompt', () => {
     });
 
     expect(el.querySelector('.custom-stop__title').textContent).toContain('50 km into the day');
+  });
+});
+
+// Every control the panel offers triggers a re-render through main.js, and the
+// re-render rebuilds the markup those controls live in. Without restoration
+// document.activeElement is BODY afterwards: a keyboard user gets one Tab journey
+// per day stepped, and the ‹ › stepper is this panel's only reachable path to a
+// day too short to grab in the strip.
+describe('createDayPanel - focus across a re-render', () => {
+  const DAY2 = { index: 1, targetKm: 60, startKm: 100, endKm: 160, townChoice: null };
+  const breaks = [
+    { name: 'Café Elbterrasse', kind: 'food', routeDistanceKm: 195, note: '15 min coffee' },
+    { name: 'Grenzturm', kind: 'sight', routeDistanceKm: 213 },
+  ];
+
+  it('keeps focus on the stepper, so the next press lands', () => {
+    const panel = mount();
+    panel.render({ day: DAY2, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    const next = el.querySelector('[data-action="focus-next"]');
+    next.focus();
+
+    // What handleFocusDay does: focus moves on, then everything re-renders.
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+
+    expect(document.activeElement).not.toBe(next); // the node itself is gone
+    expect(document.activeElement.dataset.action).toBe('focus-next');
+
+    document.activeElement.click();
+    expect(callbacks.onFocusDay).toHaveBeenCalledWith(3);
+  });
+
+  // Walking the stepper to either end disables the button under the user's
+  // finger, and a disabled node can't hold focus — so the twin takes it, which is
+  // also the only way back.
+  it('hands focus to the twin when the stepper reaches the end', () => {
+    const panel = mount();
+    panel.render({ day: DAY2, dayCount: 3, breaks: [], fromName: 'Lenzen' });
+    el.querySelector('[data-action="focus-next"]').focus();
+
+    panel.render({ day: DAY, dayCount: 3, breaks: [], fromName: 'Lenzen' }); // index 2 of 3: › disabled
+
+    expect(el.querySelector('[data-action="focus-next"]').disabled).toBe(true);
+    expect(document.activeElement.dataset.action).toBe('focus-prev');
+  });
+
+  it('hands focus to the twin at the start of the plan', () => {
+    const panel = mount();
+    panel.render({ day: DAY2, dayCount: 3, breaks: [], fromName: 'Lenzen' });
+    el.querySelector('[data-action="focus-prev"]').focus();
+
+    panel.render({
+      day: { index: 0, targetKm: 100, startKm: 0, endKm: 100, townChoice: null },
+      dayCount: 3,
+      breaks: [],
+      fromName: 'Hamburg',
+    });
+
+    expect(document.activeElement.dataset.action).toBe('focus-next');
+  });
+
+  it('drops focus rather than picking a stray control when both ends are disabled', () => {
+    const panel = mount();
+    panel.render({ day: DAY2, dayCount: 3, breaks: [], fromName: 'Lenzen' });
+    el.querySelector('[data-action="focus-next"]').focus();
+
+    panel.render({
+      day: { index: 0, targetKm: 80, startKm: 0, endKm: 80, townChoice: null },
+      dayCount: 1,
+      breaks: [],
+      fromName: 'Hamburg',
+    });
+
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('keeps focus on the distance field', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    el.querySelector('[data-day-distance]').focus();
+
+    panel.render({ day: { ...DAY, endKm: 250 }, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+
+    expect(document.activeElement.matches('[data-day-distance]')).toBe(true);
+  });
+
+  // The persistent prompt node keeps the text and the caret; without this it kept
+  // both while activeElement sat on BODY, so the user typed on into nothing.
+  it('keeps focus and caret in the prompt input', () => {
+    const panel = mount();
+    const customStopDraft = { km: 200 };
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+    const input = el.querySelector('#custom-stop-label');
+    input.value = 'half typ';
+    input.setSelectionRange(8, 8);
+    input.focus();
+
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(8);
+  });
+
+  // A brand-new draft is the user asking for the prompt, so it outranks whatever
+  // held focus before.
+  it('yields to a brand-new prompt', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    el.querySelector('[data-day-distance]').focus();
+
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 } });
+
+    expect(document.activeElement.id).toBe('custom-stop-label');
+  });
+
+  it('keeps focus on a surviving leg own remove button', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    el.querySelectorAll('[data-action="remove-break"]')[1].focus();
+
+    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+
+    expect(document.activeElement.dataset.breakKey).toBe('Grenzturm@213');
+  });
+
+  // Removing a break destroys the very button that removed it, so focus goes to
+  // whichever leg slid into its place rather than back to the top of the document.
+  it('hands a removed break position to the leg that takes it', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    el.querySelector('[data-action="remove-break"]').focus();
+
+    panel.render({ day: DAY, dayCount: 4, breaks: [breaks[1]], fromName: 'Lenzen' });
+
+    expect(document.activeElement.dataset.breakKey).toBe('Grenzturm@213');
+  });
+
+  // The panel is one of four modules writing to this document. Restoration is
+  // keyed on attributes, so it has to check the focused node is actually ours
+  // before matching one — hence an outsider wearing the same hook here.
+  it('leaves focus alone when it was not in the panel', () => {
+    const outside = document.createElement('input');
+    outside.setAttribute('data-day-distance', '');
+    document.body.appendChild(outside);
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    outside.focus();
+
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+
+    expect(document.activeElement).toBe(outside);
   });
 });
 
