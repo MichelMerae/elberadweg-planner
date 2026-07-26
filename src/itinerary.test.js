@@ -274,6 +274,52 @@ describe('createItinerary - setTownChoice', () => {
     itinerary.addDay(80);
     expect(itinerary.getDays()[0].townChoice).toBeNull();
   });
+
+  it('snaps the boundary to the chosen town and lets the neighbour absorb it', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.setTownChoice(0, { name: 'Boizenburg/Elbe', routeDistanceKm: 76.2, offsetKm: 0.33 });
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ endKm: 76.2, targetKm: 76.2 });
+    expect(days[1]).toMatchObject({ startKm: 76.2, endKm: 160, targetKm: 83.8 });
+  });
+
+  it('clamps a snap that would starve the neighbour, keeping the town', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(8); // next boundary at km 88, so the upper clamp is 83
+
+    itinerary.setTownChoice(0, { name: 'Too Close', routeDistanceKm: 86 });
+
+    const days = itinerary.getDays();
+    expect(days[0].endKm).toBe(83);
+    // The panel derives its "stopped at" note from this mismatch.
+    expect(days[0].townChoice.routeDistanceKm).toBe(86);
+  });
+
+  it('leaves the boundary alone for a town with no route position', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    itinerary.setTownChoice(0, { name: 'Nowhere' });
+
+    expect(itinerary.getDays()[0].endKm).toBe(80);
+  });
+
+  it('leaves the boundary alone when the town choice is cleared', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.setTownChoice(0, { name: 'Boizenburg/Elbe', routeDistanceKm: 76.2 });
+
+    itinerary.setTownChoice(0, null);
+
+    const day = itinerary.getDays()[0];
+    expect(day.townChoice).toBeNull();
+    expect(day.endKm).toBe(76.2);
+  });
 });
 
 describe('createItinerary - removeLastDay / reset', () => {

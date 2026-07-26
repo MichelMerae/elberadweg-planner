@@ -594,6 +594,36 @@ describe('createPlanStore - activePlanId persistence', () => {
   });
 });
 
+describe('createPlanStore - snapped fractional lengths', () => {
+  it('round-trips a fractional targetKm through a save and reload', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'v1' });
+    store.load();
+    store.saveActivePlan({
+      days: [
+        { targetKm: 76.2, townChoice: { name: 'Boizenburg/Elbe', routeDistanceKm: 76.2 } },
+        { targetKm: 83.8, townChoice: null },
+      ],
+      breaks: [],
+    });
+
+    const reloaded = createPlanStore({ storage, routeVersion: 'v1' });
+    reloaded.load();
+    const days = reloaded.getActivePlan().days;
+    expect(days[0].targetKm).toBe(76.2);
+    expect(days[1].targetKm).toBe(83.8);
+  });
+
+  it('still writes schema version 2 — the timeline work needs no migration', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'v1' });
+    store.load();
+    store.saveActivePlan({ days: [{ targetKm: 76.2, townChoice: null }], breaks: [] });
+
+    expect(JSON.parse(storage.getItem(PLANS_KEY)).schemaVersion).toBe(2);
+  });
+});
+
 describe('createPlanStore - break notes & custom stops', () => {
   it('round-trips note and custom-kind break fields through save and reload', () => {
     const storage = createFakeStorage();
