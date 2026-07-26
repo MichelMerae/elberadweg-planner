@@ -153,18 +153,30 @@ export function createItinerary({ totalKm } = {}) {
       return toPublicDay(day, index);
     }
     const next = days[index + 1];
+    const nextEnd = next ? next.endKm : null;
     // Derive both lengths from the boundary POSITIONS rather than adding a delta
     // to the stored length. A day clamped at totalKm carries a targetKm larger
     // than its real span (addDay and hydrate both permit it), and a delta applied
     // to that inflated length shrinks it without moving the boundary — the drag
     // looks stuck until the overshoot burns off. Positions can't drift that way.
-    const nextEnd = next ? next.endKm : null;
-    day.targetKm = round1(target - day.startKm);
+    const length = round1(target - day.startKm);
+    // A pair spanning under 2 x MIN_DAY_KM has no legal boundary between them, so
+    // boundaryBounds collapses its window to a single position that can sit past
+    // the neighbour's end. Deriving a length from that yields a negative number,
+    // an inverted day, and — since hydrate rejects a non-positive length — the loss
+    // of every day in the plan on the next reload. A boundary with nowhere legal to
+    // go simply doesn't move. Refuse rather than floor: flooring the neighbour at
+    // MIN_DAY_KM would extend its end and shift every day downstream, breaking
+    // locality.
+    if (next && round1(nextEnd - (day.startKm + length)) < MIN_DAY_KM) {
+      return toPublicDay(day, index);
+    }
+    day.targetKm = length;
     // The neighbour's length comes off the REALIZED boundary (start + rounded
     // length), not the requested target. Rounding both halves against the raw
     // target lets them both round up at a .x5 step, adding 0.1 km to the pair and
     // shifting every day beyond it — the one thing this function promises not to do.
-    if (next) next.targetKm = round1(nextEnd - (day.startKm + day.targetKm));
+    if (next) next.targetKm = round1(nextEnd - (day.startKm + length));
     recomputeFrom(index);
     return toPublicDay(days[index], index);
   }
