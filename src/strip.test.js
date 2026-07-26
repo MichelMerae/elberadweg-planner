@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createStrip } from './strip.js';
+import { MIN_DAY_KM, clampBoundaryKm } from './boundaries.js';
+import { round1 } from './ui-util.js';
 
 const TOTAL_KM = 650;
 const WIDTH = 1300;
@@ -30,6 +32,406 @@ function mount(width = WIDTH) {
 
 beforeEach(() => {
   document.body.innerHTML = '';
+});
+
+// --- Interaction harness ---------------------------------------------------
+//
+// A strip mounted with callbacks that behave like main.js's: they mutate a plan
+// and then RE-RENDER. That re-render is the whole point. strip.js rebuilds the
+// axis with innerHTML, and handleMoveBoundary calls renderAll() for commit:false
+// too, so a drag's first preview destroys the very handle it started on. Tests
+// that hand createStrip a bare vi.fn() leave the DOM standing and so certify a
+// drag that cannot work in a browser — the failure Task 7's review measured in
+// Chromium. Every pointer and keyboard test below goes through here.
+//
+// The move callback also mirrors itinerary.moveBoundary's REFUSAL: a pair of
+// days spanning under 2 x MIN_DAY_KM has no legal boundary between them, so the
+// model returns the day unchanged. The strip must never assume the km it sent
+// was accepted.
+function mountLive(ends, { totalKm = TOTAL_KM, width = WIDTH, focusedIndex = 0, breaks = [] } = {}) {
+  const strip = mount(width);
+  const axis = el.querySelector('[data-strip-axis]');
+  // jsdom has no layout engine, so the axis rect the pointer maths reads is all
+  // zeros unless we say otherwise.
+  axis.getBoundingClientRect = () => ({ left: 0, top: 0, right: width, bottom: 46, width, height: 46 });
+
+  const plan = [...ends];
+  let focused = focusedIndex;
+  const moves = [];
+  const render = () => strip.render({ days: days(...plan), totalKm, focusedIndex: focused, breaks });
+
+  callbacks.onMoveBoundary.mockImplementation((index, endKm, opts = {}) => {
+    moves.push({ index, endKm, commit: !!opts.commit });
+    const target = clampBoundaryKm(days(...plan), index, endKm, { totalKm });
+    const nextEnd = index + 1 < plan.length ? plan[index + 1] : null;
+    if (nextEnd === null || round1(nextEnd - target) >= MIN_DAY_KM) plan[index] = target;
+    render();
+  });
+  callbacks.onFocusDay.mockImplementation((index) => {
+    focused = index;
+    render();
+  });
+
+  render();
+  return { strip, axis, moves, plan: () => [...plan], handle: (i) => axis.querySelector(`[data-boundary-index="${i}"]`), block: (i) => axis.querySelector(`[data-day-index="${i}"]`) };
+}
+
+// jsdom implements the PointerEvent constructor but NOT setPointerCapture, so a
+// drag here is a sequence of events aimed by hand at the elements the browser
+// would aim them at: the press at whatever is under the pointer, everything
+// after it at the capture target, which is the axis.
+function fire(target, type, { x = 0, buttons = 1, button = 0, pointerId = 1 } = {}) {
+  target.dispatchEvent(
+    new window.PointerEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      clientX: x,
+      clientY: 20,
+      buttons,
+      button,
+      pointerId,
+    }),
+  );
+}
+
+function press(target, key, { shiftKey = false } = {}) {
+  target.dispatchEvent(new window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, key, shiftKey }));
+}
+
+describe('createStrip - keyboard boundary nudges', () => {
+  it('nudges a boundary 1 km per arrow press, committing each one', () => {
+    const { handle } = mountLive([80, 160]);
+
+    press(handle(0), 'ArrowRight');
+
+    expect(callbacks.onMoveBoundary).toHaveBeenCalledWith(0, 81, { commit: true });
+  });
+
+  it('takes a 5 km step with shift held', () => {
+    const { handle } = mountLive([80, 160]);
+
+    press(handle(0), 'ArrowLeft', { shiftKey: true });
+
+    expect(callbacks.onMoveBoundary).toHaveBeenCalledWith(0, 75, { commit: true });
+  });
+
+  it('clamps a nudge at the neighbouring day floor', () => {
+    // Boundary 0 may run to 155 - MIN_DAY_KM = 150, which is where it already is.
+    // It still commits: the value is legal, and a commit is what persists the plan.
+    const { handle } = mountLive([150, 155]);
+
+    press(handle(0), 'ArrowRight');
+
+    expect(callbacks.onMoveBoundary).toHaveBeenCalledWith(0, 150, { commit: true });
+  });
+
+  it('asks for nothing when the boundary has nowhere legal to go', () => {
+    // days(6, 9): boundary 0's window is min 5, max max(5, 9 - 5) = 5 — collapsed.
+    // boundaryBounds floors max at min, so the single position it reports (5) is
+    // itself a move the model refuses. Sending it would report a change that
+    // never happened, and on a plan this squeezed that is how a drag used to
+    // rewrite days that never moved.
+    const { handle } = mountLive([6, 9]);
+
+    press(handle(0), 'ArrowLeft');
+    press(handle(0), 'ArrowRight');
+
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+  });
+
+  it('ignores keys that are not arrows', () => {
+    const { handle } = mountLive([80, 160]);
+
+    ['a', 'Tab', 'ArrowUp', 'ArrowDown', 'Escape'].forEach((key) => press(handle(0), key));
+
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+  });
+
+  // The measured symptom of the bug this guards: document.activeElement is BODY
+  // after a render, so a keyboard user got exactly one nudge per Tab.
+  it('keeps focus on the handle across the re-render, so the next press lands', () => {
+    const { handle, moves } = mountLive([80, 160]);
+    const first = handle(0);
+    first.focus();
+
+    press(first, 'ArrowRight');
+
+    expect(document.activeElement).not.toBe(first); // the node itself is gone
+    expect(document.activeElement.dataset.boundaryIndex).toBe('0');
+
+    press(document.activeElement, 'ArrowRight');
+    press(document.activeElement, 'ArrowRight');
+
+    expect(moves.map((m) => m.endKm)).toEqual([81, 82, 83]);
+  });
+
+  it('leaves focus alone when it was not in the strip', () => {
+    const outside = document.createElement('input');
+    document.body.appendChild(outside);
+    const { strip } = mountLive([80, 160]);
+    outside.focus();
+
+    strip.render({ days: days(80, 160), totalKm: TOTAL_KM, focusedIndex: 1, breaks: [] });
+
+    expect(document.activeElement).toBe(outside);
+  });
+
+  // A role="slider" whose element is destroyed and recreated never announces its
+  // own value change, so the value is spoken from a live region that survives
+  // the rebuild.
+  it('announces the value the boundary settled on', () => {
+    const { handle } = mountLive([80, 160]);
+
+    press(handle(0), 'ArrowRight');
+
+    const live = el.querySelector('[role="status"]');
+    expect(live.textContent).toContain('81');
+    expect(live.textContent).toContain('Day 1');
+  });
+});
+
+describe('createStrip - keyboard on a day block', () => {
+  it('focuses the day on Enter and keeps DOM focus on the block', () => {
+    const { block } = mountLive([80, 160]);
+    const first = block(1);
+    first.focus();
+
+    press(first, 'Enter');
+
+    expect(callbacks.onFocusDay).toHaveBeenCalledWith(1);
+    // handleFocusDay re-renders too, so the block that was just focused is
+    // replaced — focus has to be re-emitted for blocks, not only handles.
+    expect(document.activeElement).not.toBe(first);
+    expect(document.activeElement.dataset.dayIndex).toBe('1');
+  });
+
+  it('focuses the day on Space', () => {
+    const { block } = mountLive([80, 160]);
+
+    press(block(1), ' ');
+
+    expect(callbacks.onFocusDay).toHaveBeenCalledWith(1);
+  });
+
+  it('does not move the boundary underneath the block', () => {
+    const { block } = mountLive([80, 160]);
+
+    press(block(0), 'Enter');
+    press(block(0), 'ArrowRight');
+
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+  });
+});
+
+describe('createStrip - boundary drag', () => {
+  // WIDTH 1300 over TOTAL_KM 650 is 2 px/km, so x 160 is km 80 and x 240 km 120.
+  it('previews with commit:false and commits exactly once on release', () => {
+    const { axis, moves, handle, plan } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 160 });
+    fire(axis, 'pointermove', { x: 200 });
+    fire(axis, 'pointermove', { x: 240 });
+    fire(axis, 'pointerup', { x: 240, buttons: 0 });
+
+    expect(moves.filter((m) => !m.commit)).toEqual([
+      { index: 0, endKm: 100, commit: false },
+      { index: 0, endKm: 120, commit: false },
+    ]);
+    expect(moves.filter((m) => m.commit)).toEqual([{ index: 0, endKm: 120, commit: true }]);
+    expect(plan()).toEqual([120, 160]);
+  });
+
+  // The bug in one test: every preview rebuilds the axis, so the handle the press
+  // landed on is detached before the second move arrives. The gesture has to
+  // survive on state that lives outside the DOM.
+  it('survives the re-render that destroys the handle it started on', () => {
+    const { axis, moves, handle } = mountLive([80, 160]);
+    const pressed = handle(0);
+
+    fire(pressed, 'pointerdown', { x: 160 });
+    fire(axis, 'pointermove', { x: 200 });
+
+    expect(axis.contains(pressed)).toBe(false);
+
+    fire(axis, 'pointermove', { x: 240 });
+    fire(axis, 'pointerup', { x: 240, buttons: 0 });
+
+    expect(moves.at(-1)).toEqual({ index: 0, endKm: 120, commit: true });
+  });
+
+  it('marks the dragged handle for as long as the drag is live', () => {
+    const { axis, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 160 });
+    expect(axis.querySelector('.strip__handle--dragging').dataset.boundaryIndex).toBe('0');
+
+    fire(axis, 'pointermove', { x: 200 });
+    expect(axis.querySelector('.strip__handle--dragging').dataset.boundaryIndex).toBe('0');
+
+    fire(axis, 'pointerup', { x: 200, buttons: 0 });
+    expect(axis.querySelector('.strip__handle--dragging')).toBeNull();
+  });
+
+  it('does not focus a day on the click that ends a drag', () => {
+    const { axis, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 160 });
+    fire(axis, 'pointermove', { x: 240 });
+    fire(axis, 'pointerup', { x: 240, buttons: 0 });
+    fire(axis, 'click', { x: 240, buttons: 0 });
+
+    expect(callbacks.onFocusDay).not.toHaveBeenCalled();
+  });
+
+  it('latches the nearest boundary where two grab zones overlap', () => {
+    // days(80, 85) puts handles 10 px apart at x 160 and 170, closer than the
+    // 24 px grab area the CSS gives each button — so the DOM would let paint
+    // order pick the winner. x 163 is 3 px from boundary 0 and 7 from boundary 1.
+    const { axis, moves, handle } = mountLive([80, 85]);
+
+    fire(handle(0), 'pointerdown', { x: 163 });
+    fire(axis, 'pointermove', { x: 100 });
+    fire(axis, 'pointerup', { x: 100, buttons: 0 });
+
+    expect(moves.map((m) => m.index)).toEqual([0, 0]);
+    expect(moves.at(-1).endKm).toBe(50);
+  });
+
+  it('does not hand the gesture to a neighbouring boundary mid-drag', () => {
+    // Boundary 0 clamps at 195 km (x 390) while boundary 1 sits at x 400, so a
+    // pointer at 398 is nearer boundary 1 than to the boundary being dragged.
+    // hitTestHandle is stateless nearest-wins, so re-running it on pointermove
+    // would switch handles mid-gesture.
+    const { axis, moves, handle, plan } = mountLive([80, 200, 400]);
+
+    fire(handle(0), 'pointerdown', { x: 160 });
+    fire(axis, 'pointermove', { x: 396 });
+    fire(axis, 'pointermove', { x: 398 });
+    fire(axis, 'pointerup', { x: 398, buttons: 0 });
+
+    expect(moves.every((m) => m.index === 0)).toBe(true);
+    expect(plan()).toEqual([195, 200, 400]);
+  });
+
+  it('focuses the day under a press that never moved', () => {
+    // Below the drag threshold this is a click, not a drag. It has to fall
+    // through to focusing the day, or a plan of near-minimum days — whose blocks
+    // are narrower than the handles covering them — could never be selected.
+    const { axis, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 158 });
+    fire(axis, 'pointerup', { x: 159, buttons: 0 });
+
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+    expect(callbacks.onFocusDay).toHaveBeenCalledWith(0);
+    expect(callbacks.onFocusDay).toHaveBeenCalledTimes(1);
+
+    fire(axis, 'click', { x: 159, buttons: 0 }); // the click the browser sends next
+    expect(callbacks.onFocusDay).toHaveBeenCalledTimes(1);
+  });
+
+  it('still focuses a block clicked after a gesture', () => {
+    const { axis, handle, block } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 158 });
+    fire(axis, 'pointerup', { x: 159, buttons: 0 });
+    fire(axis, 'click', { x: 159, buttons: 0 });
+    block(1).click();
+
+    expect(callbacks.onFocusDay).toHaveBeenLastCalledWith(1);
+    expect(callbacks.onFocusDay).toHaveBeenCalledTimes(2);
+  });
+
+  // Everything below is the anti-latch guarantee. A drag that stays latched is
+  // the destructive failure: the boundary then follows a bare hovering cursor,
+  // rewriting the plan until some later click commits wherever it landed.
+  it('stops dragging when the pointer capture is lost', () => {
+    const { axis, moves, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 160 });
+    fire(axis, 'pointermove', { x: 200 });
+    fire(axis, 'lostpointercapture', { x: 200 });
+
+    expect(moves.at(-1)).toEqual({ index: 0, endKm: 100, commit: true });
+    const settled = moves.length;
+
+    fire(axis, 'pointermove', { x: 400 }); // a bare hover
+    expect(moves).toHaveLength(settled);
+    expect(axis.querySelector('.strip__handle--dragging')).toBeNull();
+  });
+
+  it('stops dragging on a move that arrives with no button held', () => {
+    const { axis, moves, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 160 });
+    fire(axis, 'pointermove', { x: 200 });
+    fire(axis, 'pointermove', { x: 240, buttons: 0 }); // the pointerup we never saw
+
+    expect(moves.at(-1)).toEqual({ index: 0, endKm: 100, commit: true });
+    const settled = moves.length;
+
+    fire(axis, 'pointermove', { x: 400 });
+    expect(moves).toHaveLength(settled);
+  });
+
+  it('stops dragging when the gesture is cancelled', () => {
+    const { axis, moves, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 160 });
+    fire(axis, 'pointermove', { x: 200 });
+    fire(axis, 'pointercancel', { x: 200, buttons: 0 });
+    const settled = moves.length;
+
+    fire(axis, 'pointermove', { x: 400 });
+    expect(moves).toHaveLength(settled);
+    expect(axis.querySelector('.strip__handle--dragging')).toBeNull();
+  });
+
+  it('ignores moves belonging to a second pointer', () => {
+    const { axis, moves, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 160, pointerId: 1 });
+    fire(axis, 'pointermove', { x: 400, pointerId: 2 });
+
+    expect(moves).toHaveLength(0);
+
+    fire(axis, 'pointermove', { x: 200, pointerId: 1 });
+    expect(moves.map((m) => m.endKm)).toEqual([100]);
+  });
+
+  it('ignores a non-primary button', () => {
+    const { axis, moves, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 160, button: 2, buttons: 2 });
+    fire(axis, 'pointermove', { x: 240 });
+
+    expect(moves).toHaveLength(0);
+  });
+
+  it('leaves the add button usable even though it sits on the last boundary', () => {
+    // The remainder starts AT the last boundary, so its 8 px of padding puts the
+    // add button inside that handle's grab tolerance. Latching a drag there
+    // would preventDefault the press and swallow the click.
+    const { axis } = mountLive([80]);
+    const add = axis.querySelector('[data-action="add-day"]');
+
+    fire(add, 'pointerdown', { x: 165 });
+    fire(axis, 'pointerup', { x: 165, buttons: 0 });
+    add.click();
+
+    expect(callbacks.onAddDay).toHaveBeenCalledWith(null);
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+  });
+
+  it('does not drag a boundary that has nowhere legal to go', () => {
+    const { axis, moves, handle } = mountLive([6, 9]);
+
+    fire(handle(0), 'pointerdown', { x: 12 });
+    fire(axis, 'pointermove', { x: 60 });
+    fire(axis, 'pointerup', { x: 60, buttons: 0 });
+
+    expect(moves).toHaveLength(0);
+  });
 });
 
 describe('createStrip - summary', () => {

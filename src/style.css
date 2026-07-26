@@ -1537,3 +1537,15 @@ input[type="number"]:disabled {
   color: var(--text-faint);
   margin-top: 5px;
 }
+
+/* Screen-reader only. The handle is a role="slider" whose element is destroyed
+   and recreated by every render, so it can never announce its own
+   aria-valuenow changing — an arrow-key nudge is spoken from here instead. */
+.strip__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
