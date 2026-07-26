@@ -49,11 +49,15 @@ function renderArgs(overrides = {}) {
 const MANY = Array.from({ length: 451 }, (_, i) => poi(`Place ${i}`, 161 + i * 0.2));
 
 // jsdom does no layout, so scrollIntoView is missing entirely — the highlight
-// path calls it to bring a marker's row into view.
-window.Element.prototype.scrollIntoView = vi.fn();
+// path calls it to bring a marker's row into view. Re-stubbed per test: a spy
+// shared across the file would carry every earlier test's calls into the counts
+// asserted below.
+let scrollSpy;
 
 beforeEach(() => {
   document.body.innerHTML = '';
+  scrollSpy = vi.fn();
+  window.Element.prototype.scrollIntoView = scrollSpy;
 });
 
 describe('createPlaces - scoping', () => {
@@ -85,15 +89,17 @@ describe('createPlaces - scoping', () => {
 });
 
 describe('createPlaces - overnight candidates', () => {
+  // Off-grid km on both sides of the subtraction: the day-relative difference
+  // and the absolute km each have to be rounded on the way out.
   it('lists candidates with day-relative distance', () => {
     const places = mount();
-    places.render(renderArgs({ towns: [town('Rosenhof', 265, 0.4)] }));
+    places.render(renderArgs({ towns: [town('Rosenhof', 265.06, 0.4)] }));
 
     const row = el.querySelector('[data-place-section="town"]');
     expect(row.textContent).toContain('Rosenhof');
     expect(row.textContent).toContain('104.6 km from Lenzen');
     expect(row.textContent).toContain('0.4 km off route');
-    expect(row.querySelector('.meta__abs').textContent).toBe('km 265');
+    expect(row.querySelector('.meta__abs').textContent).toBe('km 265.1');
   });
 
   it('chooses a town as the overnight on a body click', () => {
@@ -117,11 +123,11 @@ describe('createPlaces - overnight candidates', () => {
 describe('createPlaces - POI rows', () => {
   it('gives a POI row the same day-relative wording, absolute km inline', () => {
     const places = mount();
-    places.render(renderArgs({ food: [poi('Café Elbterrasse', 195)] }));
+    places.render(renderArgs({ food: [poi('Café Elbterrasse', 195.06)] }));
 
     const meta = el.querySelector('[data-place-section="food"] .poi__meta').textContent;
     expect(meta).toContain('34.6 km from Lenzen');
-    expect(meta).toContain('(km 195)');
+    expect(meta).toContain('(km 195.1)');
     expect(meta).toContain('0.2 km off route');
   });
 
@@ -329,6 +335,16 @@ describe('createPlaces - favorites', () => {
     places.render(renderArgs());
 
     expect(el.textContent).toContain('Nothing starred yet');
+  });
+
+  it('shows a favorite at its rounded route km', () => {
+    const places = mount();
+    places.render(renderArgs({
+      favorites: [poi('Grenzturm', 213.06, 'sight')],
+      days: [{ index: 0, startKm: 0, endKm: 265 }],
+    }));
+
+    expect(el.querySelector('[data-place-section="fav"] .poi__meta').textContent).toContain('km 213.1');
   });
 
   it('selects a favorite through the POI callback', () => {
@@ -609,6 +625,33 @@ describe('createPlaces - marker hover highlight', () => {
 
     places.highlightPoiRow(null);
     expect(el.querySelector('.poi--hover')).toBeNull();
+  });
+
+  it('brings a freshly highlighted row into view', () => {
+    const places = mount();
+    places.render(renderArgs({ food: [poi('Café Elbterrasse', 195)] }));
+
+    places.highlightPoiRow('Café Elbterrasse@195');
+
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // Scrolling belongs to the marker hover, not to the render that follows it: a
+  // boundary drag re-renders continuously, and scrolling on each one would drag
+  // the panel away from the user ~60 times a second.
+  it('does not scroll again when a re-render re-applies the highlight', () => {
+    const places = mount();
+    const p = poi('Café Elbterrasse', 195);
+    places.render(renderArgs({ food: [p] }));
+    places.highlightPoiRow('Café Elbterrasse@195');
+    scrollSpy.mockClear();
+
+    places.render(renderArgs({ food: [p] }));
+
+    // Asserted together: "didn't scroll" must not be satisfiable by simply
+    // having dropped the highlight.
+    expect(el.querySelector('.poi--hover')).not.toBeNull();
+    expect(scrollSpy).not.toHaveBeenCalled();
   });
 
   it('drops the highlight when the row leaves the list', () => {
