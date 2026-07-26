@@ -59,9 +59,13 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
   // on that element (a class, a pointer capture, the focus ring) is gone before
   // the second move arrives.
   let dragging = null; // { index, pointerId, startX, lastX, moved }
-  // A drag ends with a click on the axis, which must not also focus a day. Also
-  // cleared on the next pointerdown, so a gesture that never produced a click
-  // (pointercancel) can't swallow a later one.
+  // A drag ends with a click on the axis, which must not also focus a day.
+  //
+  // Two gestures arm this and then never produce that click: pointercancel, and
+  // the buttons===0 exit. So it is also cleared by the next pointerdown AND the
+  // next keydown — otherwise the stale latch eats the click a browser synthesises
+  // when Enter lands on a real <button> in the axis, and "+ add a day" silently
+  // does nothing.
   let suppressClick = false;
 
   el.classList.add('strip');
@@ -320,11 +324,14 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
     // press and swallow the button's click.
     if (e.target.closest?.('[data-action="add-day"]')) return;
     const axis = pointerAxis();
-    // Hit-test the GEOMETRY, not the DOM. MIN_DAY_KM puts two handles ~11 px
-    // apart at desktop width while the CSS gives each a 24 px grab area, so
-    // their zones overlap and the DOM would let paint order decide the winner
-    // rather than proximity — and on a run of minimum-length days the handles
-    // cover the blocks between them completely.
+    // Hit-test the GEOMETRY, not the DOM: nearest boundary within
+    // HANDLE_TOLERANCE_PX wins. MIN_DAY_KM puts two handles ~11 px apart at
+    // desktop width, so any grab zone wide enough to be usable overlaps its
+    // neighbour's, and letting the DOM answer means paint order picks the winner
+    // rather than proximity. The handles are plain 10 px buttons with nothing
+    // extending their hit area for exactly this reason (see .strip__handle in
+    // style.css) — and on a run of minimum-length days they cover the blocks
+    // between them completely, so the blocks cannot answer either.
     const index = hitTestHandle(e.clientX - axis.left, layoutForPointer(axis));
     if (index === null) return;
     // A boundary with nowhere legal to go must not swallow the press: leave it to
@@ -356,7 +363,7 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
     // follows the bare cursor across the axis, rewriting the plan on hover until
     // some later click commits it wherever it landed.
     if (e.buttons === 0) {
-      endDrag();
+      endDrag(e);
       return;
     }
     dragging.lastX = e.clientX;
@@ -368,8 +375,15 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
     emitMove(dragging.index, e.clientX, false);
   }
 
-  function endDrag() {
+  // `e` is absent only for internal calls, which are already known to belong to
+  // the dragging pointer. On a touch screen a second finger or a resting palm
+  // fires its own pointerup: ending the drag on that commits the boundary early
+  // and then discards the rest of the gesture, leaving it wherever the second
+  // contact happened to land. (lostpointercapture for the captured pointer
+  // carries that pointer's id, so the legitimate exits still match.)
+  function endDrag(e) {
     if (!dragging) return;
+    if (e && e.pointerId !== undefined && e.pointerId !== dragging.pointerId) return;
     const done = dragging;
     dragging = null; // cleared first: everything below re-renders
     try {
@@ -405,6 +419,9 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
   axisEl.addEventListener('lostpointercapture', endDrag);
 
   axisEl.addEventListener('keydown', (e) => {
+    // A keypress means any pointer gesture is over, whether or not it ever
+    // delivered the click this latch was waiting to absorb.
+    suppressClick = false;
     const handleEl = e.target.closest?.('[data-boundary-index]');
     if (handleEl) {
       const direction = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;

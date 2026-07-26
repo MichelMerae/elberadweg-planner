@@ -290,11 +290,14 @@ describe('createStrip - boundary drag', () => {
 
   it('latches the nearest boundary where two grab zones overlap', () => {
     // days(80, 85) puts handles 10 px apart at x 160 and 170, closer than the
-    // 24 px grab area the CSS gives each button — so the DOM would let paint
-    // order pick the winner. x 163 is 3 px from boundary 0 and 7 from boundary 1.
+    // grab tolerance — so the DOM would let paint order pick the winner. x 163 is
+    // 3 px from boundary 0 and 7 from boundary 1, and the press is aimed at
+    // boundary 1's element: nearest-wins has to answer 0 against a target that
+    // says 1, or the fixture would pass on an implementation that just read
+    // e.target.
     const { axis, moves, handle } = mountLive([80, 85]);
 
-    fire(handle(0), 'pointerdown', { x: 163 });
+    fire(handle(1), 'pointerdown', { x: 163 });
     fire(axis, 'pointermove', { x: 100 });
     fire(axis, 'pointerup', { x: 100, buttons: 0 });
 
@@ -349,6 +352,19 @@ describe('createStrip - boundary drag', () => {
 
     expect(callbacks.onFocusDay).toHaveBeenLastCalledWith(1);
     expect(callbacks.onFocusDay).toHaveBeenCalledTimes(2);
+  });
+
+  it('focuses the day the pointer is over, not the one the boundary belongs to', () => {
+    // x 162 is 2 px past boundary 0, so the press latches boundary 0 — whose day
+    // is day 1 — while the pointer is actually over day 2. Falling back to the
+    // latched boundary's own index would select the day next door, which on a run
+    // of narrow days means clicking one day and highlighting its neighbour.
+    const { axis, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 162 });
+    fire(axis, 'pointerup', { x: 162, buttons: 0 });
+
+    expect(callbacks.onFocusDay).toHaveBeenCalledWith(1);
   });
 
   it('treats a move below the drag threshold as a click, not a drag', () => {
@@ -423,6 +439,25 @@ describe('createStrip - boundary drag', () => {
     expect(moves.map((m) => m.endKm)).toEqual([100]);
   });
 
+  it('ignores a release belonging to a second pointer', () => {
+    // On a touch screen a second finger, or a palm, produces its own pointerup.
+    // Ending the drag on it commits early and then discards the rest of the
+    // gesture, so the boundary stops where the second contact happened to land.
+    const { axis, moves, handle } = mountLive([80, 160]);
+
+    fire(handle(0), 'pointerdown', { x: 160, pointerId: 1 });
+    fire(axis, 'pointermove', { x: 200, pointerId: 1 });
+    fire(axis, 'pointerup', { x: 240, buttons: 0, pointerId: 2 });
+
+    expect(moves.filter((m) => m.commit)).toEqual([]);
+
+    fire(axis, 'pointermove', { x: 240, pointerId: 1 });
+    fire(axis, 'pointerup', { x: 240, buttons: 0, pointerId: 1 });
+
+    expect(moves.filter((m) => !m.commit).map((m) => m.endKm)).toEqual([100, 120]);
+    expect(moves.filter((m) => m.commit)).toEqual([{ index: 0, endKm: 120, commit: true }]);
+  });
+
   it('ignores a non-primary button', () => {
     const { axis, moves, handle } = mountLive([80, 160]);
 
@@ -433,18 +468,40 @@ describe('createStrip - boundary drag', () => {
   });
 
   it('leaves the add button usable even though it sits on the last boundary', () => {
-    // The remainder starts AT the last boundary, so its 8 px of padding puts the
-    // add button inside that handle's grab tolerance. Latching a drag there
-    // would preventDefault the press and swallow the click.
+    // The remainder starts AT the last boundary and pads 8 px, so the button's box
+    // begins at x 168 — still inside that handle's grab tolerance. Latching a drag
+    // there would preventDefault the press and swallow the click. x 170 is a
+    // press on the button itself rather than on the padding beside it.
     const { axis } = mountLive([80]);
     const add = axis.querySelector('[data-action="add-day"]');
 
-    fire(add, 'pointerdown', { x: 165 });
-    fire(axis, 'pointerup', { x: 165, buttons: 0 });
+    fire(add, 'pointerdown', { x: 170 });
+    fire(axis, 'pointerup', { x: 170, buttons: 0 });
     add.click();
 
     expect(callbacks.onAddDay).toHaveBeenCalledWith(null);
     expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+  });
+
+  it('does not let a cancelled gesture swallow a later keyboard activation', () => {
+    // pointercancel and the buttons===0 exit end a drag with no trailing click
+    // ever arriving, so the click suppression stays armed. The next thing it eats
+    // is whatever click comes next — including the one a browser synthesises when
+    // Enter is pressed on a real <button> inside the axis.
+    const { axis, handle } = mountLive([80]);
+
+    fire(handle(0), 'pointerdown', { x: 160 });
+    fire(axis, 'pointermove', { x: 200 });
+    fire(axis, 'pointercancel', { x: 200, buttons: 0 });
+
+    // Tab to the add button and press Enter. The browser fires keydown and then
+    // synthesises the click; jsdom does neither for the other, so do both by hand.
+    const add = axis.querySelector('[data-action="add-day"]');
+    add.focus();
+    press(add, 'Enter');
+    add.click();
+
+    expect(callbacks.onAddDay).toHaveBeenCalledWith(null);
   });
 
   it('survives the day list shrinking under a live drag', () => {

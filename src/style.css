@@ -1505,8 +1505,14 @@ input[type="number"]:disabled {
   color: var(--done);
 }
 
-/* The boundary itself: a thin grab bar straddling two blocks. 10 px wide, with
-   -7px insets giving it a ~24 px touch target.
+/* The boundary itself: a thin grab bar straddling two blocks, 10 px wide.
+   Deliberately NOT the grab target — a press is hit-tested against the geometry
+   in strip.js (its hitTestHandle call, tolerance HANDLE_TOLERANCE_PX in
+   strip-geometry.js), because at MIN_DAY_KM two handles sit ~11 px apart and
+   overlapping CSS grab zones let paint order decide which boundary you got. The
+   button remains for rendering, focus and the keyboard. It used to carry an
+   ::after with -7px insets for a ~24 px touch target; that is gone, because at
+   z-index 2 it also swallowed the left edge of "+ add a day".
 
    z-index because handles are interleaved with the blocks in source order (that
    order is the tab order) — without it, day n+1 would paint over the left half
@@ -1525,12 +1531,6 @@ input[type="number"]:disabled {
   opacity: 0.85;
   cursor: col-resize;
   touch-action: none;
-}
-
-.strip__handle::after {
-  content: "";
-  position: absolute;
-  inset: -7px;
 }
 
 .strip__handle:hover,
