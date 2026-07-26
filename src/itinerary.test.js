@@ -122,14 +122,38 @@ describe('createItinerary - moveBoundary', () => {
 
   it('rounds to one decimal so stored lengths stay tidy', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
-    itinerary.addDay(80);
+    itinerary.addDay(80.1); // fractional, so the assignment-site rounding actually matters
     itinerary.addDay(80);
 
     itinerary.moveBoundary(0, 76.2345);
 
     const days = itinerary.getDays();
     expect(days[0].targetKm).toBe(76.2);
-    expect(days[1].targetKm).toBe(83.8);
+    expect(days[1].targetKm).toBe(83.9);
+  });
+
+  it('moves the boundary on the first drag even when the stored length overshot the route', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(300);
+    itinerary.addDay(200); // endKm clamps to 380 while targetKm stays 200
+
+    itinerary.moveBoundary(1, 350);
+
+    expect(itinerary.getDays()[1]).toMatchObject({ startKm: 300, endKm: 350, targetKm: 50 });
+  });
+
+  it("preserves the neighbour's end and normalises its inflated length", () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.hydrate([{ targetKm: 100 }, { targetKm: 400 }]); // day 1 clamped to {100, 380}, targetKm 400
+
+    itinerary.moveBoundary(0, 150);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ endKm: 150 });
+    // 230 is day 1's real span. Normalising an inflated neighbour is intended, not
+    // incidental: a drag is explicit intent on this boundary pair, unlike hydrate,
+    // where the stored plan must survive intact for the route-changed banner.
+    expect(days[1]).toMatchObject({ startKm: 150, endKm: TOTAL_KM, targetKm: 230 });
   });
 
   it('throws on an out-of-range index', () => {

@@ -140,12 +140,20 @@ export function createItinerary({ totalKm } = {}) {
     if (typeof endKm !== 'number' || !Number.isFinite(endKm)) {
       throw new Error(`endKm must be a finite number, got: ${endKm}`);
     }
+    const day = days[index];
     const target = clampBoundaryKm(days, index, endKm, { totalKm: total });
-    const delta = round1(target - days[index].endKm);
-    if (delta === 0) return toPublicDay(days[index], index);
-    days[index].targetKm = round1(days[index].targetKm + delta);
+    // Rounded delta purely as the no-op guard: it absorbs sub-0.05 km drag jitter
+    // that would otherwise rewrite lengths for no visible movement.
+    if (round1(target - day.endKm) === 0) return toPublicDay(day, index);
     const next = days[index + 1];
-    if (next) next.targetKm = round1(next.targetKm - delta);
+    // Derive both lengths from the boundary POSITIONS rather than adding a delta
+    // to the stored length. A day clamped at totalKm carries a targetKm larger
+    // than its real span (addDay and hydrate both permit it), and a delta applied
+    // to that inflated length shrinks it without moving the boundary — the drag
+    // looks stuck until the overshoot burns off. Positions can't drift that way.
+    const nextEnd = next ? next.endKm : null;
+    day.targetKm = round1(target - day.startKm);
+    if (next) next.targetKm = round1(nextEnd - target);
     recomputeFrom(index);
     return toPublicDay(days[index], index);
   }
