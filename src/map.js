@@ -179,6 +179,16 @@ export function createMap({
     if (typeof onUserMove === 'function') onUserMove();
   });
 
+  // moveend is deliberately NOT a user-move signal, and the obvious reason to add
+  // it later — keyboard panning, which fires no dragend — would break the camera.
+  // autoPan re-schedules itself every frame while a dragged pin sits near the
+  // viewport edge, each pass firing movestart/move/moveend, and the guard above
+  // holds moveProgrammatically off for the whole drag, so the window is never
+  // re-armed: all ~60 moveend/s would read as the user taking over and switch
+  // camera-follow off mid-drag, which is exactly what the guard exists to prevent.
+  // invalidateSize and drag inertia emit moveend of their own as well. Keyboard
+  // panning needs a narrower signal — Leaflet's own keyboard handler.
+
   // The focused day's stretch, drawn thick over the muted full route so the
   // rest of the trip stays as context rather than competing with it.
   let highlightLayer = null;
@@ -411,8 +421,13 @@ export function createMap({
     });
   }
 
+  // Through moveProgrammatically like every other camera move of ours: a resize
+  // pans the map by half the size change, which would slide a dragged pin away
+  // from the cursor just as a fit would.
   function invalidate() {
-    map.invalidateSize();
+    moveProgrammatically(() => {
+      map.invalidateSize();
+    });
   }
 
   return {
