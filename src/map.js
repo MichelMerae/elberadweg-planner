@@ -9,7 +9,9 @@ const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-const ROUTE_STYLE = { color: '#2563eb', weight: 4, opacity: 0.9 };
+// Thin, dashed and muted: the whole route is context for the focused day's
+// stretch (drawn thick over it by setRouteHighlight), not a competitor for it.
+const ROUTE_STYLE = { color: '#2563eb', weight: 3, opacity: 0.5, dashArray: '7 6' };
 
 // [lng, lat] (GeoJSON) -> [lat, lng] (Leaflet LatLng).
 function toLatLng([lng, lat]) {
@@ -33,13 +35,6 @@ function numberedPinIcon(text, variant) {
     iconAnchor: [13, 13],
   });
 }
-
-const GHOST_ICON = L.divIcon({
-  className: 'ghost-icon',
-  html: '<span class="ghost-icon__dot"></span>',
-  iconSize: [22, 22],
-  iconAnchor: [11, 11],
-});
 
 const TOWN_ICON = L.divIcon({
   className: 'town-icon',
@@ -103,18 +98,33 @@ function cappedByKind(pois, kind) {
  *   a POI marker; receives the POI record.
  * @param {(poi: object|null) => void} [opts.onPoiHover] - fired when the pointer
  *   enters a POI marker (with the POI record) and again with null when it leaves.
+ * @param {() => void} [opts.onUserMove] - fired when the user pans or zooms the
+ *   map themselves (never for a move the app made).
  * @returns {{
- *   setGhost: (lngLat: [number, number]|null) => void,
- *   setDayPins: (pins: Array<{index: number, coord: [number, number]}>) => void,
+ *   setRouteHighlight: (coords: Array<[number, number]>|null) => void,
+ *   setDayPins: (
+ *     pins: Array<{index: number, coord: [number, number]}>,
+ *     opts?: {draggable?: boolean,
+ *             onDragBoundary?: (index: number, lngLat: [number, number], commit: boolean) => void},
+ *   ) => void,
  *   setTownHighlight: (lngLat: [number, number]|null) => void,
  *   setPoiMarkers: (pois: Array<object>) => void,
  *   setBreakMarkers: (breaks: Array<object>) => void,
  *   setFavoriteMarkers: (favorites: Array<object>) => void,
+ *   focusRange: (coords: Array<[number, number]>, opts?: {animate?: boolean}) => void,
+ *   fitWholeRoute: (opts?: {animate?: boolean}) => void,
+ *   isWellInsideView: (lngLat: [number, number], inset?: number) => boolean,
  *   panTo: (lngLat: [number, number]) => void,
  *   invalidate: () => void,
  * }}
  */
-export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover } = {}) {
+export function createMap({
+  routeFeature,
+  onRouteClick,
+  onPoiClick,
+  onPoiHover,
+  onUserMove,
+} = {}) {
   const renderer = L.canvas();
   const map = L.map('map', { renderer, preferCanvas: true });
 
@@ -126,7 +136,66 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
     style: () => ROUTE_STYLE,
   }).addTo(map);
 
-  map.fitBounds(routeLayer.getBounds(), { padding: [28, 28] });
+  // fitBounds/panTo also fire dragend/zoomend, which would look exactly like the
+  // user taking over. Flag our own moves and clear the flag once they settle —
+  // listening before the move runs catches the un-animated case too, where the
+  // settle events fire synchronously inside fn().
+  let programmatic = false;
+
+  function moveProgrammatically(fn) {
+    programmatic = true;
+    map.once('moveend zoomend', () => {
+      programmatic = false;
+    });
+    fn();
+  }
+
+  map.on('dragend zoomend', () => {
+    if (!programmatic && typeof onUserMove === 'function') onUserMove();
+  });
+
+  // The focused day's stretch, drawn thick over the muted full route so the
+  // rest of the trip stays as context rather than competing with it.
+  let highlightLayer = null;
+
+  function setRouteHighlight(coords) {
+    if (highlightLayer) {
+      map.removeLayer(highlightLayer);
+      highlightLayer = null;
+    }
+    if (!coords || coords.length < 2) return;
+    highlightLayer = L.polyline(coords.map(toLatLng), {
+      renderer,
+      color: '#2563eb',
+      weight: 7,
+      opacity: 0.95,
+      lineCap: 'round',
+    }).addTo(map);
+  }
+
+  // Frames a stretch. `animate` is false while a boundary is being dragged and
+  // when the user prefers reduced motion.
+  function focusRange(coords, { animate = true } = {}) {
+    if (!coords || !coords.length) return;
+    const bounds = L.latLngBounds(coords.map(toLatLng));
+    moveProgrammatically(() => {
+      map.fitBounds(bounds, { padding: [48, 48], animate, maxZoom: 13 });
+    });
+  }
+
+  function fitWholeRoute({ animate = true } = {}) {
+    moveProgrammatically(() => {
+      map.fitBounds(routeLayer.getBounds(), { padding: [28, 28], animate });
+    });
+  }
+
+  /** True when `lngLat` sits inside the viewport shrunk by `inset` (0..0.5). */
+  function isWellInsideView(lngLat, inset = 0.12) {
+    const bounds = map.getBounds().pad(-inset);
+    return bounds.contains(toLatLng(lngLat));
+  }
+
+  fitWholeRoute({ animate: false });
 
   // Static start pin at km 0 (Hamburg) — the first route coordinate.
   const startCoord = routeFeature.geometry.coordinates[0];
@@ -144,31 +213,27 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
   const poiLayer = L.layerGroup().addTo(map);
   const breakLayer = L.layerGroup().addTo(map);
   const favLayer = L.layerGroup().addTo(map);
-  let ghostMarker = null;
   let townMarker = null;
 
-  function setGhost(lngLat) {
-    if (ghostMarker) {
-      map.removeLayer(ghostMarker);
-      ghostMarker = null;
-    }
-    if (!lngLat) return;
-    ghostMarker = L.marker(toLatLng(lngLat), {
-      icon: GHOST_ICON,
-      interactive: false,
-      keyboard: false,
-      zIndexOffset: 600,
-    }).addTo(map);
-  }
-
-  function setDayPins(pins) {
+  // Draggable boundary pins: the map's twin of the strip handles. Dragging emits
+  // the snapped route km continuously (commit false) and once on release.
+  function setDayPins(pins, { draggable = false, onDragBoundary } = {}) {
     dayPinLayer.clearLayers();
     (pins || []).forEach(({ index, coord }) => {
-      L.marker(toLatLng(coord), {
+      const marker = L.marker(toLatLng(coord), {
         icon: numberedPinIcon(String(index + 1), 'day'),
         zIndexOffset: 500,
-        title: `Day ${index + 1}`,
-      }).addTo(dayPinLayer);
+        draggable,
+        title: draggable ? `Day ${index + 1} — drag to move this overnight` : `Day ${index + 1}`,
+      });
+      if (draggable && typeof onDragBoundary === 'function') {
+        marker.on('drag', (e) => onDragBoundary(index, [e.latlng.lng, e.latlng.lat], false));
+        marker.on('dragend', (e) => {
+          const { lat, lng } = e.target.getLatLng();
+          onDragBoundary(index, [lng, lat], true);
+        });
+      }
+      marker.addTo(dayPinLayer);
     });
   }
 
@@ -293,7 +358,9 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
   }
 
   function panTo(lngLat) {
-    map.panTo(toLatLng(lngLat));
+    moveProgrammatically(() => {
+      map.panTo(toLatLng(lngLat));
+    });
   }
 
   function invalidate() {
@@ -301,13 +368,16 @@ export function createMap({ routeFeature, onRouteClick, onPoiClick, onPoiHover }
   }
 
   return {
-    setGhost,
+    setRouteHighlight,
     setDayPins,
     setBreakMarkers,
     setFavoriteMarkers,
     setTownHighlight,
     setPoiMarkers,
     setPoiHighlight,
+    focusRange,
+    fitWholeRoute,
+    isWellInsideView,
     panTo,
     invalidate,
   };
