@@ -1144,7 +1144,7 @@ No new behaviour, so no new test; the existing sub-epsilon layout test and `hasR
 
 **Four constraints from Task 6's review — the geometry is deliberately float and unclamped, so the renderer owns these:**
 
-1. **Verify the labels actually fit at the tier boundaries.** `labelTier`'s thresholds (64 / 30 / 14 px) encode font metrics that don't exist until this task. At a 1400 px axis over 650.24 km (2.15 px/km) they mean: full tier ≥ 29.7 km, km tier ≥ 13.9 km, number tier ≥ 6.5 km — so ordinary 55–80 km days land at 118–172 px with plenty of room. But `number` at 14 px barely fits a two-digit day at an 11 px font, and `km` at 30 px cannot fit `65 km` (~33–38 px) without shrinking or stacking. Check both at exactly 64 / 30 / 14 px with a two-digit day number; if they clip, raise the constants in `strip-geometry.js` and move the `labelTier` boundary fixtures with them. Nothing else depends on the values.
+1. **Label fit is NOT verifiable here — it belongs to Task 9.** jsdom has no layout engine and no font metrics, and the strip's CSS doesn't exist until Task 9, so nothing in this task can tell whether a label clips. Task 7 renders the tier markup faithfully and stops there; Task 9 owns the check (see its steps).
 2. **Clamp negative block widths at render, never in geometry.** An inverted day yields a negative `width` on purpose, so that `x + width` keeps equalling `kmToX(endKm)` and handle positions stay truthful. CSS `width: -100px` is invalid, gets ignored, and a positioned div then renders at `auto` — visible garbage. Use `Math.max(0, block.width)` in the render path only.
 3. **Never round `x` and `width` independently.** 0.1 km is ~0.2 px, so rounding in geometry would destroy the km grid; adjacent edges already agree to ~1e-13 and fractional CSS renders seamlessly. If you round at all, round cumulatively — `left = round(x)`, `width = round(x + w) - round(x)` — or independent rounding will scatter 1 px seams and overlaps along the axis.
 4. **Give the axis a couple of px of horizontal breathing room.** The last handle renders at x ≈ the axis width, so `overflow: hidden` on the strip would clip it in half.
@@ -2177,6 +2177,18 @@ Add the strip render to `renderAll`, and clamp focus first:
 Run: `npm run dev`, open the URL with an existing multi-day plan in localStorage (or commit three days with the old controls).
 
 Expected: the strip appears along the bottom with one to-scale block per day; clicking a block highlights it; dragging a boundary resizes that day and its neighbour only, with the numbers updating live; the `+ add a day` button appends a day; clicking the dashed remainder adds a day ending near the clicked point. Confirm in DevTools that `localStorage['elberadweg-plans']` updates once per drag (watch `updatedAt`), not continuously.
+
+- [ ] **Step 5b: Verify the label tiers actually fit (deferred here from Task 7)**
+
+This is the first point in the project where real CSS, real fonts and a real layout engine exist together, so it is the only place the tier thresholds can be checked. `labelTier`'s 64 / 30 / 14 px encode font metrics; at a 1400 px axis over 650.24 km (2.15 px/km) they mean full tier ≥ 29.7 km, km tier ≥ 13.9 km, number tier ≥ 6.5 km — ordinary 55–80 km days land at 118–172 px with room to spare, so only short days and narrow windows exercise the boundaries.
+
+In the browser, build a plan containing days near each threshold (roughly 30 km, 14 km and 7 km) and confirm at each tier that nothing clips or overflows its block:
+
+- `full` at ~64 px must fit `12` + `30 km` + the 🛏 town name (the town line is allowed to ellipsis — it already has `text-overflow: ellipsis` — but the number and km must not).
+- `km` at ~30 px must fit `12` + `14 km`. Suspect: `65 km` measures ~33–38 px at an 11 px font, so this one may genuinely not fit.
+- `number` at ~14 px must fit a two-digit day number. Also suspect at an 11 px font with padding.
+
+If either clips, raise the constant in `src/strip-geometry.js` and move the matching `labelTier` boundary fixtures in `src/strip-geometry.test.js` — they are private constants, nothing else depends on the values. Note in your report which tiers you measured and what you found; "they all fit" without having looked is worse than saying you couldn't check.
 
 - [ ] **Step 6: Commit**
 
