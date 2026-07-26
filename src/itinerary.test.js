@@ -934,6 +934,22 @@ describe('createItinerary - deleteDay', () => {
     expect(days[0]).toMatchObject({ startKm: 0, endKm: TOTAL_KM, targetKm: 380 });
   });
 
+  it('does not move later days when merging a pair shorter than a minimum day', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(2);
+    itinerary.addDay(2);
+    itinerary.addDay(50);
+
+    itinerary.deleteDay(0);
+
+    const days = itinerary.getDays();
+    // The merged span is 4 km — short, but a loadable length, so it must NOT be
+    // inflated to MIN_DAY_KM: that would push the boundary to km 5 and drag every
+    // later day with it.
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 4, targetKm: 4 });
+    expect(days[1]).toMatchObject({ startKm: 4, endKm: 54 });
+  });
+
   it('throws on an out-of-range index', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(80);

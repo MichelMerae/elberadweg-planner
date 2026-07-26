@@ -11,6 +11,13 @@ function round1(n) {
   return Math.round(n * 10) / 10;
 }
 
+// The smallest length that survives storage. hydrate rejects a non-positive
+// targetKm and drops the whole plan, so a merge whose real span rounds to zero
+// stores this instead. Deliberately NOT MIN_DAY_KM: a merged span of 4 km is
+// short but perfectly loadable, and inflating it to 5 would push the survivor's
+// end out and drag every later day with it.
+const MIN_STORED_KM = 0.1;
+
 function isValidTargetKm(targetKm) {
   return typeof targetKm === 'number' && Number.isFinite(targetKm) && targetKm > 0;
 }
@@ -227,13 +234,14 @@ export function createItinerary({ totalKm } = {}) {
   // truncates the plan. Breaks are plan-level and re-bucket themselves from the
   // new ranges.
   //
-  // The merged length is floored at MIN_DAY_KM: two vestigial days stranded past
-  // a shrunk route span zero km, and hydrate rejects a non-positive length by
-  // dropping the whole plan on the next reload. Floor rather than refuse — the
-  // opposite of moveBoundary's guard — because the user asked to delete this day
-  // and a button that silently does nothing is worse. A stored length longer than
-  // the real span is already a permitted state; the end stays clamped at totalKm,
-  // so nothing moves.
+  // The merged length is floored at MIN_STORED_KM: two vestigial days stranded
+  // past a shrunk route span zero km, and hydrate rejects a non-positive length
+  // by dropping the whole plan on the next reload. Floor rather than refuse — the
+  // opposite of moveBoundary's guard — because the delete has already been asked
+  // for and only needs its stored length to be representable; refusing a boundary
+  // move preserves locality, but a button that silently does nothing is worse.
+  // A stored length longer than the real span is already a permitted state; the
+  // end stays clamped at totalKm, so nothing moves.
   function deleteDay(index) {
     assertValidIndex(index);
     if (index === days.length - 1) {
@@ -241,7 +249,7 @@ export function createItinerary({ totalKm } = {}) {
       return;
     }
     const next = days[index + 1];
-    next.targetKm = Math.max(round1(next.endKm - days[index].startKm), MIN_DAY_KM);
+    next.targetKm = Math.max(round1(next.endKm - days[index].startKm), MIN_STORED_KM);
     days.splice(index, 1);
     recomputeFrom(index);
   }
