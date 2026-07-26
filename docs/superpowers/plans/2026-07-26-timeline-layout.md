@@ -3409,6 +3409,7 @@ Tasks 10, 11 and 13 were executed in parallel, each scoped to its own module onl
 **Runtime blockers (the app throws until these land):**
 - `main.js:293,301,331` still call the removed `map.setGhost(...)` → TypeError as soon as pending mode renders. These lines belong to the pending-day mode the day-panel wiring replaces.
 - `main.js:237` `setDayPins` needs the second argument (`draggable: true`, `onDragBoundary`) or map-side boundary dragging silently does nothing. main.js does the snap + `round1`; map.js emits raw lng/lat.
+- **Post-fix (9291a1b) contract deltas:** `setDayPins` is a no-op while a boundary pin is being dragged (the dragged pin tracks the cursor via Leaflet; the `commit:true` render rebuilds all pins). `focusRange`/`fitWholeRoute`/`panTo` are no-ops during a pin drag — so `renderCamera({dragging:true})`'s edge-follow does nothing for PIN drags (Leaflet's `autoPan: true` on draggable pins covers viewport-edge dragging instead; verify by eye — `autoPanSpeed: 10`/`autoPanPadding: [50,50]` defaults are unverified) while still working for STRIP-handle drags. `setRouteHighlight` still updates every preview. `zoomend` user-detection uses a 400 ms `programmaticUntil` window; `dragend` is un-gated.
 
 **main.js wiring:**
 - Task 13 Step 3: `createMap({ ..., onUserMove: () => { cameraFollows = false; } })`, `renderCamera`, replaced `handleRouteClick`, `focusedCoords(day)` sampler. Existing `panTo` call sites are wrapped programmatically and will NOT trip `onUserMove`.
