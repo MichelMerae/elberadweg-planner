@@ -1595,6 +1595,11 @@ git commit -m "feat: render the trip as a to-scale timeline strip"
 > - **`BREAK_GLYPH[b.kind]` is a raw object lookup** (`strip.js:86`), so a hand-edited plan with `kind: "toString"` interpolates a function body into the markup. Not XSS, but use `Object.hasOwn(BREAK_GLYPH, b.kind) ? … : '📌'`. Note the present `'☕'` fallback also mislabels an unknown kind as a coffee stop; `📌` (custom) is the honest default.
 > - **Tab order is all blocks → add button → all handles**, not left-to-right along the trip. Handles are absolutely positioned, so source order only buys paint order: interleave day/handle in source order and give `.strip__handle { z-index: 1 }`. Only worth doing once focus restoration lands.
 >
+> ### Two more, observed in the real browser during Task 9
+>
+> - **`.strip__finish` collides with the last block and handle.** When the plan reaches Dresden the remainder collapses and "⚑ Dresden reached" renders at `right: 0`, sitting on top of the final block and under the final handle. Measured as not clipped and readable, but it is an overlap: either give the finish marker its own space or move it into the scale line.
+> - **Minimum-length days become a picket fence.** With several days near `MIN_DAY_KM`, the 10 px handles are *wider* than the 11 px blocks between them, so the blocks are entirely covered and unclickable. This is the same failure as the tolerance/grab-zone problem in note 2 — the geometry hit-test path with a drag threshold solves both at once, which is another argument for adopting it.
+>
 > ### One scope decision this review settled
 >
 > A day below ~14 px is invisible (tier `none`, no label), unidentifiable (`title` never fires on touch, needs ~1 s hover, unreachable by keyboard) **and unclickable** — the two flanking handles' 24 px grab zones cover an 11 px block entirely. Do **not** fix this with a minimum block width; that breaks the to-scale invariant and the seam test. The strip is simply not a complete interface for very short days: **Task 10's focused-day panel and its `‹ ›` stepper are the accessible path for them and must not be cut.**
