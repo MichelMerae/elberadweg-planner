@@ -3402,6 +3402,37 @@ EOF
 
 ---
 
+## Integration pass (runs after Tasks 10 ∥ 11 ∥ 13, before Task 12)
+
+Tasks 10, 11 and 13 were executed in parallel, each scoped to its own module only (`day-panel.js`+tests `071c7ba`, `places.js`+tests `978a286`, `map.js` `9494d3c`); every step touching `main.js` / `ui.js` / `style.css` / `index.html` was deferred to this single pass. All three passed spec review; quality-review outcomes and any fix commits are recorded per task. This checklist consolidates what the implementers and reviewers flagged.
+
+**Runtime blockers (the app throws until these land):**
+- `main.js:293,301,331` still call the removed `map.setGhost(...)` → TypeError as soon as pending mode renders. These lines belong to the pending-day mode the day-panel wiring replaces.
+- `main.js:237` `setDayPins` needs the second argument (`draggable: true`, `onDragBoundary`) or map-side boundary dragging silently does nothing. main.js does the snap + `round1`; map.js emits raw lng/lat.
+
+**main.js wiring:**
+- Task 13 Step 3: `createMap({ ..., onUserMove: () => { cameraFollows = false; } })`, `renderCamera`, replaced `handleRouteClick`, `focusedCoords(day)` sampler. Existing `panTo` call sites are wrapped programmatically and will NOT trip `onUserMove`.
+- Task 10 Step 5: `createDayPanel({ el: #day-panel (index.html:46), callbacks })`; `render({ day, dayCount, breaks, fromName, customStopDraft })`; `day: null` → empty state; `onEditDay` already delivers a round1'd positive `targetKm`; `handleDeleteDay` sets `focusedDayIndex = null` and lets `clampFocus` pick the survivor.
+- Task 11 Steps 4–5: `createPlaces({ el: #places (index.html:36), callbacks })` → `{ render, highlightPoiRow }`; pass the plan's `renderPlaces()` state object unchanged (`breakKeys` non-prefixed `name@km`, `favoriteKeys` prefixed `kind:name@km`, `dayNumber: null` when unfocused). Do NOT wire `onExpandSection` — it does not exist; the plan prose naming it (near the Step 3 code) is stale. Favorites body click fires `onSelectPoi`, which is behaviour-identical (`main.js:118` already maps `onSelectFavorite: handleSelectPoi`).
+- Redirect `ui.highlightPoiRow` → `places.highlightPoiRow` at `main.js:95` and `main.js:393`.
+- Never query `#custom-stop-prompt` via `document` — the id is duplicated (day-panel's persistent node + ui.js's legacy controls block) until the controls block dies.
+
+**index.html:** `#map-controls` with the two `.map-btn` buttons (Task 13 Step 2); remove legacy `#controls`, `#towns`, `#pois`, `#favorites`, `#itinerary` containers as their replacements come online.
+
+**style.css:** append Task 10 Step 4's `.day-panel*` block verbatim; Task 11 Step 5's `.places__scope*`/`.places__more*` rules; Task 13 Step 2's `.map-btn` rules. Delete the ghost CSS (`.ghost-icon*`, `@keyframes ghost-pulse`, and the `prefers-reduced-motion` block that contains only ghost rules — was style.css:1207-1252). `.towns__heading`/`.towns__empty` are dead once places lands. Optional polish: `cursor: grab` for draggable day pins (Leaflet adds `leaflet-marker-draggable` but the pin icon shows no affordance).
+
+**ui.js deletions (Task 10 Step 5 list plus additions found in review):** `renderCustomStopPrompt`, `renderPendingBreaks`, **and** `breakEditButton` + `startBreakEdit` (unreferenced once the first two go), `renderItinerary`, `renderControls`, `renderTowns` etc. per the task steps — but ui.js keeps the plans bar until Task 12.
+
+**Browser verification watchlist (things jsdom could not check):**
+- `onUserMove`: initial load must NOT fire it; the first manual pan/zoom fires it exactly once. (The plan's original listener ordering would have swallowed the first user gesture — fixed in `moveProgrammatically`, spec-verified against Leaflet source.)
+- Rapid un-animated `panTo`/`focusRange` during a boundary drag: Leaflet's `setView` → `_stop()` can fire a synchronous `moveend` that clears `programmatic` early → spurious `onUserMove` → camera-follow silently off mid-drag. If observed, harden `moveProgrammatically` (clear only on the last pending settle), not the call sites.
+- Re-rendering day pins on every boundary callback may destroy the marker mid-drag (same class as Task 8's Critical C1) — pending Task 13's quality-review verdict; integration must follow whatever it prescribes (skip `setDayPins` while dragging, or diff-update positions).
+- The dashed muted route + thick highlight contrast on the canvas renderer; pin drag feel.
+- Strip focus restoration when the focused day is deleted from the day panel: DOM focus drops to `<body>` (`strip.js` restore finds no match). Fold a nearest-surviving-index fallback in if cheap; otherwise record.
+- Day-panel: an unrelated re-render with an open custom-stop draft keeps the text but drops focus (effectively unreachable; strictly better than the old behaviour).
+
+---
+
 ## Task 12: Plans bar into the header
 
 **Files:**
