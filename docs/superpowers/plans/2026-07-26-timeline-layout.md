@@ -97,7 +97,10 @@ describe('boundaryBounds', () => {
   });
 
   it('never returns a max below its min for a squeezed day', () => {
-    const list = days(80, 86, 300);
+    // Days 0 and 1 together span only 8 km — less than 2 × MIN_DAY_KM — so the
+    // raw window would be inverted (min 5, max 3). Anything wider than
+    // 2 × MIN_DAY_KM leaves a valid window and never reaches the guard.
+    const list = days(4, 8, 300);
     const bounds = boundaryBounds(list, 0, { totalKm: TOTAL_KM });
     expect(bounds.min).toBe(5);
     expect(bounds.max).toBe(bounds.min);
