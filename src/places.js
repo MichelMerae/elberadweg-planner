@@ -59,8 +59,15 @@ export function createPlaces({ el, callbacks = {} }) {
   let expanded = new Set();
   let scopeKey = '';
   // Last render arguments, so "show all" can re-render the same state with one
-  // more section expanded without main.js having to be involved.
+  // more section expanded without main.js having to be involved. Copied rather
+  // than held by reference: a caller that reuses one state object between
+  // renders must not be able to move the stretch out from under that click.
   let lastArgs = {};
+  // The POI the cursor is on, so a mouseover repeating across a row's children
+  // reports once; and the POI a map marker asked us to highlight, so the class
+  // can be re-applied after a render has replaced every row.
+  let lastRowHoverKey = null;
+  let highlightKey = null;
 
   function section(name, label, items, emptyText, renderRow) {
     const capped = expanded.has(name) ? items : items.slice(0, ROW_CAP);
@@ -128,7 +135,7 @@ export function createPlaces({ el, callbacks = {} }) {
   }
 
   function render(args = {}) {
-    lastArgs = args;
+    lastArgs = { ...args };
     const {
       dayNumber = null,
       startKm = 0,
@@ -156,7 +163,9 @@ export function createPlaces({ el, callbacks = {} }) {
     lists = { fav: favorites, town: towns, food, sight: sights };
 
     const ctx = { startKm, fromName, selectedTownKey, breakKeys: breakSet, favoriteKeys: favSet };
-    const scope = dayNumber
+    // Day numbers here are 1-based, but they are 0-based nearly everywhere else
+    // in the app — only an absent one means "no day focused", never a zero.
+    const scope = dayNumber != null
       ? `<span><b>On the way</b> · Day ${dayNumber}</span>
          <span class="places__scope-range">km ${round1(startKm)} → ${round1(endKm)}</span>`
       : '<span><b>On the way</b></span><span class="places__scope-range">no day focused</span>';
@@ -173,11 +182,21 @@ export function createPlaces({ el, callbacks = {} }) {
       ${section('fav', '⭐ Favorites', favorites, 'Nothing starred yet — hit ⭐ on any place.', (f, i) => favRow(f, i, { days, breakKeys: breakSet }))}
       ${section('town', '🛏 Overnight options', towns, 'No towns near this stretch.', (t, i) => townRow(t, i, ctx))}
       ${poiSections}`;
+
+    // Every row is a fresh node now. The cursor's dedupe key must not outlive
+    // the node it was set for — a removed row fires no mouseout, so the next
+    // hover of that row would be swallowed as a repeat (a ☕ toggle re-renders
+    // under a stationary cursor, so this happens on ordinary use). A marker's
+    // highlight, by contrast, belongs to a hover that is still happening, so it
+    // is re-applied rather than dropped.
+    lastRowHoverKey = null;
+    applyHighlight({ scroll: false });
   }
 
-  // One delegated listener for all four sections. A body click runs the section's
-  // select callback; a click on a nested [data-action] button runs break/fav and
-  // stops there, so the body action doesn't also fire.
+  // One delegated listener for all four sections. A body click runs the
+  // section's select callback; a click on a nested [data-action] button runs
+  // break/fav and returns before reaching that, so the body action doesn't also
+  // fire.
   el.addEventListener('click', (e) => {
     const showAll = e.target.closest('[data-action="show-all"]');
     if (showAll) {
@@ -191,7 +210,6 @@ export function createPlaces({ el, callbacks = {} }) {
     if (!place) return;
     const action = e.target.closest('[data-action]');
     if (action) {
-      e.stopPropagation();
       if (action.dataset.action === 'break') callbacks.onToggleBreak?.(place);
       else if (action.dataset.action === 'fav') callbacks.onToggleFavorite?.(place);
       return;
@@ -212,7 +230,6 @@ export function createPlaces({ el, callbacks = {} }) {
   // the matching marker. Only food and sight rows carry a data-poi-key — towns
   // and favorites have no POI marker to light up. mouseover repeats while moving
   // across a row's children, so dedupe by key.
-  let lastRowHoverKey = null;
   el.addEventListener('mouseover', (e) => {
     const row = e.target.closest('[data-poi-key]');
     if (!row) return;
@@ -231,20 +248,25 @@ export function createPlaces({ el, callbacks = {} }) {
   });
 
   // Highlights the row matching `key` (from a map-marker hover); null clears.
-  // Scrolls the row into view inside the left panel so the match is visible.
-  let hoveredRow = null;
+  // The key outlives the row so a re-render can restore the class.
   function highlightPoiRow(key) {
-    if (hoveredRow) {
-      hoveredRow.classList.remove('poi--hover');
-      hoveredRow = null;
-    }
-    if (!key) return;
-    hoveredRow =
-      [...el.querySelectorAll('[data-poi-key]')].find((row) => row.dataset.poiKey === key) || null;
-    if (hoveredRow) {
-      hoveredRow.classList.add('poi--hover');
-      hoveredRow.scrollIntoView({ block: 'nearest' });
-    }
+    highlightKey = key || null;
+    applyHighlight({ scroll: true });
+  }
+
+  // Looked up by key, never by held node — rows are replaced wholesale, and a
+  // remembered element would be a detached node one render later. Only a fresh
+  // marker hover scrolls: re-applying after a render must not drag the panel
+  // away from wherever the user has scrolled it.
+  function applyHighlight({ scroll }) {
+    el.querySelector('.poi--hover')?.classList.remove('poi--hover');
+    if (!highlightKey) return;
+    const row = [...el.querySelectorAll('[data-poi-key]')].find(
+      (candidate) => candidate.dataset.poiKey === highlightKey,
+    );
+    if (!row) return;
+    row.classList.add('poi--hover');
+    if (scroll) row.scrollIntoView({ block: 'nearest' });
   }
 
   return { render, highlightPoiRow };
