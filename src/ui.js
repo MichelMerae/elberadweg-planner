@@ -2,20 +2,16 @@
 // Turf, no data-module imports — main.js owns all the domain logic and passes
 // plain values/callbacks in. This keeps the UI a thin, testable render layer.
 
+import { round1, townKey, poiKey, BREAK_GLYPH, FAV_GLYPH, esc, debounce } from './ui-util.js';
+
+// Re-exported: src/itinerary.test.js's cross-module key contract test imports
+// these from here, and main.js has always taken them from ui.js.
+export { townKey, poiKey };
+
 const SLIDER_MIN = 20;
 const SLIDER_MAX = 160;
 const SLIDER_STEP = 1;
 const PENDING_DEBOUNCE_MS = 40;
-
-function round1(n) {
-  return Math.round(n * 10) / 10;
-}
-
-// Stable identity for a town across re-renders (townsNear returns fresh
-// objects each call, so reference equality can't be used for selection).
-export function townKey(town) {
-  return town ? `${town.name}@${town.routeDistanceKm}` : null;
-}
 
 // Day-relative wording (spec §4): distance from the day's reference point (the
 // last overnight stop), absolute route km shown small in a .meta__abs span.
@@ -25,58 +21,11 @@ function townMeta(town, dayStartKm, fromName) {
   return `${rel} km from ${esc(fromName)} · ${town.offsetKm} km off route <span class="meta__abs">km ${round1(town.routeDistanceKm)}</span>`;
 }
 
-// Stable identity for a POI, mirroring townKey — used to match a pending pin to
-// its row (poisInRange returns fresh objects each render).
-export function poiKey(poi) {
-  return poi ? `${poi.name}@${poi.routeDistanceKm}` : null;
-}
-
 // Same day-relative wording as towns, but the absolute km sits inline in
 // parentheses (spec §4) rather than in a trailing .meta__abs span.
 function poiMeta(poi, dayStartKm, fromName) {
   const rel = round1(poi.routeDistanceKm - dayStartKm);
   return `${rel} km from ${esc(fromName)} (km ${round1(poi.routeDistanceKm)}) · ${poi.offsetKm} km off route`;
-}
-
-// Glyph per break kind for day-card legs (spec §2: a food break reads as a
-// coffee ☕ stop, a sight 📷, a town waypoint 🛏 — matching the day-end marker).
-const BREAK_GLYPH = { food: '☕', sight: '📷', town: '🛏', custom: '📌' };
-
-// Glyph per kind in the favorites list — here a food place reads literally as a
-// fork 🍴 (not the coffee ☕ used for break legs), a sight 📷, a town 🛏.
-const FAV_GLYPH = { town: '🛏', food: '🍴', sight: '📷' };
-
-// Escape user-facing data (OSM town names) before innerHTML interpolation.
-// None of the current dataset needs it, but a data rebuild could introduce
-// names containing & or < and must not become markup.
-function esc(value) {
-  return String(value).replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
-  );
-}
-
-// Debounced wrapper with a .flush() escape hatch so commit can synchronously
-// deliver the latest pending value before it is read.
-function debounce(fn, ms) {
-  let handle = null;
-  let lastArgs = null;
-  const wrapped = (...args) => {
-    lastArgs = args;
-    if (handle) clearTimeout(handle);
-    handle = setTimeout(() => {
-      handle = null;
-      fn(...lastArgs);
-    }, ms);
-  };
-  wrapped.flush = () => {
-    if (handle) {
-      clearTimeout(handle);
-      handle = null;
-      fn(...lastArgs);
-    }
-  };
-  return wrapped;
 }
 
 /**
