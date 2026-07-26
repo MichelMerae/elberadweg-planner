@@ -3813,6 +3813,9 @@ EOF
 > - The `done`-guard comment in the inline editor names a blur that never fires (removing a focused element fires no blur, jsdom or browser); real behaviour: a re-render mid-note-edit silently discards the editor. Rewrite the comment honestly, state whether the discard asymmetry vs the custom-stop prompt is deliberate, and add the pinning test.
 > - Test consolidation: a `renderDay(overrides)` helper (~18 verbatim mount+render repetitions); `DAY` fixtures carry a `targetKm` the panel never reads.
 > - `poiKey` (ui-util) and `breakKey` (itinerary) are two character-identical implementations of one format — one should import the other.
+> - **Two intentional focus properties are unpinned** (proven by surviving mutants in the re-review): the twin fallback being restricted to the stepper pair (a mutant extending it to all controls lands focus on **Delete day** after Split disables itself — all 55 tests pass), and the `Math.min` clamp when removing the last break's ×. Two tests, ~a dozen lines; the first guards a destructive control.
+> - Optional symmetry: the inline note editor is now the only control dropping focus to `<body>` on re-render (no `[data-action]` ancestor); restoring to the leg's ✎ is two lines and the position is already computed.
+> - Cosmetic: two test titles lost possessive apostrophes (repo convention: double-quoted titles, cf. itinerary.test.js:184); `restoreFocus`'s `el.contains(target.node)` guard is unreachable by construction (noted so nobody hunts for a covering test).
 >
 > **From Task 11's quality review (places.js):**
 > - **Drag-preview render cost decision** (the Important one): `renderAll()` per `commit:false` pointermove rebuilds the whole left panel (~97 KB innerHTML at real data scale, 402 KB expanded) plus day panel plus Leaflet markers. Decide: skip panel/section re-renders during previews, or coalesce panel renders into rAF with only the strip synchronous. Measure in the browser first.
