@@ -13,6 +13,11 @@ const TILE_ATTRIBUTION =
 // stretch (drawn thick over it by setRouteHighlight), not a competitor for it.
 const ROUTE_STYLE = { color: '#2563eb', weight: 3, opacity: 0.5, dashArray: '7 6' };
 
+// How long after a camera move of our own a zoomend still counts as ours.
+// Leaflet's pan/zoom animations run 250ms and zoomend can arrive on a
+// late-scheduled 250ms fallback timer, so the window has to outlast both.
+const PROGRAMMATIC_SETTLE_MS = 400;
+
 // [lng, lat] (GeoJSON) -> [lat, lng] (Leaflet LatLng).
 function toLatLng([lng, lat]) {
   return [lat, lng];
@@ -99,7 +104,9 @@ function cappedByKind(pois, kind) {
  * @param {(poi: object|null) => void} [opts.onPoiHover] - fired when the pointer
  *   enters a POI marker (with the POI record) and again with null when it leaves.
  * @param {() => void} [opts.onUserMove] - fired when the user pans or zooms the
- *   map themselves (never for a move the app made).
+ *   map themselves. A pan is always theirs; a zoom is attributed to the app for
+ *   PROGRAMMATIC_SETTLE_MS after any move the app made, so a user zoom inside
+ *   that window is missed rather than a settling animation being mistaken for one.
  * @returns {{
  *   setRouteHighlight: (coords: Array<[number, number]>|null) => void,
  *   setDayPins: (
@@ -109,6 +116,7 @@ function cappedByKind(pois, kind) {
  *   ) => void,
  *   setTownHighlight: (lngLat: [number, number]|null) => void,
  *   setPoiMarkers: (pois: Array<object>) => void,
+ *   setPoiHighlight: (poi: object|null) => void,
  *   setBreakMarkers: (breaks: Array<object>) => void,
  *   setFavoriteMarkers: (favorites: Array<object>) => void,
  *   focusRange: (coords: Array<[number, number]>, opts?: {animate?: boolean}) => void,
@@ -136,22 +144,39 @@ export function createMap({
     style: () => ROUTE_STYLE,
   }).addTo(map);
 
-  // fitBounds/panTo also fire dragend/zoomend, which would look exactly like the
-  // user taking over. Flag our own moves and clear the flag once they settle —
-  // listening before the move runs catches the un-animated case too, where the
-  // settle events fire synchronously inside fn().
-  let programmatic = false;
+  // Index of the boundary pin being dragged, or null. Two things must stand back
+  // while a pin drag is in flight: rebuilding the pins (Leaflet tears the gesture
+  // down when the marker is removed) and moving the camera (a pane shift slides
+  // the icon out from under the cursor).
+  let draggingPinIndex = null;
+
+  // fitBounds/panTo end in zoomend, which would look exactly like the user
+  // taking over, and Leaflet flags nothing. So treat zoomend as ours for a short
+  // window after each of our own moves. A boolean cleared on the next settle
+  // event can't work: setView calls _stop() first, and interrupting an in-flight
+  // animation fires a synchronous moveend before the new move even begins — the
+  // flag would be gone by the time the real zoomend lands. A window also makes an
+  // interrupting move extend the suppression instead of ending it.
+  let programmaticUntil = 0;
 
   function moveProgrammatically(fn) {
-    programmatic = true;
-    map.once('moveend zoomend', () => {
-      programmatic = false;
-    });
+    // The dragged pin owns the map pane: Leaflet only compensates for the pans it
+    // makes itself (Marker's autoPan), so any camera move of ours would desync
+    // the pin from the cursor and skew the km it reports. Wait for the release.
+    if (draggingPinIndex !== null) return;
+    programmaticUntil = performance.now() + PROGRAMMATIC_SETTLE_MS;
     fn();
   }
 
-  map.on('dragend zoomend', () => {
-    if (!programmatic && typeof onUserMove === 'function') onUserMove();
+  // The map fires dragend from one place only — the user finishing a pan — so it
+  // never needs the window. Nothing programmatic can produce it.
+  map.on('dragend', () => {
+    if (typeof onUserMove === 'function') onUserMove();
+  });
+
+  map.on('zoomend', () => {
+    if (performance.now() < programmaticUntil) return;
+    if (typeof onUserMove === 'function') onUserMove();
   });
 
   // The focused day's stretch, drawn thick over the muted full route so the
@@ -170,6 +195,9 @@ export function createMap({
       weight: 7,
       opacity: 0.95,
       lineCap: 'round',
+      // Decorative: keeping it out of the canvas hit-test list spares every
+      // mousemove over the focused stretch a second path test.
+      interactive: false,
     }).addTo(map);
   }
 
@@ -218,17 +246,37 @@ export function createMap({
   // Draggable boundary pins: the map's twin of the strip handles. Dragging emits
   // the snapped route km continuously (commit false) and once on release.
   function setDayPins(pins, { draggable = false, onDragBoundary } = {}) {
+    // A preview render must not rebuild the pins under an in-flight drag.
+    // Removing the dragged marker makes Leaflet unsubscribe MarkerDrag's handlers
+    // and only then disable the Draggable, so the drag it ends fires into nothing:
+    // the gesture dies mid-stroke and its dragend — the commit — never arrives.
+    // No other pin has moved during a preview anyway, and the render after the
+    // commit rebuilds them all.
+    if (draggingPinIndex !== null) return;
     dayPinLayer.clearLayers();
     (pins || []).forEach(({ index, coord }) => {
       const marker = L.marker(toLatLng(coord), {
         icon: numberedPinIcon(String(index + 1), 'day'),
         zIndexOffset: 500,
         draggable,
+        // Our own camera stands still during the drag, so this is what lets a pin
+        // travel past the viewport edge — Leaflet shifts the pane and corrects the
+        // drag origin by the same offset, which an outside pan cannot do.
+        autoPan: draggable,
         title: draggable ? `Day ${index + 1} — drag to move this overnight` : `Day ${index + 1}`,
       });
-      if (draggable && typeof onDragBoundary === 'function') {
-        marker.on('drag', (e) => onDragBoundary(index, [e.latlng.lng, e.latlng.lat], false));
+      if (draggable) {
+        marker.on('dragstart', () => {
+          draggingPinIndex = index;
+        });
+        marker.on('drag', (e) => {
+          if (typeof onDragBoundary !== 'function') return;
+          onDragBoundary(index, [e.latlng.lng, e.latlng.lat], false);
+        });
         marker.on('dragend', (e) => {
+          // Cleared before the commit: that render is the one meant to rebuild.
+          draggingPinIndex = null;
+          if (typeof onDragBoundary !== 'function') return;
           const { lat, lng } = e.target.getLatLng();
           onDragBoundary(index, [lng, lat], true);
         });
