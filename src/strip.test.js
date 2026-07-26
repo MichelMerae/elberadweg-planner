@@ -168,6 +168,11 @@ describe('createStrip - focus and add', () => {
     el.querySelector('[data-action="add-day"]').click();
 
     expect(callbacks.onAddDay).toHaveBeenCalledWith(null);
+    // Exactly once: the button sits INSIDE the remainder, so the add-day branch
+    // must return before the remainder branch runs. toHaveBeenCalledWith passes if
+    // any call matches, so without this a double-fire — append a default day AND
+    // add one ending at the click position — would go unnoticed.
+    expect(callbacks.onAddDay).toHaveBeenCalledTimes(1);
   });
 
   it('adds a day ending at the clicked km on the remainder', () => {

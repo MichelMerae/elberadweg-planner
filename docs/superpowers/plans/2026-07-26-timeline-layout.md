@@ -1562,6 +1562,10 @@ git commit -m "feat: render the trip as a to-scale timeline strip"
 
 3. **Confirm the keyboard path can reach every boundary.** With pointer grabbing unreliable at 10.8 px spacing, arrow-key adjustment is the only guaranteed way to edit a 5 km day. Every handle must be tab-reachable and adjustable, including ones whose blocks render at tier `none` with no visible label.
 
+4. **Blocks currently claim button semantics they don't honour.** Task 7 renders each day block as `<div role="button" tabindex="0">` with no `keydown` handler. A real `<button>` synthesizes a click from Enter and Space; a `div[role=button]` does not — so focusing a day is mouse-only while telling assistive tech otherwise, and a keyboard user can tab to a block and press Enter to nothing. Add the handler here (keyboard is this task's remit) and pin it: Enter and Space on a focused block must call `onFocusDay` with that index, and must not also trigger the handle beneath it.
+
+5. **`data-strip-axis` is dead.** Task 7 renders the attribute; nothing reads it. Either use it as your axis hook here or delete it — don't leave an attribute that looks like an API but isn't.
+
 - [ ] **Step 1: Write the failing test**
 
 Append to `src/strip.test.js`:
