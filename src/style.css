@@ -1381,13 +1381,19 @@ input[type="number"]:disabled {
   color: var(--text);
 }
 
-/* MUST stay overflow: visible — the last handle's overhang (see #strip) lives
-   outside the axis box, and clipping it would hide the boundary you grab to
-   move the end of the trip. */
+/* MUST stay overflow: visible. The last handle renders at x ≈ the axis width, and
+   being 10px wide with a -5px margin it straddles that edge — clipping here would
+   shear in half the boundary you grab to move the end of the trip. #strip's 24px
+   of side padding is what the overhang lives in.
+
+   touch-action: none belongs here and not only on the handle: a drag captures the
+   pointer on the AXIS, because the re-render on the first pointermove destroys the
+   handle element and any capture held on it (see strip.js). */
 .strip__axis {
   position: relative;
   height: 46px;
   overflow: visible;
+  touch-action: none;
 }
 
 .strip__block,
