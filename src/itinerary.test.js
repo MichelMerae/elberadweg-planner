@@ -309,6 +309,18 @@ describe('createItinerary - setTownChoice', () => {
     expect(itinerary.getDays()[0].endKm).toBe(80);
   });
 
+  it('ignores a town whose route position is not a real number', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    // Pins the Number.isFinite half of the guard specifically. A `typeof === 'number'`
+    // check alone would pass NaN through to moveBoundary, which throws on a
+    // non-finite endKm — so one malformed town record would break the click handler
+    // rather than being ignored.
+    expect(() => itinerary.setTownChoice(0, { name: 'Corrupt', routeDistanceKm: Number.NaN })).not.toThrow();
+    expect(itinerary.getDays()[0].endKm).toBe(80);
+  });
+
   it('leaves the boundary alone when the town choice is cleared', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(80);
