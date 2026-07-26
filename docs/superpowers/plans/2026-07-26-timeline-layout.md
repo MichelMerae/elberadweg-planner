@@ -3761,6 +3761,7 @@ EOF
 > - **`press()` in strip.test.js stops at `keydown`**, so nothing exercises the browser's Enter → synthesised click on a real `<button>` — the exact blind spot two review findings lived in. Worth a helper that models it.
 > - **Pre-existing (Task 7): `aria-valuenow` can sit outside `[min, max]`** on hand-edited squeezed stored data (`days(10, 12)` → boundary 0 reports now 10, max 7). Only reachable from pathological storage.
 > - The mid-drag collapsed-window commit-in-place branch (strip.js `endDrag`) is untested insurance — only reachable by swapping the day list mid-gesture; fine to leave, noted so nobody mistakes silence for coverage.
+> - **Handle hover glow is narrower than the grab tolerance** since the `::after` hit-area vestige was deleted (86b5689): the glow needs the pointer on the 10 px bar, while `hitTestHandle` grabs within 12 px. Restoring the wider affordance honestly would need JS hover hit-testing on pointermove — decide there whether it's worth it or the asymmetry is fine.
 
 - [ ] **Step 1: Delete dead CSS**
 
