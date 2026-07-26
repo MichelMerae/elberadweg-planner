@@ -349,7 +349,9 @@ async function boot() {
 
   function renderCamera({ dragging = false } = {}) {
     const day = focusedDay();
-    map.setRouteHighlight(focusedCoords(day));
+    // The highlight and the fit frame the same coordinates; derive them once.
+    const coords = focusedCoords(day);
+    map.setRouteHighlight(coords);
     if (!day) {
       if (cameraFollows && lastFramedStretch !== WHOLE_ROUTE) {
         lastFramedStretch = WHOLE_ROUTE;
@@ -370,7 +372,7 @@ async function boot() {
     const key = `${day.index}:${round1(day.startKm)}:${round1(day.endKm)}`;
     if (lastFramedStretch === key) return;
     lastFramedStretch = key;
-    map.focusRange(focusedCoords(day), { animate: !prefersReducedMotion });
+    map.focusRange(coords, { animate: !prefersReducedMotion });
   }
 
   // `dragging` marks a boundary-drag preview, which arrives on every pointermove.
