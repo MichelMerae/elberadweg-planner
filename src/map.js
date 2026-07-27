@@ -14,9 +14,16 @@ const TILE_ATTRIBUTION =
 const ROUTE_STYLE = { color: '#2563eb', weight: 3, opacity: 0.5, dashArray: '7 6' };
 
 // How long after a camera move of our own a zoomend still counts as ours.
-// Leaflet's pan/zoom animations run 250ms and zoomend can arrive on a
-// late-scheduled 250ms fallback timer, so the window has to outlast both.
-const PROGRAMMATIC_SETTLE_MS = 400;
+// Leaflet's pan/zoom animations run 250ms with a late-scheduled 250ms fallback
+// timer, but the gap that matters is the measured one: fitBounds to zoomend in
+// Chromium, with a full render pass in between, came in at 2, 209, 305, 311, 319
+// and 374ms — and once past 400, which read our own fit as the user's and left
+// camera-follow off for the rest of the session. A second keeps the failure on
+// the harmless side: a wheel-zoom inside the window is missed once and the next
+// step of the same gesture reports it, where a missed settle strands the camera
+// silently. The honest fix is a positive signal — counting the settle events a
+// move is expected to produce — which needs more design than a constant (Task 14).
+const PROGRAMMATIC_SETTLE_MS = 1000;
 
 // [lng, lat] (GeoJSON) -> [lat, lng] (Leaflet LatLng).
 function toLatLng([lng, lat]) {
@@ -119,12 +126,14 @@ function cappedByKind(pois, kind) {
  *   setPoiHighlight: (poi: object|null) => void,
  *   setBreakMarkers: (breaks: Array<object>) => void,
  *   setFavoriteMarkers: (favorites: Array<object>) => void,
- *   focusRange: (coords: Array<[number, number]>, opts?: {animate?: boolean}) => void,
- *   fitWholeRoute: (opts?: {animate?: boolean}) => void,
+ *   focusRange: (coords: Array<[number, number]>, opts?: {animate?: boolean}) => boolean,
+ *   fitWholeRoute: (opts?: {animate?: boolean}) => boolean,
  *   isWellInsideView: (lngLat: [number, number], inset?: number) => boolean,
  *   panTo: (lngLat: [number, number]) => void,
  *   invalidate: () => void,
- * }}
+ * }} the map's control surface. The two framing calls report whether the move
+ *   actually ran (see moveProgrammatically); panTo and invalidate have no caller
+ *   that books a frame off them, so they stay silent about it.
  */
 export function createMap({
   routeFeature,
@@ -161,13 +170,17 @@ export function createMap({
   // interrupting move extend the suppression instead of ending it.
   let programmaticUntil = 0;
 
+  // Reports whether the move ran. A caller that records "this stretch is framed"
+  // off a refused move would never ask for that frame again — it has to hear the
+  // refusal, not infer it.
   function moveProgrammatically(fn) {
     // The dragged pin owns the map pane: Leaflet only compensates for the pans it
     // makes itself (Marker's autoPan), so any camera move of ours would desync
     // the pin from the cursor and skew the km it reports. Wait for the release.
-    if (draggingPinIndex !== null) return;
+    if (draggingPinIndex !== null) return false;
     programmaticUntil = performance.now() + PROGRAMMATIC_SETTLE_MS;
     fn();
+    return true;
   }
 
   // The map fires dragend from one place only — the user finishing a pan — so it
@@ -216,15 +229,15 @@ export function createMap({
   // Frames a stretch. `animate` is false while a boundary is being dragged and
   // when the user prefers reduced motion.
   function focusRange(coords, { animate = true } = {}) {
-    if (!coords || !coords.length) return;
+    if (!coords || !coords.length) return false;
     const bounds = L.latLngBounds(coords.map(toLatLng));
-    moveProgrammatically(() => {
+    return moveProgrammatically(() => {
       map.fitBounds(bounds, { padding: [48, 48], animate, maxZoom: 13 });
     });
   }
 
   function fitWholeRoute({ animate = true } = {}) {
-    moveProgrammatically(() => {
+    return moveProgrammatically(() => {
       map.fitBounds(routeLayer.getBounds(), { padding: [28, 28], animate });
     });
   }

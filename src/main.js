@@ -357,8 +357,9 @@ async function boot() {
     map.setRouteHighlight(coords);
     if (!day) {
       if (cameraFollows && lastFramedStretch !== WHOLE_ROUTE) {
-        lastFramedStretch = WHOLE_ROUTE;
-        map.fitWholeRoute({ animate: !prefersReducedMotion });
+        if (map.fitWholeRoute({ animate: !prefersReducedMotion })) {
+          lastFramedStretch = WHOLE_ROUTE;
+        }
       }
       return;
     }
@@ -374,14 +375,17 @@ async function boot() {
     }
     const key = `${day.index}:${round1(day.startKm)}:${round1(day.endKm)}`;
     if (lastFramedStretch === key) return;
-    // A zero-length day has no stretch to frame and focusRange declines it, so
-    // recording the key would book a move that never happened — and "⤢ this day"
-    // could then never recover that day, since it only clears the key and asks
-    // again. A day can reach zero length: a stored plan longer than a rebuilt,
-    // shorter route clamps its trailing days to totalKm.
+    // A zero-length day has no stretch to frame and focusRange declines it. The
+    // record below already waits for a fit that ran, so this guard is belt and
+    // braces — it keeps the intent legible here. A day can reach zero length: a
+    // stored plan longer than a rebuilt, shorter route clamps its trailing days
+    // to totalKm.
     if (!coords.length) return;
-    lastFramedStretch = key;
-    map.focusRange(coords, { animate: !prefersReducedMotion });
+    // Recorded only if the fit ran. map.js refuses camera moves while a pin drag
+    // is in flight, and a frame booked but never drawn is one this stretch never
+    // gets again — the map would sit on the old day with both panels reading the
+    // new one, and only "⤢ this day" could break the tie.
+    if (map.focusRange(coords, { animate: !prefersReducedMotion })) lastFramedStretch = key;
   }
 
   // `dragging` marks a boundary-drag preview, which arrives on every pointermove.
