@@ -3904,6 +3904,14 @@ Add the assertion to `src/strip.test.js`:
   });
 ```
 
+**Minors from Task 12's quality review (the two Importants — the mid-gesture plan-mutation guard and the rename-swallows-click fix — were sent back and fixed immediately):**
+- **`#app-title` spills at ≤ ~1000 px width**: at 900 px the title wraps to 4 lines (84 px in a 46 px header) and paints over the map and left panel. Pre-existing from Task 9's header; the plans bar itself stays whole and 28 px down to ~1100 px. Decide a min supported width or let the title truncate (`text-overflow`).
+- **The chip row mixes px and rem**: `.plans__select`/`.plans__name` at `font-size: 12px`, `.btn--sm` at `0.72rem` — at root 24 px the buttons' text scales and the fields' doesn't (two type sizes in one 28 px row, bar grows to 705 px). One unit family for the three chip types.
+- `currentPlans = plans` stores a live reference to main.js's mutated `planList`; benign today (every mutation re-renders immediately) but `plans.slice()` makes the cache an honest snapshot.
+- **Reset confirm doesn't say it can't be undone** (Delete's does); "the plan itself stays" could read as implying recoverability. Copy fix.
+- Reset on an already-empty plan still writes (bumps `updatedAt`, which changes which plan a later Delete picks as survivor). Early-return when days and breaks are both empty.
+- Test gaps worth one test each: render-twice-click-once (pins listeners-outside-render); `banner.show()` twice → no stacked dismiss handlers. Plus: ~15 tests open with the same mount+render pair (a `beforeEach` would remove it), and the double-negative test name the reviewer had to re-read.
+
 **Docs/comment staleness to fix in this pass (from Task 12's spec review):**
 - The design spec's §8 says the plans bar's "Contents unchanged (select, name field, New / Duplicate / Delete)" — superseded by the Reset-trip decision this plan's Task 12 block required; correct the spec text so it stops contradicting the shipped UI (now four actions, "Delete" relabelled "Delete plan").
 - `main.js` comment referencing `renderPlans`, which no longer exists under that name anywhere (`renderPlansBar` in main.js, `render` in plans-bar.js).
