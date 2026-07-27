@@ -3809,6 +3809,83 @@ EOF
 **Files:**
 - Modify: `src/style.css`, `README.md`, `docs/superpowers/plans/2026-07-26-timeline-layout.md`
 
+> ## ✅ DONE (2026-07-27) — 472 tests, 16 files. Commits `8b35b29`, `52073db`, `c7e9290`, `b65e4d0`, `42ae2d5`, `374fe4d`, `a983483`, `02a297b`, `f9f3f1f`, `d9393d7`, `f0398bb`. Not pushed, branch not merged — that is the user's call.
+>
+> **Three findings came out of the browser pass that no test had caught, and two of them were mine:**
+>
+> 1. **The recorded route-contrast suggestion is wrong** (`02a297b`). Making `ROUTE_STYLE` greyer does make the highlight pop — and loses the route. OSM's tiles draw state and district boundaries as grey dashed lines, so at whole-route zoom the 570 unplanned km from Boizenburg to Dresden vanished into the Niedersachsen/Brandenburg border; screenshot-confirmed at 1512×900. The real gap was lightness, not hue: the context line was the highlight's own `#2563eb` at half opacity, so only weight distinguished them, and at whole-route zoom weight is all either has. Now the lighter `--river` `#5b93ff` at weight 3 against the highlight's deep `#2563eb` at 7.
+> 2. **This task's own focus restoration broke Enter-to-save** (`f9f3f1f`). Saving a note re-rendered the panel and restored focus to the leg's ✎ — and a browser resolves a keydown's default action against whatever holds focus *once the handler returns*, so Chromium synthesised a click on that button and re-opened the editor over the note just saved. `preventDefault` on the editor's Enter. The test models keydown-then-synthesised-click, which jsdom does neither half of.
+> 3. **This task's own `moveend` listener killed camera-follow** (`d9393d7`). Reverted. The standing comment against that listener was right: gating on `programmaticUntil` is not enough, because the window is sized for `zoomend` and pans settle later — instrumented in Chromium, an animated pan's `moveend` landed 700 ms into the 1000 ms window, and every camera move of ours ends in a `moveend`, so the race ran on every fit. Losing it once switches camera-follow off silently for the session, which is exactly what the window mechanism exists to prevent. The keyboard-pan gap it was meant to close is now served by the narrow signal instead: a keydown on the map container for the keys Leaflet pans with. No window, no race, and the pin-drag autoPan storm cannot reach it.
+>
+> ### Ledger — Task 8's review
+> - ~~Split the markup builders out of `strip.js`~~ **DONE** `8b35b29`: `strip-markup.js` holds `summaryMarkup`/`axisMarkup`/`scaleMarkup` as pure functions of `(state, layout, axis, activeIndex)`; `strip.js` 491 → 350 lines. All naming nits with it — `handleMarkup`, `axisWidth()`, `emitMove(…, { commit })`, `announce` above its caller. The existing suite passed unmodified, which is what made it safe.
+> - ~~"Nowhere legal to go" encoded three times~~ **DONE (2 of 3)** `8b35b29`: `boundaries.js` grows `boundaryWindow` (returns null), and `strip.js`'s `proposeKm` reads it. The itinerary's own check **deliberately stays** — it asserts the OUTPUT is well-formed *after* rounding, which is a different question and the last thing between a squeezed plan and a stored inverted day. Recorded in a comment there. Also fixed a real edge in passing: reading it off the floored window refused a pair spanning exactly 2 × MIN_DAY_KM, whose midpoint is legal.
+> - ~~`pointerAxis` overrides the `measureWidth` injection~~ **DONE** `8b35b29`.
+> - ~~`press()` stops at keydown~~ **DONE** `a983483`: an `activate` helper does keydown plus the synthesised click, and clicks only real buttons as a browser does. It pins a path nothing reached: Enter on a boundary handle focuses its day *because* the arrow branch declines the key without preventing the default. Mutation-checked.
+> - ~~`aria-valuenow` outside `[min, max]`~~ **DONE** `a983483`: the reported range widens to contain the value. A no-op for every well-formed plan, and what the model refuses is unchanged.
+> - ~~Collapsed-window commit-in-place branch is untested insurance~~ **RECORDED IN CODE** `a983483` — the comment now says so, so the silence is not read as coverage.
+> - ~~Handle hover glow narrower than the grab tolerance~~ **DECIDED AGAINST** `a983483`, reasoning in `style.css`: closing it honestly needs JS hover hit-testing on every pointermove plus a hovered index carried through the render, to move a glow two pixels — and the asymmetry fails safe (aiming at the bar always works; being slightly off works too). The `::after` that used to widen it was deleted for swallowing clicks meant for "+ add a day".
+>
+> ### Ledger — Task 13's review (map.js)
+> - ~~Keyboard panning never reaches `onUserMove`~~ **DONE, the second way** `d9393d7` — see finding 3 above. Verified in Chromium: ArrowRight with the map focused pans 80 px, and the day click after it leaves the view where the keyboard user put it.
+> - ~~Magic numbers~~ **DONE** `c7e9290`: `FOCUS_PADDING_PX`, `WHOLE_ROUTE_PADDING_PX`, `FOCUS_MAX_ZOOM` (named as the product decision it is), `HIGHLIGHT_STYLE`, and one `HIGHLIGHT_COLOR` where the hex was written twice.
+> - ~~`focusRange` single-coord asymmetry~~ **DOCUMENTED as deliberate** `c7e9290`: "centre this point" is a sensible request; "draw a line through one point" is not.
+> - ~~Promote the map probes~~ **DONE** `c7e9290`: `src/map.test.js`, 15 tests. Both named regressions plus the recovery, the settle window and the caps; Leaflet-internals probes left behind. All three prescribed fixes applied — the count assertion is `hasLayer`, the vacuous `panTo` assertion watches the forwarding instead, and the two permanent harness mutations are commented as safe under Vitest's per-file isolation.
+> - ~~Residual: a latched `draggingPinIndex` means a dead map~~ **RECORDED IN CODE** `c7e9290`, in the recovery function, together with the note not to "simplify" its three redundant insurance lines.
+>
+> ### Ledger — Task 10's review (day-panel.js)
+> - ~~Lift `glyphFor` into `ui-util.js`~~ **DONE** `8b35b29`. The panel's `|| '☕'` also reached `Object.prototype` for a hand-edited `kind: "toString"`.
+> - ~~`dayCount` has no default~~ **DONE** `52073db` (`= 0`, fails safe, tested).
+> - ~~Break exactly at the day's end duplicates a "0 km" leg~~ **DONE** `52073db`: reads "at the day end". Verified in the browser by ☕-ing the overnight town, which is the easy way to reach it.
+> - ~~The `done`-guard comment names a blur that never fires~~ **DONE** `52073db`: the comment now says what it really guards (Esc's own refocus), states the mid-edit discard, and says why it differs from the custom-stop prompt. Pinning test added — and it is the test that later caught finding 2.
+> - ~~Test consolidation: a `renderDay(overrides)` helper; `DAY`'s unread `targetKm`~~ **DECIDED AGAINST**: the repeated arguments are the state each test asserts against, a helper moves it out of view, and rewriting 18 call sites at the end of the project risks changing what they pin for no behaviour gain. The `targetKm` is kept deliberately — it is the shape main.js really passes.
+> - ~~`poiKey` / `breakKey` duplication~~ **DECIDED AGAINST** `374fe4d`, with both sides now saying why: `ui-util.js` imports no data module and the model imports no render helper, so neither can import the other without inverting a layer. The cross-module contract test is the mechanism that keeps them identical; its comment was itself stale (named `ui.js`) and is fixed.
+> - ~~Two unpinned focus properties~~ **DONE** `52073db`: both tests written, both mutants verified failing (the twin fallback landing on **Delete day**, and the `Math.min` clamp).
+> - ~~Inline note editor drops focus to `<body>`~~ **DONE** `52073db` — and see finding 2, which this fix caused and which is now fixed and tested.
+> - ~~Cosmetic: two test titles lost apostrophes; `restoreFocus`'s unreachable guard~~ **DONE** `52073db`.
+>
+> ### Ledger — the integration pass and its review
+> - ~~The two POI caps disagree~~ **DONE** `c7e9290`: both keep the **first 40 in route order**. Route order is the panel's reading order, makes "the first 40 along this stretch" an explicable cap, and makes the two sets identical by construction so every marker has a row to light up. The constants stay duplicated (map.js imports nothing but Leaflet); each names the other. `places.js`'s "nearest" wording was itself wrong and is fixed.
+> - ~~Route-highlight contrast weak zoomed out~~ **DONE, not as prescribed** `02a297b` — finding 1 above.
+> - ~~Left-panel rows wrap the trailing absolute km~~ **DONE** `42ae2d5`: `.meta__abs` is `nowrap`. Verified in the browser.
+> - ~~Stale dev servers~~ **N/A** — verified against port 5310, started here, confirmed serving this commit before trusting it.
+> - **Pin drags still walk the whole route per pointermove** — **LEFT AS IS, deliberately.** The item says "fix if pin drags feel heavy". They do not: dragged in Chromium, the pin tracks the cursor and the commit lands where it sits. Windowing the search around the previous km is a real optimisation, but it is a new index-adjacent code path added on feel rather than measurement, in a cleanup task. **Open for the user** if it feels heavy on slower hardware.
+> - ~~`route.js`: the dead `segKm > 0` guard, and the untested `startKm` clamp~~ **DONE** `b65e4d0`: the clamp has its test (two negative bounds are an ascending range until they clamp); the guard stays, marked as deliberate — duplicate consecutive vertices are ordinary in OSM data and a zero-length segment there divides by zero.
+> - ~~`stretchCoords` returns aliased arrays~~ **DOCUMENTED and pinned** `b65e4d0`.
+> - ~~`map.setTownHighlight` is newly dead~~ **DELETED** `c7e9290`, API + `TOWN_ICON` + the `.town-icon__dot` rule. Not wired: the day pin already marks the day's end, the panel names the town, and the strip labels it — a fourth marker would be new behaviour added in a cleanup task. It can come back deliberately.
+> - ~~`.map-btn` z-index comment overstates 900~~ **DONE** `42ae2d5`: raised to 1001, which clears Leaflet's corner containers by construction rather than by the top-right corner happening to be empty.
+> - ~~Residual: `setPoiMarkers` strands `tempPoiMarker`~~ **FIXED** `c7e9290` (a shared `clearPoiHighlight`), with a test. Cheaper than leaving a known leak unproven.
+> - ~~Cosmetic: `.places__scope`'s raw `#1d1a14`; `.day-panel--empty` unstyled~~ **DONE** `42ae2d5`: `--surface-sunk` replaces four copies, and the empty state has a rule now that it holds a button.
+> - **`itinerary`'s mutators throw and main.js wraps none of them** — **KEPT THAT WAY**, per the note's own advice. The one guard added this pass (`pointAtKm`'s finite check) is on the route helpers, not the mutators.
+> - ~~`pointAtKm`/`stretchCoords` lost `pointAtDistance`'s loud failure~~ **DONE** `b65e4d0`: throws on a non-finite km. Also closes `stretchCoords`, whose "[] for an inverted range" rule looked like it covered NaN and did not.
+> - **The camera's drag nudge tracks the FOCUSED day, not the boundary being dragged** — **DECIDED AGAINST.** Threading the dragged index through `renderAll` into `renderCamera` is cheap, but it makes the camera pan to a boundary while the highlight sits on a different day, and on release nothing reframes (that day's key never changed) — leaving the map parked on one day with another highlighted. Worse than no help. Grabbing a handle is one click from focusing that day.
+> - ~~Recovery watcher can't filter by pointer~~ **RECORDED IN CODE** `c7e9290`.
+> - ~~Vacuous `panTo` assertion~~ **DONE** `c7e9290`, swapped for a forwarding check, with the reason in a comment so it is not "restored" later.
+> - ~~Three deliberately-redundant insurance lines~~ **RECORDED IN CODE** `c7e9290` — do not simplify.
+>
+> ### Ledger — the strip-clipping report
+> - ~~Redundant "+ add a first day" in the day panel's empty state~~ **DONE** `52073db`, wired to the same `handleAddDay(null)` the strip uses. Verified in the browser: the app now has a route to day 1 that does not depend on the strip being reachable.
+> - ~~Close the dev unstyled-paint window~~ **DONE** `42ae2d5`: `index.html` links `/src/style.css`. The production build still emits exactly one stylesheet link — checked, not assumed.
+> - `expanded` survives a plan switch with an identically-spanned day — accepted, unchanged.
+> - ~~`render` with `towns: null` throws~~ **DONE** `52073db`: the five list fields tolerate an explicit null again.
+> - ~~Test boilerplate: `renderArgs`, the `many` fixture built twice~~ **ALREADY DONE** in `places.test.js` before this pass (`renderArgs` exists, `MANY` is built once). Nothing to do.
+> - Orphan BEM names (`meta__abs`, `pois--town`/`pois--fav`) — recorded, unchanged.
+>
+> ### Ledger — Task 12's review and the docs staleness
+> - ~~`#app-title` spills at ≤ ~1000 px~~ **DONE** `42ae2d5`: truncates with an ellipsis instead of wrapping to four lines over the map. That sets the supported floor at "the title gets shorter", not "the layout breaks".
+> - ~~The chip row mixes px and rem~~ **DONE** `42ae2d5`: the header row is px throughout; `.btn--sm` keeps its rem for the day panel, where scaling with the user's text size is right.
+> - ~~Reset confirm doesn't say it can't be undone~~ **DONE** `b65e4d0`, verified in the real dialog.
+> - ~~Reset on an already-empty plan still writes~~ **DONE** `b65e4d0`, verified in the browser: `updatedAt` held across a confirmed reset of an empty plan.
+> - ~~Test gaps: render-twice-click-once, `banner.show()` twice~~ **ALREADY COVERED** before this pass (`plans-bar.test.js` "fires an action once after a re-render"; `ui.test.js` "rewires the dismiss button on every show"). The double-negative test name **is** renamed (`b65e4d0`). The `beforeEach` consolidation is **DECIDED AGAINST**: the mounts are not uniform (different active plans, two tests build their own bar), so a `beforeEach` would either not fit or hide the state each test depends on.
+> - ~~Design spec §8 contradicts the shipped plans bar~~ **DONE** `374fe4d`: §8 records the amendment, why Reset trip belongs in the bar rather than the day panel, and why "Remove last day" was deliberately not restored.
+> - ~~`main.js` comment naming `renderPlans`~~ **DONE** `374fe4d`.
+> - ~~`.plans__*` comment claims the fields shrink~~ **DONE** `42ae2d5`: they cannot (`#plans` is `flex: 0 0 auto`), and the comment now says what happens below ~1100 px instead.
+>
+> ### Still open for the user
+> - **The `PROGRAMMATIC_SETTLE_MS` follow-up.** Re-measured here: `zoomend` arrived with 497–997 ms of the 1000 ms window left, and a pan's `moveend` landed 700 ms in. No run was observed losing the `zoomend` race, but ~500 ms of margin under a busy main thread is thin, and thinner on slower hardware. The constant is left alone deliberately — widening it trades this failure for a real user zoom that never hands the camera over. The fix is the recorded one: count the settle events a move is expected to produce.
+> - **Pin-drag `snap()` cost** — see above; measured as fine by feel, not optimised.
+> - **POI marker overlap on the Hamburg stretch** — unchanged and out of scope (a spiderfy/cluster question); the caps agreeing means marker→row hover is at least always *possible* now.
+
 > **Deferred minors from Task 8's quality review** (all judged not worth churn while later tasks still build on strip.js):
 >
 > - **Split the markup builders out of `strip.js` (~474 lines).** `summary`, `glyphFor`, `breaksIn`, `glyphLayer`, `blockLabel`, `handle` are pure functions of `(state, layout)` — moving them to a `strip-markup.js` drops `createStrip` to ~300 lines of state machine and makes the markup testable without a DOM. Naming nits for the same pass: `handle(index)` returns markup but collides with `handleEl`/main.js's `handleX` callbacks (→ `handleMarkup`); `width` is a function named like a value; `emitMove`'s positional boolean doesn't match the `{ commit }` shape it emits; `announce` is defined below both its callers.
@@ -3869,7 +3946,7 @@ EOF
 > - Test boilerplate: a `renderArgs(overrides)` helper would kill the six-empty-fields repetition across 23+ tests; the 451-element `many` fixture is built twice.
 > - Orphan BEM names inherited from ui.js (`meta__abs` with no `.meta` block; `pois--town`/`pois--fav` naming towns/favs as POIs) — not worth churning, recorded.
 
-- [ ] **Step 1: Delete dead CSS** — ⚠️ **`.day-card*` is NOT dead: `day-panel.js` and `ui-util.js` still emit those classes.** Delete only the shell rules the day panel doesn't use, as written below. The spec review measured what is genuinely dead after the integration pass — ~140 lines, verified against every `class="…"` in `src/*.js` and `index.html`: `#controls` and the whole `.controls__*` family (was style.css:271-379), `.pending-break*` (381-405), `.towns__heading` (463-490) and `.towns__empty` (578). The last two were only described as "dead once places lands" without a delete instruction, and the first two died silently with `renderControls` — none of them are named in the original list below, so add them.
+- [x] **Step 1: Delete dead CSS** — ⚠️ **`.day-card*` is NOT dead: `day-panel.js` and `ui-util.js` still emit those classes.** Delete only the shell rules the day panel doesn't use, as written below. The spec review measured what is genuinely dead after the integration pass — ~140 lines, verified against every `class="…"` in `src/*.js` and `index.html`: `#controls` and the whole `.controls__*` family (was style.css:271-379), `.pending-break*` (381-405), `.towns__heading` (463-490) and `.towns__empty` (578). The last two were only described as "dead once places lands" without a delete instruction, and the first two died silently with `renderControls` — none of them are named in the original list below, so add them.
 
 Remove every rule for markup that no longer exists: `#pending-block`, `#pending-heading`, `.controls__*`, `.pending-break*`, `#day-mode`, `.day-mode__hint`, `.summary*` (the strip owns progress now), `.itinerary__*`, `.day-list`, `.day-card` shell rules that the day panel doesn't use, `#panel-left-header`, `#panel-footer`, `.ghost-icon*`, and the `input[type="range"]` slider block. Keep `.day-card__leg*`, `.leg-actions`, `.row-edit`, `.row-remove`, `.poi*`, `.town*`, `.row-action*`, `.banner*`, `.pin-icon*`, `.break-marker*`, `.fav-marker*`, `.town-icon*`, `.poi-marker*`.
 
@@ -3883,7 +3960,7 @@ comm -23 /tmp/used-classes.txt /tmp/styled-classes.txt
 
 Expected: only class names that are intentionally unstyled (BEM element names used purely as hooks). Anything surprising means a rule was deleted too eagerly.
 
-- [ ] **Step 2: Move the OSM attribution** — ⚠️ **STALE, verify before doing anything.** Task 9 already put the ODbL credit in the header (`index.html:29-30`, `#app-credit`), and it is visibly rendering there — screenshot-confirmed 2026-07-27. Following this step verbatim would show the credit **twice**. The requirement is only that the credit stays visible, which it does; so either skip this step, or move the credit from the header to the scale line and delete `#app-credit` (a layout judgement — the header placement currently looks fine). Leaflet's own "© OpenStreetMap contributors" in the map corner is separate and unaffected. Keep the test below either way, pointed at wherever the credit actually lives.
+- [x] **Step 2: Move the OSM attribution** — **RESOLVED: the move was skipped deliberately, the credit stays in the header** (`42ae2d5`). Verified rendering there; moving it to the scale line would have shown it twice, and the header placement reads fine. `index.html`'s comment no longer promises the move. The assertion is kept and lives in the new `src/index.test.js`, pointed at where the credit actually is and written to allow a future layout to move it again but not to lose it. ⚠️ **STALE, verify before doing anything.** Task 9 already put the ODbL credit in the header (`index.html:29-30`, `#app-credit`), and it is visibly rendering there — screenshot-confirmed 2026-07-27. Following this step verbatim would show the credit **twice**. The requirement is only that the credit stays visible, which it does; so either skip this step, or move the credit from the header to the scale line and delete `#app-credit` (a layout judgement — the header placement currently looks fine). Leaflet's own "© OpenStreetMap contributors" in the map corner is separate and unaffected. Keep the test below either way, pointed at wherever the credit actually lives.
 
 Original instruction, for reference: the `#panel-footer` credit is gone, so put the ODbL credit in the strip's scale line — in `strip.js`'s `render`, the scale becomes:
 
@@ -3918,16 +3995,16 @@ Add the assertion to `src/strip.test.js`:
 - `main.js` comment referencing `renderPlans`, which no longer exists under that name anywhere (`renderPlansBar` in main.js, `render` in plans-bar.js).
 - `style.css` `.plans__*` comment claims the fixed-width fields "still shrink (min-width: 0) once the window really is narrow" — they can't, `#plans` is `flex: 0 0 auto`; a narrow window overflows the header instead. Fix the comment (responsive work stays out of scope).
 
-- [ ] **Step 3: Update the README**
+- [x] **Step 3: Update the README**
 
 Rewrite the bullet list and the "How it works" paragraph: the slider/commit loop becomes the strip loop (add a day, drag its boundary, pick where you sleep), describe local editing ("editing one day resizes its neighbour, never the whole trip"), town snapping, split/delete, the focused-day panel, the always-visible to-scale strip, and the keyboard handles. Delete the ghost-marker and "commit the day" sentences. Keep the localStorage, data-provenance and quick-start sections as they are.
 
-- [ ] **Step 4: Run the whole suite**
+- [x] **Step 4: Run the whole suite**
 
 Run: `npm test`
 Expected: PASS, every file. Report the final test count in the commit message.
 
-- [ ] **Step 5: Manual verification pass**
+- [x] **Step 5: Manual verification pass**
 
 > **Add to the walk (from the pin-drag latch fix `0870103`, which no test can fully reach):** start dragging a map day pin, Alt-Tab away while holding, release outside the window, come back and move the mouse — the drag must end immediately at the pin's position (one commit, no plan-rewriting on hover afterwards), the pins and both ⤢ buttons must still work, and the map must still pan. Also check the recovery's commit lands where a user would expect when the pin was mid-flight.
 >
@@ -3935,24 +4012,37 @@ Expected: PASS, every file. Report the final test count in the commit message.
 
 At 1512 x 900 with a fresh localStorage, walk the list and confirm each one:
 
-- [ ] Empty state: strip is all dashed remainder, day panel says "No days yet", map fits the whole route.
-- [ ] `+ add a day` appends 80 km and focuses it; the day panel and left panel populate.
-- [ ] The itinerary is visible **without scrolling** — the whole point of the project.
-- [ ] Drag the day 3/4 boundary right: day 3 grows, day 4 shrinks, days 1–2 and everything past day 4 unchanged.
-- [ ] Drag a boundary to its limits: it stops 5 km from each neighbour.
-- [ ] Tab to a handle, press `→` and `Shift+→`: 1 km and 5 km moves.
-- [ ] Pick an overnight candidate: the block resizes to the town's km and the neighbour absorbs it.
-- [ ] Type a distance in the day panel: same local behaviour.
-- [ ] Split a day, then delete the first half: back where you started.
-- [ ] Delete a middle day: it merges into the next, the rest of the trip stays put.
-- [ ] Add a break with ☕, give it a note with ✎, remove it with ×.
-- [ ] Click the route: a stop is added to the focused day after the label prompt.
-- [ ] Reload: the plan comes back and the last day is focused.
-- [ ] Switch plans: the day panel, left panel and strip all repoint.
-- [ ] `localStorage` writes once per drag, not per pointermove.
-- [ ] Plan a route all the way to Dresden: the remainder disappears and the finish marker shows.
+- [x] Empty state: strip is all dashed remainder, day panel says "No days yet", map fits the whole route.
+- [x] `+ add a day` appends 80 km and focuses it; the day panel and left panel populate.
+- [x] The itinerary is visible **without scrolling** — the whole point of the project.
+- [x] Drag the day 3/4 boundary right: day 3 grows, day 4 shrinks, days 1–2 and everything past day 4 unchanged.
+- [x] Drag a boundary to its limits: it stops 5 km from each neighbour.
+- [x] Tab to a handle, press `→` and `Shift+→`: 1 km and 5 km moves.
+- [x] Pick an overnight candidate: the block resizes to the town's km and the neighbour absorbs it.
+- [x] Type a distance in the day panel: same local behaviour.
+- [x] Split a day, then delete the first half: back where you started.
+- [x] Delete a middle day: it merges into the next, the rest of the trip stays put.
+- [x] Add a break with ☕, give it a note with ✎, remove it with ×.
+- [x] Click the route: a stop is added to the focused day after the label prompt.
+- [x] Reload: the plan comes back and the last day is focused.
+- [x] Switch plans: the day panel, left panel and strip all repoint.
+- [x] `localStorage` writes once per drag, not per pointermove.
+- [x] Plan a route all the way to Dresden: the remainder disappears and the finish marker shows.
 
-- [ ] **Step 6: Commit and push**
+> **All sixteen walked and passed** in Chromium at 1512×900 against a fresh `localStorage` on port 5310 (started here, and confirmed serving this commit before anything was trusted to it). Measurements worth keeping:
+>
+> - No page scroll with the itinerary up: `scrollHeight === clientHeight === 900`.
+> - Local editing: dragging the day 3/4 boundary took day 3 from 80 → 106.7 km and day 4 from 80 → 53.3, with days 1–2 and day 5 byte-identical.
+> - Limits: at the extremes the neighbour lands on exactly 5 km, from both directions.
+> - **Exactly one `localStorage` write for a 12-move drag** (counted by patching `setItem`). A pin drag: **zero** writes across the previews, one on release.
+> - Town snapping put day 3's end on Sandau (Elbe) at km 237.5 and day 4 absorbed the 2.5 km; no snap note, because the boundary reached the town exactly.
+> - Split → delete-the-first-half returned the plan to its exact previous shape, and focus landed on the surviving day's Delete button rather than `<body>`.
+> - The route click landed at km 46.5 and split the day's legs 46.5 + 39.5.
+> - **Added gesture — pin-drag recovery:** a real mouse drag on day 3's pin, then a `buttons === 0` pointermove instead of the mouseup. The drag ended at the pin's position, committed **once**, and the plan then survived four hover moves untouched. Both ⤢ buttons, map panning and a fresh pin drag all worked afterwards. (True Alt-Tab cannot be synthesised; the `buttons === 0` move is the observable half, as the brief allows.)
+> - **Added gesture — booked frame:** with a pin held, nudging a strip handle mid-drag left the camera perfectly still, and the release render moved it. Both edits committed — the nudge and the drag — with nothing rewritten.
+> - **Added watch — the settle window:** see "Still open for the user" above. Note for whoever measures this next: reading positions from a throttled automation browser needs generous settling (3 s), and a "poll until two reads agree" helper is *not* enough — it returns before an animation has started and reports a moving camera as a still one. Two false "camera is broken" conclusions came from that before a screenshot settled it.
+
+- [x] **Step 6: Commit and push** — **committed, NOT pushed, branch not merged.** Eleven commits, one theme each, rather than the single one drafted below (the draft also describes the credit move that was deliberately not made). Finishing the branch is the user's decision.
 
 ```bash
 git add -A
