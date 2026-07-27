@@ -1,7 +1,7 @@
 # Timeline layout: the trip as a to-scale strip, one focused day at a time
 
 **Date:** 2026-07-26
-**Status:** design approved, ready for planning
+**Status:** implemented and reviewed (2026-07-27) — built over fourteen tasks on `worktree-timeline-layout`, whole-branch review passed after one blocker fix. Three things shipped differently on purpose; see the addendum at the end of this file. Committed, not merged.
 **Supersedes UX behaviour from:** `2026-07-20-committed-day-stops-design.md` (day mode becomes the universal interaction), `2026-07-19-breaks-and-day-relative-distances-design.md` (leg rendering moves, semantics kept)
 
 ## Problem
@@ -56,7 +56,7 @@ Full-width, ~170 px, at the bottom. Three rows:
 
 1. **Summary line** — `320 / 650 km planned · 330 km to Dresden` left, `4 days · ⌀ 80 km/day` right. This replaces the progress bar inside the itinerary.
 2. **Axis** — one block per day, `width = (day.endKm - day.startKm) / totalKm` of the inner width, so blocks are honestly to scale. Each block shows its number, its km, its overnight town, and its breaks' glyphs positioned at their real km within the block. The focused block is outlined in river blue. Trailing unplanned distance is a dashed remainder ending in a Dresden flag.
-3. **Scale line** — `km 0 · Hamburg` … `km 650`, with the focused boundary's km called out.
+3. **Scale line** — `km 0 · Hamburg` … `km 650`, with the focused boundary's km called out. *(Shipped with the two endpoints only — see the addendum.)*
 
 **Label tiers** (a 5 km day is ~11 px wide at 1400 px, so labels must degrade): ≥64 px shows number + km + glyphs; ≥30 px number + km; ≥14 px number only; below that no label, `title` tooltip only.
 
@@ -134,7 +134,7 @@ Moves into the full-width header — it is trip-level and the right panel is now
 
 ### 9. What is removed
 
-The distance slider and its debounce, the `Commit day` button, the pending-day block, the pulsing ghost marker, the `+ Add stops` button and the separate day mode behind it, the "Breaks this day" pending list, and `main.js`'s `pendingTarget` / `pendingTown` / `selectedDayIndex` / `customStopDraft` — replaced by a single `focusedDayIndex`.
+The distance slider and its debounce, the `Commit day` button, the pending-day block, the pulsing ghost marker, the `+ Add stops` button and the separate day mode behind it, the "Breaks this day" pending list, and `main.js`'s `pendingTarget` / `pendingTown` / `selectedDayIndex` / `customStopDraft` — replaced by a single `focusedDayIndex`. *(`customStopDraft` survived, and had to — see the addendum.)*
 
 Breaks beyond the last day keep their place in the model and render as glyphs on the dashed remainder; they are absorbed into a day as soon as the plan grows past them. The km-0 widening rule for day 1 is unchanged.
 
@@ -148,7 +148,7 @@ Breaks beyond the last day keep their place in the model and render as glyphs on
 
 ## Module structure
 
-`ui.js` is 855 lines and most of it is changing, so it becomes a thin facade — `main.js` keeps calling `ui.renderX` — over:
+`ui.js` is 855 lines and most of it is changing, so it becomes a thin facade — `main.js` keeps calling `ui.renderX` — over: *(The facade was not built; `main.js` imports these modules directly — see the addendum.)*
 
 | Module | Owns |
 | --- | --- |
@@ -185,3 +185,13 @@ TDD throughout, per the usual flow.
 - The left panel gets busier before the list work happens; the 40-row cap is the mitigation.
 - Drag interaction is the only genuinely new interaction code here. Extracting the geometry as pure functions is what keeps it testable; touch and keyboard paths are specified above rather than left to implementation.
 - ~170 px comes off the map's height. At 900 px the map still gets ~690 px, taller than it is wide in the middle column.
+
+---
+
+## Addendum: what shipped differently (2026-07-27)
+
+Written after the whole-branch review, against the code that exists. The spec above is left as it was approved; these three are the places the build knowingly departed from it. The plan's "Final branch review" section carries the same list plus the implementation-level deviations that never appear here.
+
+- **The scale line renders its two endpoints only** (§2.3 asked for the focused boundary's km called out as well). The focused day's start and end km are already on screen twice — in its own strip block and at the top of the day panel — and a third copy on a line whose job is orientation made it busier without answering a question the other two don't.
+- **`customStopDraft` survived** (§9 "What is removed" listed it among the state replaced by `focusedDayIndex`). It is not mode state, which is what that list was really about: it is the draft a route click leaves behind while it waits for a label, and the day panel renders the prompt from it. Nothing else can hold that.
+- **`ui.js` did not become a facade** (§"Module structure"). `main.js` imports `strip.js`, `day-panel.js`, `places.js` and `plans-bar.js` directly, and `ui.js` is now the route-changed banner plus a re-export of `townKey`/`poiKey`. Better shape than the plan's: a layer that only forwards is somewhere for drift to hide, and every module boundary the spec cares about holds without it. **The re-export is load-bearing** — `itinerary.test.js`'s cross-module key contract test imports through `./ui.js`, so deleting the file breaks the test that exists to catch exactly this kind of drift.

@@ -1918,7 +1918,7 @@ Replace the `<body>` contents with the new zones **plus the legacy containers**,
   </body>
 ```
 
-**Why the legacy containers stay:** this task mounts the strip but keeps the existing `ui.js`, and `createUI` runs `controlsEl.innerHTML = …` the moment it is called (`ui.js:121`). Delete `#controls` and `main.js` hands it `null`, `createUI` throws, and the app boots to a white screen — which is the opposite of this task's promise that nothing is unreachable in between. Each legacy container is removed by the task that replaces its content: `#controls`/`#itinerary` in Task 10, `#favorites`/`#pois`/`#towns` in Task 11.
+**Why the legacy containers stay** *(the `createUI` here is the ORIGINAL `ui.js` monolith that predates this plan — not the facade Task 12 proposes; it was deleted in the integration pass)*: this task mounts the strip but keeps the existing `ui.js`, and `createUI` runs `controlsEl.innerHTML = …` the moment it is called (`ui.js:121`). Delete `#controls` and `main.js` hands it `null`, `createUI` throws, and the app boots to a white screen — which is the opposite of this task's promise that nothing is unreachable in between. Each legacy container is removed by the task that replaces its content: `#controls`/`#itinerary` in Task 10, `#favorites`/`#pois`/`#towns` in Task 11.
 
 `#panel-left-header` and `#panel-footer` are genuinely gone now — nothing renders into them. The OSM attribution the footer carried moves into the strip's scale line (wired in Task 14; keep the credit visible, ODbL requires it).
 
@@ -2183,7 +2183,7 @@ Add the import:
 import { createStrip } from './strip.js';
 ```
 
-After the `createUI(...)` call, add:
+After the `createUI(...)` call (again the original monolith, not Task 12's facade — which was never built), add:
 
 ```js
   // The strip owns the whole-trip view. Boundary drags fire continuously with
@@ -3521,7 +3521,7 @@ export function createPlansBar({ el, callbacks = {} }) {
 
 The four `/* verbatim */` bodies are copied byte-for-byte from those line ranges — no logic changes, only the `plansEl` → `el` rename. Confirm afterwards that `git diff` shows no behavioural edit inside them.
 
-- [x] **Step 2: Compose it from `ui.js`**
+- [x] **Step 2: Compose it from `ui.js`** — **half of it. The plans bar moved out of `ui.js` (`753a146`); the `createUI` facade below was deliberately NOT built.** `main.js` imports the four render modules directly and `ui.js` is now `createBanner` plus the `townKey`/`poiKey` re-export. A layer that only forwards is somewhere for drift to hide, and the layering holds without it. Keep the re-export whatever else changes here — `itinerary.test.js` imports through `./ui.js`. Reasoned through in the final-review section at the end of this file.
 
 `ui.js` is now only a facade. Its whole body becomes:
 
@@ -4117,7 +4117,7 @@ Reproduced and re-verified in Chromium on a production build with fresh storage,
 - **The scale line renders only its two endpoints.** Spec §2's "focused boundary's km called out" was dropped. The strip already prints the focused day's numbers in its own block and in the day panel.
 - **Label tiers shipped at 88 / 70 / 28 px**, not the spec's 64 / 30 / 14. Measured against real Archivo in Chromium, where every km-tier label clipped. Task 9 Step 5b has the measurement; the knock-on effect on break glyphs was fixed by hoisting them to the axis.
 - **`customStopDraft` still exists and is needed.** The spec described it as removed with day mode. It is the draft a route click leaves awaiting its label, and the day panel renders the prompt from it.
-- **The `createUI` facade was never built.** `main.js` imports the four render modules directly, and `ui.js` is `createBanner` plus two re-exports. This is the better shape — a pass-through layer that only forwards is a place for drift to hide, and the layering rules hold without it. **The re-export is load-bearing:** `itinerary.test.js`'s cross-module key contract test imports `./ui.js`, so deleting it breaks a test that exists to catch exactly the kind of drift this section is about.
+- **The `createUI` facade was never built** (prescribed in Task 12 Step 2 and in the spec's "Module structure" section, which now carries an addendum of its own). `main.js` imports the four render modules directly, and `ui.js` is `createBanner` plus two re-exports. Note the name is overloaded in this file: the `createUI` mentioned in Tasks 9 and 10 is the ORIGINAL `ui.js` monolith, which did exist and was deleted in the integration pass. This is the better shape — a pass-through layer that only forwards is a place for drift to hide, and the layering rules hold without it. **The re-export is load-bearing:** `itinerary.test.js`'s cross-module key contract test imports `./ui.js`, so deleting it breaks a test that exists to catch exactly the kind of drift this section is about.
 
 ### Observed and deliberately left alone
 
