@@ -14,6 +14,7 @@ function mount() {
     onSplitDay: vi.fn(),
     onDeleteDay: vi.fn(),
     onFocusDay: vi.fn(),
+    onAddDay: vi.fn(),
     onRemoveBreak: vi.fn(),
     onEditBreak: vi.fn(),
     onAddCustomStop: vi.fn(),
@@ -37,6 +38,29 @@ describe('createDayPanel - empty plan', () => {
     const panel = mount();
     panel.render({ day: null, dayCount: 0, breaks: [], fromName: 'Hamburg' });
     expect(el.textContent).toContain('No days yet');
+  });
+
+  // Deliberately redundant with the strip's own button. Both of the strip's
+  // affordances live in the strip, so a strip that cannot be reached (a window
+  // whose bottom sits under the taskbar) left no route to a first day at all.
+  it('offers its own route to a first day', () => {
+    const panel = mount();
+    panel.render({ day: null, dayCount: 0, breaks: [], fromName: 'Hamburg' });
+
+    el.querySelector('[data-action="add-day"]').click();
+
+    expect(callbacks.onAddDay).toHaveBeenCalledTimes(1);
+  });
+
+  // The stepper reads off dayCount, and without a default `render({ day })` shows
+  // "3 of undefined" and leaves › enabled past the end of the plan, because
+  // `2 >= NaN` is false.
+  it('fails safe on a missing dayCount', () => {
+    const panel = mount();
+    panel.render({ day: DAY });
+
+    expect(el.textContent).not.toContain('undefined');
+    expect(el.querySelector('[data-action="focus-next"]').disabled).toBe(true);
   });
 });
 
@@ -195,6 +219,22 @@ describe('createDayPanel - legs', () => {
     const first = el.querySelector('.day-card__leg').textContent;
     expect(first).toContain('at the start');
     expect(first).not.toContain('0 km →');
+  });
+
+  // The twin of the guard above, and reachable the same easy way: ☕ the overnight
+  // town itself and the ride from it to where you sleep is a bare "0 km →".
+  it('reads a break exactly at the day end as "at the day end"', () => {
+    const panel = mount();
+    panel.render({
+      day: DAY,
+      dayCount: 4,
+      breaks: [{ name: 'Rosenhof', kind: 'town', routeDistanceKm: 265 }],
+      fromName: 'Lenzen',
+    });
+
+    const last = el.querySelector('.day-card__leg--end').textContent;
+    expect(last).toContain('at the day end');
+    expect(last).not.toContain('0 km');
   });
 
   it('removes a break', () => {
@@ -439,7 +479,7 @@ describe('createDayPanel - custom stop prompt', () => {
 
   // ...but on any later day the start km belongs to the PREVIOUS day, whose end
   // it is — otherwise one click would offer itself to two days.
-  it('ignores a draft on a later day own start km', () => {
+  it("ignores a draft on a later day's own start km", () => {
     const panel = mount();
     panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 160 } });
     expect(el.querySelector('#custom-stop-prompt').hidden).toBe(true);
@@ -588,7 +628,7 @@ describe('createDayPanel - focus across a re-render', () => {
     expect(document.activeElement.id).toBe('custom-stop-label');
   });
 
-  it('keeps focus on a surviving leg own remove button', () => {
+  it("keeps focus on a surviving leg's own remove button", () => {
     const panel = mount();
     panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
     el.querySelectorAll('[data-action="remove-break"]')[1].focus();
@@ -607,6 +647,61 @@ describe('createDayPanel - focus across a re-render', () => {
 
     panel.render({ day: DAY, dayCount: 4, breaks: [breaks[1]], fromName: 'Lenzen' });
 
+    expect(document.activeElement.dataset.breakKey).toBe('Grenzturm@213');
+  });
+
+  // The twin fallback is deliberately restricted to the stepper pair, where the
+  // twin IS the way back from a disabled button. Extending it to every control
+  // reads as harmless and is not: Split disables itself the moment a day gets too
+  // short, and its nearest neighbour is "Delete day" — so the fallback would put
+  // focus on a destructive control the user never aimed at.
+  it('never falls back from a disabled Split to the Delete beside it', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    el.querySelector('[data-action="split-day"]').focus();
+
+    // Editing the day down under 2 x MIN_DAY_KM disables Split under the finger.
+    panel.render({
+      day: { ...DAY, targetKm: 8, startKm: 160, endKm: 168 },
+      dayCount: 4,
+      breaks: [],
+      fromName: 'Lenzen',
+    });
+
+    expect(el.querySelector('[data-action="split-day"]').disabled).toBe(true);
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  // Removing the LAST break leaves the remembered position past the end of the
+  // shortened list, and an unclamped lookup would drop focus on <body> — the one
+  // case where "the leg that took its place" does not exist.
+  it('clamps a removed last break position to the leg still there', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    el.querySelectorAll('[data-action="remove-break"]')[1].focus();
+
+    panel.render({ day: DAY, dayCount: 4, breaks: [breaks[0]], fromName: 'Lenzen' });
+
+    expect(document.activeElement.dataset.breakKey).toBe('Café Elbterrasse@195');
+  });
+
+  // A re-render removes the inline editor's input without firing any blur, so the
+  // typed note is discarded (see startBreakEdit). What must NOT also be lost is
+  // the keyboard's place: the input has no [data-action] of its own, so it used to
+  // be the only control in the panel that dropped focus on <body>.
+  it('discards an open note editor but hands focus back to its ✎', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    el.querySelectorAll('[data-action="edit-break"]')[1].click();
+    const input = el.querySelector('.leg-edit__input');
+    input.value = 'half typed';
+    expect(document.activeElement).toBe(input);
+
+    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+
+    expect(el.querySelector('.leg-edit__input')).toBeNull(); // discarded
+    expect(callbacks.onEditBreak).not.toHaveBeenCalled(); // and not saved either
+    expect(document.activeElement.dataset.action).toBe('edit-break');
     expect(document.activeElement.dataset.breakKey).toBe('Grenzturm@213');
   });
 

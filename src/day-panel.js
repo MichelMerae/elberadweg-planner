@@ -3,7 +3,7 @@
 // (split, delete). Bounded content by construction — one day — so this panel can
 // never outgrow the window the way the old scrolling itinerary did.
 
-import { esc, round1, poiKey, BREAK_GLYPH } from './ui-util.js';
+import { esc, round1, poiKey, glyphFor } from './ui-util.js';
 import { MIN_DAY_KM } from './boundaries.js';
 
 const SNAP_EPSILON_KM = 0.05;
@@ -25,10 +25,22 @@ function breakEditButton(b) {
             title="${label}" aria-label="${label}: ${esc(b.name)}">✎</button>`;
 }
 
-// Swaps a leg's text for an inline input. Local DOM state only: saving
-// fires onEditBreak (main.js persists + re-renders); cancel restores the
-// original markup. `done` guards the blur that fires when a re-render (or
-// Enter/Esc) removes the input.
+// Swaps a leg's text for an inline input. Local DOM state only: saving fires
+// onEditBreak (main.js persists + re-renders); cancel restores the original
+// markup.
+//
+// What `done` actually guards is Esc: finish(false) restores the markup and then
+// btn.focus() moves focus off the input, which DOES fire blur, whose handler
+// would immediately finish(true) and save the value the user just cancelled.
+//
+// It does not guard a re-render, because a re-render fires nothing — removing a
+// focused element fires no blur, in jsdom or in a browser. So an unrelated
+// re-render with this editor open silently discards whatever was typed. That is
+// deliberate, and deliberately unlike the custom-stop prompt (which survives
+// renders verbatim): the prompt holds a route click that would otherwise have to
+// be made again, while a note is a small amendment to a break that is still
+// there, re-openable with one ✎. Focus goes back to that ✎ (see focusedTarget),
+// so the keyboard path is not broken by the discard — only the text is lost.
 function startBreakEdit(btn, callbacks) {
   const row = btn.closest('.day-card__leg');
   if (!row || row.querySelector('.leg-edit__input')) return;
@@ -158,7 +170,13 @@ export function createDayPanel({ el, callbacks = {} }) {
     // input, Add and Cancel alike.
     if (promptEl.contains(active)) return { node: active };
     if (active.matches('[data-day-distance]')) return { selector: '[data-day-distance]' };
-    const control = active.closest('[data-action]');
+    // The inline leg editor's input is the one control with no [data-action] of
+    // its own, so it used to be the only one that dropped focus on <body>. A
+    // re-render discards the editor either way (see startBreakEdit), so focus goes
+    // back to the ✎ that opened it — which is where the user was.
+    const control =
+      active.closest('[data-action]') ??
+      active.closest('.day-card__leg')?.querySelector('[data-action="edit-break"]');
     if (!control) return null;
     const selector = `[data-action="${control.dataset.action}"]`;
     const inLegs = [...el.querySelectorAll(`.day-card__leg ${selector}`)];
@@ -171,6 +189,9 @@ export function createDayPanel({ el, callbacks = {} }) {
   function restoreFocus(target) {
     if (!target) return;
     if (target.node) {
+      // The containment check is belt and braces: the only nodes reaching here are
+      // the prompt's, and the prompt is moved back into `el` before this runs. No
+      // test covers the false branch because no gesture reaches it.
       if (el.contains(target.node)) target.node.focus({ preventScroll: true });
       return;
     }
@@ -197,7 +218,7 @@ export function createDayPanel({ el, callbacks = {} }) {
     const lines = [];
     let prevKm = day.startKm;
     for (const b of breaks) {
-      const glyph = BREAK_GLYPH[b.kind] || '☕';
+      const glyph = glyphFor(b);
       const legKm = round1(b.routeDistanceKm - prevKm);
       // A break sitting exactly at the day's start has no leg to speak of; a
       // bare "0 km →" reads as a bug, so say where it is instead.
@@ -219,9 +240,16 @@ export function createDayPanel({ el, callbacks = {} }) {
     }
     const finalKm = round1(day.endKm - prevKm);
     const endName = day.townChoice ? esc(day.townChoice.name) : 'day end';
+    // The twin of the `at the start` guard above: ☕-ing the overnight town itself
+    // puts a break exactly at the day's end, and the ride from there is a bare
+    // "0 km →" that reads as a bug. Say where it is instead.
+    const finalDist =
+      finalKm <= 0
+        ? '<span class="day-card__leg-dist">at the day end</span>'
+        : `<span class="day-card__leg-dist">${finalKm} km</span> →`;
     lines.push(`
       <li class="day-card__leg day-card__leg--end">
-        <span class="day-card__leg-text"><span class="day-card__leg-dist">${finalKm} km</span> → 🛏 ${endName}</span>
+        <span class="day-card__leg-text">${finalDist} 🛏 ${endName}</span>
       </li>`);
     return `<ol class="day-card__legs">${lines.join('')}</ol>`;
   }
@@ -248,14 +276,27 @@ export function createDayPanel({ el, callbacks = {} }) {
       this day ends at km ${round1(day.endKm)}.</p>`;
   }
 
-  function render({ day, dayCount, breaks = [], fromName = 'your last stop', customStopDraft = null }) {
+  // dayCount defaults to 0 rather than being required: without it a caller that
+  // forgets it renders "3 of undefined" in the stepper, and `2 >= NaN` is false —
+  // so `›` stays enabled past the end of the plan. Zero fails safe (both
+  // disabled) and is visibly wrong rather than quietly wrong.
+  function render({ day, dayCount = 0, breaks = [], fromName = 'your last stop', customStopDraft = null }) {
     current = { day, dayCount };
     const focusTarget = focusedTarget();
     if (!day) {
+      // The button is deliberately redundant with the strip's own "+ add a day".
+      // Both of the strip's affordances are in the strip, so anything that makes
+      // the strip unreachable — a window whose bottom edge sits under the taskbar,
+      // a projector cropping the page — left the app with NO route to a first day
+      // and nothing to do but resize. One button here keeps it recoverable.
       el.innerHTML = `
         <div class="day-panel day-panel--empty">
           <h2 class="day-panel__title">No days yet</h2>
-          <p class="day-panel__hint">Click the strip below, or hit <b>+ add a day</b>, to plan your first day out of Hamburg.</p>
+          <p class="day-panel__hint">Click the strip below to pick where day 1 ends — or add a day
+            here and drag its boundary afterwards.</p>
+          <div class="day-panel__actions">
+            <button type="button" class="btn btn--sm btn--primary" data-action="add-day">+ add a first day</button>
+          </div>
         </div>`;
       // A draft stop needs a day to belong to, so an empty plan discards it
       // rather than parking typed text where it can never be added.
@@ -324,6 +365,9 @@ export function createDayPanel({ el, callbacks = {} }) {
     if (edit) return startBreakEdit(edit, callbacks);
     const remove = e.target.closest('[data-action="remove-break"]');
     if (remove) return callbacks.onRemoveBreak?.(remove.dataset.breakKey);
+    // The empty state's own button, so it has to run before the guard below —
+    // there is no focused day when it is the only thing on screen.
+    if (e.target.closest('[data-action="add-day"]')) return callbacks.onAddDay?.();
     if (!current.day) return;
     const index = current.day.index;
     if (e.target.closest('[data-action="split-day"]')) return callbacks.onSplitDay?.(index);

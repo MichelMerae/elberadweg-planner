@@ -141,16 +141,22 @@ export function createPlaces({ el, callbacks = {} }) {
       startKm = 0,
       endKm = 0,
       fromName = 'your last stop',
-      towns = [],
+      towns: townsIn,
       selectedTownKey = null,
-      food = [],
-      sights = [],
-      favorites = [],
-      days = [],
+      food: foodIn,
+      sights: sightsIn,
+      favorites: favoritesIn,
+      days: daysIn,
       breakKeys,
       favoriteKeys,
       poisMissing = false,
     } = args;
+    // Not destructuring defaults: those fire only on `undefined`, so an explicit
+    // null — a caller reading a list straight off a nullable field — threw here
+    // where the ui.js this replaced tolerated it.
+    const [towns, food, sights, favorites, days] = [townsIn, foodIn, sightsIn, favoritesIn, daysIn].map(
+      (value) => (Array.isArray(value) ? value : []),
+    );
     const breakSet = breakKeys instanceof Set ? breakKeys : new Set(breakKeys || []);
     const favSet = favoriteKeys instanceof Set ? favoriteKeys : new Set(favoriteKeys || []);
     // A different stretch is a different question — collapse expanded sections

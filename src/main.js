@@ -166,6 +166,10 @@ async function boot() {
       onSplitDay: handleSplitDay,
       onDeleteDay: handleDeleteDay,
       onFocusDay: handleFocusDay,
+      // The empty state's redundant "+ add a first day": same call the strip's
+      // own button makes, so the app has a route to day 1 that does not depend on
+      // the strip being reachable.
+      onAddDay: () => handleAddDay(null),
       onRemoveBreak: handleRemoveBreak,
       onEditBreak: handleEditBreak,
       onAddCustomStop: handleAddCustomStop,
