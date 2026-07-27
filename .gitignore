@@ -2,6 +2,8 @@ node_modules/
 dist/
 src/data/route.raw.osm.json
 .superpowers/
+# Playwright MCP scratch output (snapshots/console logs from browser verification)
+.playwright-mcp/
 
 # OS cruft
 .DS_Store

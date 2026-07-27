@@ -1,36 +1,61 @@
 # Elberadweg Day Planner
 
 A small, personal trip-planning tool for riding the **Elberadweg** (Elbe Cycle
-Route) from **Hamburg to Dresden**. Instead of guessing where you'll end up each
-evening, you set a daily riding distance and the planner measures that distance
-*along the official route* and shows you which towns sit near the day's endpoint
-— so you can pick a realistic overnight stop, one day at a time.
+Route) from **Hamburg to Dresden**. The whole trip is one timeline strip along the
+bottom of the window, drawn to scale in kilometres: each day is a block, and the
+line between two blocks is where you sleep. You shape the trip by dragging those
+lines, and the planner measures every distance *along the official route*, so it
+can tell you which towns sit near the end of a day.
 
-- Drag the slider (or type a distance, or click a point on the map) to set the
-  next day's target. A pulsing ghost marker shows where you'd end up.
-- Pick an overnight town from the nearby list, then commit the day to lock it in.
+- **Add a day, then drag its boundary.** `+ add a day` appends another day as long
+  as your last one — 80 km only when there is no last one to copy — and clicking
+  the dashed remainder appends a day ending exactly where you clicked. Dragging the
+  handle at a day's end, or its numbered pin on the map, moves where that day
+  finishes. The strip always shows the whole route, so the trip can never scroll
+  out of sight.
+- **Editing one day resizes its neighbour, never the whole trip.** Give day 3 an
+  extra 10 km and day 4 gives up 10; days 1–2 and everything past day 4 stay
+  exactly where they were, along with the towns you already chose for them. Days
+  stop 5 km short of each other, so a boundary can't swallow its neighbour.
+- **Overnight towns snap the boundary.** Pick a town from the left panel and the
+  day ends *at that town's kilometre* — the neighbour absorbs the difference. If
+  the town is too close to the next day's end to reach exactly, the panel says so
+  rather than quietly disagreeing with itself.
+- **Split and delete.** Split a day in two at its midpoint, or delete one and it
+  merges into the day after it — again without moving the rest of the trip.
+- **The focused day gets its own panel.** Click a block (or step with `‹ ›`) and
+  the right panel shows that one day: its length as a number you can type into,
+  its overnight town, and its legs. One day at a time, so the panel can never
+  outgrow the window the way a scrolling itinerary did.
+- **Keyboard throughout.** Tab to any boundary handle — they are real sliders — and
+  `→`/`←` nudge it 1 km, `Shift` 5 km. Every control in the day panel keeps its
+  focus across the re-render it triggers.
+- **The map follows the focused day**, drawing that stretch thick over the rest of
+  the route, with the numbered day pins draggable. Pan or zoom yourself and the
+  map stays where you put it; `⤢ this day` and `⤢ whole route` take it back.
 - **Multiple named plans:** keep an "8 days sporty" and a "10 days relaxed" side
-  by side — create, rename, duplicate, switch, or delete plans from the bar at
-  the top of the right panel. Each plan carries its own days and breaks; the list
-  itself is your history (no separate undo).
+  by side — create, rename, duplicate, reset or delete plans from the bar in the
+  app header. **Reset trip** empties the plan you are in; **Delete plan** removes
+  the plan itself. Each plan carries its own days and breaks; the list itself is
+  your history (no separate undo).
 - **Breaks as day legs:** hit **☕** on any town, food stop, or sight to commit it
-  as a break. Day cards then read as legs — "35 km → ☕ Café · 45 km → 🛏 Lenzen"
-  — and editing a day's distance re-buckets its breaks between days automatically.
+  as a break, or click the route on the map to add a custom stop with your own
+  label. The focused day then reads as legs — "35 km → ☕ Café · 45 km → 🛏 Lenzen"
+  — and moving a boundary re-buckets breaks between days automatically.
 - **Day-relative distances:** distances read from your last overnight stop
   ("45 km from Boizenburg/Elbe"), with the absolute route km shown alongside — so
   you see how far you'll actually ride that day, not raw kilometre marks.
 - **Food on the way & Worth seeing:** the left panel lists cafés, bakeries and
   restaurants (with opening hours where OSM knows them) plus viewpoints, castles
-  and notable bridges along the day you're planning.
+  and notable bridges along the day you're focused on. Hovering a row lights up
+  its dot on the map, and hovering a dot lights up its row.
 - **Favorites:** star **⭐** any place to a global save-for-later list, shared
   across every plan. It sits at the top of the left panel, drops a gold pin on
   the map, and tags which planned day (if any) currently covers it.
-- Committed days stack up as numbered pins on the map and cards in the panel,
-  with a progress bar tracking how far along the ~650 km route you've planned.
 - Everything — plans, breaks, and favorites — is saved to `localStorage`, so your
-  work is still there next visit.
+  work is still there next visit. A boundary drag writes once, on release.
 
-![Screenshot of the Elberadweg Day Planner — map in the centre, favorites and places along the day on the left, plans and itinerary on the right](docs/screenshot.png)
+![Screenshot of the Elberadweg Day Planner — the timeline strip along the bottom, the map in the centre, places along the focused day on the left, and that day's panel on the right](docs/screenshot.png)
 
 _Screenshot placeholder — drop a `docs/screenshot.png` here._
 
@@ -54,14 +79,24 @@ npm test           # run the unit tests (Vitest)
 
 ## How it works
 
-The map (centre) is the hero: OpenStreetMap tiles with the Elberadweg drawn as a
-blue line, a green **H** pin at the Hamburg start, red numbered pins for each
-committed day, amber dots for candidate towns, ☕ pins for committed breaks, gold
-⭐ pins for favorites, and a pulsing blue ghost marker for the pending day's
-endpoint. The two side panels are the planning companions: the **right** panel
-holds the plans bar, the day controls, overnight options and the itinerary; the
-**left** panel holds your favorites and the food stops and sights along the day
-you're planning.
+Four regions, and each answers one question:
+
+- The **strip** along the bottom is the trip: every day to scale, the unplanned
+  remainder dashed out to Dresden, and a handle at every boundary. It is the only
+  view of the whole route, and it is always visible.
+- The **map** (centre) is where the trip actually is: OpenStreetMap tiles with the
+  whole Elberadweg as a thin dashed line in light blue, and the focused day's
+  stretch drawn over it heavy and in a deeper blue — so the day you are working on
+  reads as the day at any zoom. Plus a green **H** at Hamburg, red numbered pins at
+  each day's end (drag them), ☕ and 📌 pins for breaks, and gold ⭐ for favorites.
+- The **right panel** is the focused day: its distance, its overnight town, its
+  legs, and Split / Delete. The plans bar sits above it in the app header.
+- The **left panel** is what you can choose from along that day: your favorites,
+  the overnight candidates, the food stops and the sights.
+
+Everything is keyed on which day is focused — there are no modes. A click on the
+route adds a stop to the focused day; the left panel windows itself to that day's
+stretch; the map frames it. Clicking a different block moves all of that at once.
 
 The route and towns are **generated from OpenStreetMap**, not hand-drawn:
 

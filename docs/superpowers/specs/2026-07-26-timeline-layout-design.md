@@ -1,7 +1,7 @@
 # Timeline layout: the trip as a to-scale strip, one focused day at a time
 
 **Date:** 2026-07-26
-**Status:** design approved, ready for planning
+**Status:** implemented and reviewed (2026-07-27) — built over fourteen tasks on `worktree-timeline-layout`, whole-branch review passed after one blocker fix. Three things shipped differently on purpose; see the addendum at the end of this file. Committed, not merged.
 **Supersedes UX behaviour from:** `2026-07-20-committed-day-stops-design.md` (day mode becomes the universal interaction), `2026-07-19-breaks-and-day-relative-distances-design.md` (leg rendering moves, semantics kept)
 
 ## Problem
@@ -56,7 +56,7 @@ Full-width, ~170 px, at the bottom. Three rows:
 
 1. **Summary line** — `320 / 650 km planned · 330 km to Dresden` left, `4 days · ⌀ 80 km/day` right. This replaces the progress bar inside the itinerary.
 2. **Axis** — one block per day, `width = (day.endKm - day.startKm) / totalKm` of the inner width, so blocks are honestly to scale. Each block shows its number, its km, its overnight town, and its breaks' glyphs positioned at their real km within the block. The focused block is outlined in river blue. Trailing unplanned distance is a dashed remainder ending in a Dresden flag.
-3. **Scale line** — `km 0 · Hamburg` … `km 650`, with the focused boundary's km called out.
+3. **Scale line** — `km 0 · Hamburg` … `km 650`, with the focused boundary's km called out. *(Shipped with the two endpoints only — see the addendum.)*
 
 **Label tiers** (a 5 km day is ~11 px wide at 1400 px, so labels must degrade): ≥64 px shows number + km + glyphs; ≥30 px number + km; ≥14 px number only; below that no label, `title` tooltip only.
 
@@ -96,7 +96,9 @@ Worked example (the one validated in brainstorming): four 80 km days, boundaries
 `setTownChoice(i, town)` records the town **and** moves the boundary to `town.routeDistanceKm` through `moveBoundary`, so the neighbour absorbs the difference. A day's km then means the distance you actually ride.
 
 - The town's off-route detour (`offsetKm`) is displayed separately (`+0.33 km off route`) and never folded into the day's km.
-- If the snap target is outside the clamp window (a town within `MIN_DAY_KM` of the next boundary), the boundary clamps and the day panel shows a note. Worked example: day 3 ends at km 240, day 4 ends at km 268, and you choose a town at km 265. The upper clamp is `268 - 5 = 263`, so the boundary stops at km 263 and the note reads *"Rosenhof sits at km 265; day 4 can't be shorter than 5 km, so the boundary stopped at km 263."* The town choice is still recorded.
+- If the snap target is outside the clamp window (a town within `MIN_DAY_KM` of the next boundary), the boundary clamps and the day panel shows a note. Worked example: day 3 ends at km 240, day 4 ends at km 268, and you choose a town at km 265. The upper clamp is `268 - 5 = 263`, so the boundary stops at km 263 and the note reads *"Rosenhof sits at km 265; this day ends at km 263."* The town choice is still recorded.
+
+  The note deliberately states **no cause**. The same mismatch arises three ways — the clamp, a refusal on a wedged pair, or the user simply typing a length or dragging the handle after choosing the town (last-writer-wins) — and the model records only the mismatch, not which of them produced it. Wording that blamed the minimum-day rule would be a plain lie in the last case, where nothing stopped the boundary and the user moved it deliberately.
 - Clearing a town choice leaves the boundary where it is.
 
 ### 5. Focused day panel (right)
@@ -126,11 +128,13 @@ Stopgap for volume: each section renders at most **40** rows, ordered as today, 
 
 ### 8. Plans bar
 
-Moves into the full-width header — it is trip-level and the right panel is now day-level. Contents unchanged (select, name field, New / Duplicate / Delete) to keep this project's scope on layout; the redundant select-plus-name-field pairing is noted as a separate cleanup.
+Moves into the full-width header — it is trip-level and the right panel is now day-level. Four actions: select, name field, New / Duplicate / **Reset trip** / **Delete plan**.
+
+> **Amended during Task 14 (2026-07-27).** This section originally said "contents unchanged (select, name field, New / Duplicate / Delete)", to keep the project's scope on layout. That could not survive §9: deleting `renderControls` took "Reset trip" and "Remove last day" with it, leaving no way to empty a plan short of deleting its days one at a time. Reset trip is therefore restored here, in the bar, because emptying the plan you are in is a whole-trip act and the day panel only ever addresses one day — and "Delete" is relabelled "Delete plan" so the two destructive actions sitting side by side name what each one destroys. "Remove last day" is deliberately NOT restored: Delete day on the focused day covers it, and the strip makes which day is last obvious. The redundant select-plus-name-field pairing is still noted as a separate cleanup.
 
 ### 9. What is removed
 
-The distance slider and its debounce, the `Commit day` button, the pending-day block, the pulsing ghost marker, the `+ Add stops` button and the separate day mode behind it, the "Breaks this day" pending list, and `main.js`'s `pendingTarget` / `pendingTown` / `selectedDayIndex` / `customStopDraft` — replaced by a single `focusedDayIndex`.
+The distance slider and its debounce, the `Commit day` button, the pending-day block, the pulsing ghost marker, the `+ Add stops` button and the separate day mode behind it, the "Breaks this day" pending list, and `main.js`'s `pendingTarget` / `pendingTown` / `selectedDayIndex` / `customStopDraft` — replaced by a single `focusedDayIndex`. *(`customStopDraft` survived, and had to — see the addendum.)*
 
 Breaks beyond the last day keep their place in the model and render as glyphs on the dashed remainder; they are absorbed into a day as soon as the plan grows past them. The km-0 widening rule for day 1 is unchanged.
 
@@ -144,7 +148,7 @@ Breaks beyond the last day keep their place in the model and render as glyphs on
 
 ## Module structure
 
-`ui.js` is 855 lines and most of it is changing, so it becomes a thin facade — `main.js` keeps calling `ui.renderX` — over:
+`ui.js` is 855 lines and most of it is changing, so it becomes a thin facade — `main.js` keeps calling `ui.renderX` — over: *(The facade was not built; `main.js` imports these modules directly — see the addendum.)*
 
 | Module | Owns |
 | --- | --- |
@@ -181,3 +185,13 @@ TDD throughout, per the usual flow.
 - The left panel gets busier before the list work happens; the 40-row cap is the mitigation.
 - Drag interaction is the only genuinely new interaction code here. Extracting the geometry as pure functions is what keeps it testable; touch and keyboard paths are specified above rather than left to implementation.
 - ~170 px comes off the map's height. At 900 px the map still gets ~690 px, taller than it is wide in the middle column.
+
+---
+
+## Addendum: what shipped differently (2026-07-27)
+
+Written after the whole-branch review, against the code that exists. The spec above is left as it was approved; these three are the places the build knowingly departed from it. The plan's "Final branch review" section carries the same list plus the implementation-level deviations that never appear here.
+
+- **The scale line renders its two endpoints only** (§2.3 asked for the focused boundary's km called out as well). The focused day's start and end km are already on screen twice — in its own strip block and at the top of the day panel — and a third copy on a line whose job is orientation made it busier without answering a question the other two don't.
+- **`customStopDraft` survived** (§9 "What is removed" listed it among the state replaced by `focusedDayIndex`). It is not mode state, which is what that list was really about: it is the draft a route click leaves behind while it waits for a label, and the day panel renders the prompt from it. Nothing else can hold that.
+- **`ui.js` did not become a facade** (§"Module structure"). `main.js` imports `strip.js`, `day-panel.js`, `places.js` and `plans-bar.js` directly, and `ui.js` is now the route-changed banner plus a re-export of `townKey`/`poiKey`. Better shape than the plan's: a layer that only forwards is somewhere for drift to hide, and every module boundary the spec cares about holds without it. **The re-export is load-bearing** — `itinerary.test.js`'s cross-module key contract test imports through `./ui.js`, so deleting the file breaks the test that exists to catch exactly this kind of drift.

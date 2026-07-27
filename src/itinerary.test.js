@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createItinerary, breakKey } from './itinerary.js';
+import { MIN_DAY_KM } from './boundaries.js';
 
 const TOTAL_KM = 380; // Hamburg -> Dresden, approx
 
@@ -48,8 +49,167 @@ describe('createItinerary - clamping', () => {
   });
 });
 
-describe('createItinerary - editDay', () => {
-  it('recomputes the chain for the edited day and all downstream days', () => {
+describe('createItinerary - moveBoundary', () => {
+  it('moves one boundary and lets the next day absorb the delta', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+    itinerary.addDay(80); // boundaries at 80 / 160 / 240 / 320
+
+    itinerary.moveBoundary(2, 265);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80 });
+    expect(days[1]).toMatchObject({ startKm: 80, endKm: 160 });
+    expect(days[2]).toMatchObject({ startKm: 160, endKm: 265, targetKm: 105 });
+    expect(days[3]).toMatchObject({ startKm: 265, endKm: 320, targetKm: 55 });
+  });
+
+  it('leaves days beyond the neighbour completely untouched', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    [80, 80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
+    // TOTAL_KM is 380, so day 4 is clamped from the start: {320, 380}.
+
+    itinerary.moveBoundary(1, 130);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80 });    // before the boundary: still
+    expect(days[2]).toMatchObject({ startKm: 130, endKm: 240 }); // the neighbour: absorbs the 30 km
+    expect(days[3]).toMatchObject({ startKm: 240, endKm: 320 }); // beyond: untouched
+    expect(days[4]).toMatchObject({ startKm: 320, endKm: 380 }); // beyond: untouched, still clamped
+  });
+
+  it('clamps so the edited day keeps MIN_DAY_KM', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 1);
+
+    expect(itinerary.getDays()[0].endKm).toBe(5);
+  });
+
+  it('clamps so the neighbour keeps MIN_DAY_KM', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 300);
+
+    const days = itinerary.getDays();
+    expect(days[0].endKm).toBe(155);
+    expect(days[1]).toMatchObject({ startKm: 155, endKm: 160, targetKm: 5 });
+  });
+
+  it('extends the plan when the last boundary moves out', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 120);
+
+    expect(itinerary.getDays()[0]).toMatchObject({ endKm: 120, targetKm: 120 });
+    expect(itinerary.totalPlannedKm()).toBe(120);
+  });
+
+  it('clamps the last boundary to totalKm', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, TOTAL_KM + 100);
+
+    expect(itinerary.getDays()[0].endKm).toBe(TOTAL_KM);
+  });
+
+  it('rounds to one decimal so stored lengths stay tidy', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80.1); // fractional, so the assignment-site rounding actually matters
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 76.2345);
+
+    const days = itinerary.getDays();
+    expect(days[0].targetKm).toBe(76.2);
+    expect(days[1].targetKm).toBe(83.9);
+  });
+
+  it('keeps days beyond the neighbour put even when the target lands between rounding steps', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    [80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
+
+    itinerary.moveBoundary(1, 156.25); // both halves would round up, adding 0.1 km to the pair
+
+    const days = itinerary.getDays();
+    expect(days[1].targetKm + days[2].targetKm).toBeCloseTo(160, 9); // the pair's span
+    expect(days[2].endKm).toBeCloseTo(240, 9);
+    expect(days[3]).toMatchObject({ targetKm: 80 });
+    expect(days[3].startKm).toBeCloseTo(240, 9);
+  });
+
+  it('ignores a sub-0.05 km jitter drag on a day whose length already matches', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.moveBoundary(0, 80.03);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ endKm: 80, targetKm: 80 });
+    expect(days[1]).toMatchObject({ startKm: 80, endKm: 160, targetKm: 80 });
+  });
+
+  it('still normalises an inflated length when the boundary cannot move', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(300);
+    itinerary.addDay(200); // clamped to {300, 380} while targetKm stays 200
+
+    const day = itinerary.editDay(1, 90); // clamps back to the boundary it already sits on
+
+    // Asserting the RETURN value: callers detect clamping by comparing it to what
+    // they asked for, so it has to reflect reality.
+    expect(day).toMatchObject({ startKm: 300, endKm: TOTAL_KM, targetKm: 80 });
+    expect(itinerary.getDays()[1].targetKm).toBe(80);
+  });
+
+  it('moves the boundary on the first drag even when the stored length overshot the route', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(300);
+    itinerary.addDay(200); // endKm clamps to 380 while targetKm stays 200
+
+    itinerary.moveBoundary(1, 350);
+
+    expect(itinerary.getDays()[1]).toMatchObject({ startKm: 300, endKm: 350, targetKm: 50 });
+  });
+
+  it("preserves the neighbour's end and normalises its inflated length", () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.hydrate([{ targetKm: 100 }, { targetKm: 400 }]); // day 1 clamped to {100, 380}, targetKm 400
+
+    itinerary.moveBoundary(0, 150);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ endKm: 150 });
+    // 230 is day 1's real span. Normalising an inflated neighbour is intended, not
+    // incidental: a drag is explicit intent on this boundary pair, unlike hydrate,
+    // where the stored plan must survive intact for the route-changed banner.
+    expect(days[1]).toMatchObject({ startKm: 150, endKm: TOTAL_KM, targetKm: 230 });
+  });
+
+  it('throws on an out-of-range index', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    expect(() => itinerary.moveBoundary(5, 50)).toThrow();
+  });
+
+  it('throws on a non-finite endKm', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    expect(() => itinerary.moveBoundary(0, Number.NaN)).toThrow();
+  });
+});
+
+describe('createItinerary - editDay (local, typed distance)', () => {
+  it('sets the edited day length and lets the neighbour absorb it', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(80);
     itinerary.addDay(80);
@@ -58,12 +218,12 @@ describe('createItinerary - editDay', () => {
     itinerary.editDay(0, 100);
 
     const days = itinerary.getDays();
-    expect(days[0]).toMatchObject({ startKm: 0, endKm: 100 });
-    expect(days[1]).toMatchObject({ startKm: 100, endKm: 180 });
-    expect(days[2]).toMatchObject({ startKm: 180, endKm: 260 });
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 100, targetKm: 100 });
+    expect(days[1]).toMatchObject({ startKm: 100, endKm: 160, targetKm: 60 });
+    expect(days[2]).toMatchObject({ startKm: 160, endKm: 240, targetKm: 80 });
   });
 
-  it('clamps a downstream day pushed past totalKm by an edit', () => {
+  it('clamps a length that would starve the neighbour', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(80);
     itinerary.addDay(80);
@@ -71,8 +231,8 @@ describe('createItinerary - editDay', () => {
     itinerary.editDay(0, 350);
 
     const days = itinerary.getDays();
-    expect(days[0]).toMatchObject({ startKm: 0, endKm: 350 });
-    expect(days[1]).toMatchObject({ startKm: 350, endKm: TOTAL_KM });
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 155 });
+    expect(days[1]).toMatchObject({ startKm: 155, endKm: 160 });
   });
 
   it('throws on an out-of-range index', () => {
@@ -113,6 +273,110 @@ describe('createItinerary - setTownChoice', () => {
     const itinerary = createItinerary({ totalKm: TOTAL_KM });
     itinerary.addDay(80);
     expect(itinerary.getDays()[0].townChoice).toBeNull();
+  });
+
+  it('snaps the boundary to the chosen town and lets the neighbour absorb it', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.setTownChoice(0, { name: 'Boizenburg/Elbe', routeDistanceKm: 76.2, offsetKm: 0.33 });
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ endKm: 76.2, targetKm: 76.2 });
+    expect(days[1]).toMatchObject({ startKm: 76.2, endKm: 160, targetKm: 83.8 });
+  });
+
+  it('clamps a snap that would starve the neighbour, keeping the town', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(8); // next boundary at km 88, so the upper clamp is 83
+
+    itinerary.setTownChoice(0, { name: 'Too Close', routeDistanceKm: 86 });
+
+    const days = itinerary.getDays();
+    expect(days[0].endKm).toBe(83);
+    // The panel derives its "stopped at" note from this mismatch.
+    expect(days[0].townChoice.routeDistanceKm).toBe(86);
+  });
+
+  it('leaves the boundary alone for a town with no route position', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    itinerary.setTownChoice(0, { name: 'Nowhere' });
+
+    expect(itinerary.getDays()[0].endKm).toBe(80);
+  });
+
+  it('resizes the plan when the last day gets a town', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80); // plan ends at km 160
+
+    itinerary.setTownChoice(1, { name: 'Dömitz', routeDistanceKm: 150 });
+
+    const days = itinerary.getDays();
+    // The last boundary has no neighbour to absorb the change, so the plan's own
+    // end moves: sleeping at km 150 on your last planned night means the plan ends
+    // there, and the distance still to ride to Dresden grows to match.
+    expect(days[1]).toMatchObject({ startKm: 80, endKm: 150, targetKm: 70 });
+    expect(itinerary.totalPlannedKm()).toBe(150);
+    expect(days).toHaveLength(2);
+  });
+
+  it('clamps a town that sits before the day can legally end', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    itinerary.setTownChoice(0, { name: 'Too Early', routeDistanceKm: 2 });
+
+    const days = itinerary.getDays();
+    // The lower clamp, the mirror of the starve case above.
+    expect(days[0].endKm).toBe(MIN_DAY_KM);
+    expect(days[1]).toMatchObject({ startKm: MIN_DAY_KM, endKm: 160, targetKm: 155 });
+    expect(days[0].townChoice.routeDistanceKm).toBe(2);
+  });
+
+  it('records a town even when the boundary has nowhere legal to move', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(6);
+    itinerary.addDay(3); // the pair spans 9 km, under 2 x MIN_DAY_KM
+
+    itinerary.setTownChoice(0, { name: 'Wedged', routeDistanceKm: 8 });
+
+    const days = itinerary.getDays();
+    // moveBoundary refuses outright — no position leaves both days their minimum.
+    // The town is still recorded, so the panel can show it alongside the note that
+    // the boundary could not reach it.
+    expect(days[0]).toMatchObject({ endKm: 6, targetKm: 6 });
+    expect(days[1]).toMatchObject({ startKm: 6, endKm: 9 });
+    expect(days[0].townChoice.routeDistanceKm).toBe(8);
+  });
+
+  it('ignores a town whose route position is not a real number', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    // Pins the Number.isFinite half of the guard specifically. A `typeof === 'number'`
+    // check alone would pass NaN through to moveBoundary, which throws on a
+    // non-finite endKm — so one malformed town record would break the click handler
+    // rather than being ignored.
+    expect(() => itinerary.setTownChoice(0, { name: 'Corrupt', routeDistanceKm: Number.NaN })).not.toThrow();
+    expect(itinerary.getDays()[0].endKm).toBe(80);
+  });
+
+  it('leaves the boundary alone when the town choice is cleared', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.setTownChoice(0, { name: 'Boizenburg/Elbe', routeDistanceKm: 76.2 });
+
+    itinerary.setTownChoice(0, null);
+
+    const day = itinerary.getDays()[0];
+    expect(day.townChoice).toBeNull();
+    expect(day.endKm).toBe(76.2);
   });
 });
 
@@ -480,11 +744,11 @@ describe('createItinerary - break re-bucketing across day edits', () => {
     expect(itinerary.breaksInRange(0, 80).map((b) => b.name)).toEqual(['Stop']);
     expect(itinerary.breaksInRange(80, 160)).toHaveLength(0);
 
-    // Shorten day 0 to 60: day0 = (0,60], day1 = (60,140]; the break moves to day 1.
+    // Shorten day 0 to 60: day0 = (0,60], day1 = (60,160]; the break moves to day 1.
     itinerary.editDay(0, 60);
     const days = itinerary.getDays();
     expect(days[0]).toMatchObject({ startKm: 0, endKm: 60 });
-    expect(days[1]).toMatchObject({ startKm: 60, endKm: 140 });
+    expect(days[1]).toMatchObject({ startKm: 60, endKm: 160 });
     expect(itinerary.breaksInRange(days[0].startKm, days[0].endKm)).toHaveLength(0);
     expect(
       itinerary.breaksInRange(days[1].startKm, days[1].endKm).map((b) => b.name),
@@ -492,9 +756,13 @@ describe('createItinerary - break re-bucketing across day edits', () => {
   });
 });
 
-// Break removal in the UI matches ui.js row keys (name@km) against
-// itinerary's breakKey. ui.js can't import itinerary.js (zero-imports rule),
-// so this test is the only thing pinning the two conventions together.
+// Break removal in the UI matches the render modules' row keys (name@km, from
+// ui-util.js, re-exported by ui.js) against itinerary's breakKey. The two are
+// character-identical implementations of one format, and deliberately stay that
+// way: ui-util.js imports no data module and the model imports no render helper,
+// so neither can import the other without inverting a layer. This test is the
+// mechanism that keeps them from drifting — the whole reason it can be left as a
+// duplication.
 describe('cross-module key contract', () => {
   it('ui townKey/poiKey and itinerary breakKey produce identical keys', async () => {
     const { townKey, poiKey } = await import('./ui.js');
@@ -601,5 +869,253 @@ describe('createItinerary - updateBreak', () => {
 
     expect(newKey).toBe('lunch, 2h@30');
     expect(itinerary.getBreaks()[0]).toMatchObject({ name: 'lunch, 2h', note: 'bring sandwiches' });
+  });
+});
+
+describe('createItinerary - splitDay', () => {
+  it('splits a day in half, preserving the total', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(100);
+    itinerary.addDay(80);
+
+    // The return value is the FIRST half — the day still at `index`, matching
+    // what moveBoundary/editDay/setTownChoice return. Asserted so the choice is
+    // pinned rather than incidental.
+    expect(itinerary.splitDay(0)).toMatchObject({ index: 0, startKm: 0, endKm: 50 });
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(3);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 50 });
+    expect(days[1]).toMatchObject({ startKm: 50, endKm: 100 });
+    expect(days[2]).toMatchObject({ startKm: 100, endKm: 180 });
+  });
+
+  it('gives the overnight town to the second half and none to the first', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(100);
+    itinerary.setTownChoice(0, { name: 'Lenzen' });
+
+    itinerary.splitDay(0);
+
+    const days = itinerary.getDays();
+    expect(days[0].townChoice).toBeNull();
+    expect(days[1].townChoice).toEqual({ name: 'Lenzen' });
+  });
+
+  it('refuses to split a day shorter than two minimum days', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(9);
+
+    expect(itinerary.splitDay(0)).toBeNull();
+    expect(itinerary.getDays()).toHaveLength(1);
+  });
+
+  // Pins the threshold itself: exactly 2 x MIN_DAY_KM must SUCCEED, yielding two
+  // minimum-length days. Without this, `<` could drift to `<=` unnoticed, and the
+  // day panel's Split button (enabled on `length >= 2 * MIN_DAY_KM`) would then
+  // offer a split the model refuses.
+  it('splits a day of exactly two minimum days into two minimum days', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(2 * MIN_DAY_KM);
+
+    expect(itinerary.splitDay(0)).not.toBeNull();
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(2);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: MIN_DAY_KM, targetKm: MIN_DAY_KM });
+    expect(days[1]).toMatchObject({ startKm: MIN_DAY_KM, endKm: 2 * MIN_DAY_KM, targetKm: MIN_DAY_KM });
+  });
+
+  it('handles an odd length without losing a tenth of a km', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(75.5);
+
+    itinerary.splitDay(0);
+
+    const days = itinerary.getDays();
+    expect(days[0].targetKm + days[1].targetKm).toBe(75.5);
+    expect(days[1].endKm).toBe(75.5);
+  });
+
+  it('splits by real span, not by an inflated stored length', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(300);
+    itinerary.addDay(200); // clamped to {300, 380}: span 80, stored targetKm 200
+
+    itinerary.splitDay(1);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(3);
+    expect(days[1]).toMatchObject({ startKm: 300, endKm: 340, targetKm: 40 });
+    expect(days[2]).toMatchObject({ startKm: 340, endKm: TOTAL_KM, targetKm: 40 });
+  });
+
+  it('throws on an out-of-range index', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    expect(() => itinerary.splitDay(0)).toThrow();
+  });
+});
+
+describe('createItinerary - deleteDay', () => {
+  it('merges a middle day into the next one and leaves the rest put', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    [80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
+
+    itinerary.deleteDay(1);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(3);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80 });
+    expect(days[1]).toMatchObject({ startKm: 80, endKm: 240, targetKm: 160 });
+    expect(days[2]).toMatchObject({ startKm: 240, endKm: 320 });
+  });
+
+  it('keeps the surviving day its overnight town', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+    itinerary.setTownChoice(1, { name: 'Lenzen' });
+
+    itinerary.deleteDay(0);
+
+    expect(itinerary.getDays()[0].townChoice).toEqual({ name: 'Lenzen' });
+  });
+
+  it('truncates the plan when the last day is deleted', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(60);
+
+    itinerary.deleteDay(1);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(1);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 80 });
+  });
+
+  it('empties the plan when the only day is deleted', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+
+    itinerary.deleteDay(0);
+
+    expect(itinerary.getDays()).toHaveLength(0);
+  });
+
+  it('is the inverse of splitDay', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(100);
+    itinerary.addDay(80);
+
+    itinerary.splitDay(0);
+    itinerary.deleteDay(0);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(2);
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 100, targetKm: 100 });
+    expect(days[1]).toMatchObject({ startKm: 100, endKm: 180 });
+  });
+
+  it('keeps every break, re-bucketed across the merge', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+    itinerary.addBreak(makeBreak({ name: 'Stop', routeDistanceKm: 70 }));
+
+    itinerary.deleteDay(0);
+
+    const day = itinerary.getDays()[0];
+    expect(itinerary.getBreaks()).toHaveLength(1);
+    expect(itinerary.breaksInRange(day.startKm, day.endKm).map((b) => b.name)).toEqual(['Stop']);
+  });
+
+  it("preserves the surviving day's end when its stored length was inflated", () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.hydrate([{ targetKm: 100 }, { targetKm: 400 }]); // day 1 clamped to {100, 380}
+
+    itinerary.deleteDay(0);
+
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(1);
+    // 380 is the real span of the merged day. Summing the two stored lengths would
+    // give 500 — end still clamped to 380, but the length inflated further.
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: TOTAL_KM, targetKm: 380 });
+  });
+
+  it('does not move later days when merging a pair shorter than a minimum day', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(2);
+    itinerary.addDay(2);
+    itinerary.addDay(50);
+
+    itinerary.deleteDay(0);
+
+    const days = itinerary.getDays();
+    // The merged span is 4 km — short, but a loadable length, so it must NOT be
+    // inflated to MIN_DAY_KM: that would push the boundary to km 5 and drag every
+    // later day with it.
+    expect(days[0]).toMatchObject({ startKm: 0, endKm: 4, targetKm: 4 });
+    expect(days[1]).toMatchObject({ startKm: 4, endKm: 54 });
+  });
+
+  it('throws on an out-of-range index', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(80);
+    expect(() => itinerary.deleteDay(3)).toThrow();
+  });
+});
+
+// Both data-loss bugs found in review had the same shape: the in-memory plan
+// looked fine and persisted fine, then hydrate rejected it and dropped every day.
+// Assert the property directly rather than enumerating the cases we happen to know.
+describe('createItinerary - every emitted plan survives a reload', () => {
+  function reloadCount(itinerary) {
+    const stored = itinerary.getDays().map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice }));
+    const fresh = createItinerary({ totalKm: TOTAL_KM });
+    fresh.hydrate(stored);
+    return fresh.getDays().length;
+  }
+
+  function expectLoadable(itinerary, label) {
+    const days = itinerary.getDays();
+    for (const day of days) {
+      expect(day.targetKm, `${label}: targetKm must stay positive`).toBeGreaterThan(0);
+      expect(day.endKm, `${label}: day must not invert`).toBeGreaterThanOrEqual(day.startKm);
+    }
+    expect(reloadCount(itinerary), `${label}: plan must survive a reload`).toBe(days.length);
+  }
+
+  it('survives a distance edit on a sub-minimum pair', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.addDay(2);
+    itinerary.addDay(2);
+    itinerary.addDay(50);
+
+    itinerary.editDay(0, 30);
+
+    expectLoadable(itinerary, 'editDay on a sub-minimum pair');
+  });
+
+  it('survives deleting a vestigial day left past a shrunk route', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    itinerary.hydrate([{ targetKm: 400 }, { targetKm: 10 }, { targetKm: 10 }]);
+
+    itinerary.deleteDay(1);
+
+    expectLoadable(itinerary, 'deleteDay merging vestigial days');
+  });
+
+  it('survives split, delete and boundary moves across a normal plan', () => {
+    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    [80, 80, 80].forEach((km) => itinerary.addDay(km));
+
+    itinerary.moveBoundary(0, 76.25);
+    expectLoadable(itinerary, 'after moveBoundary');
+    itinerary.splitDay(1);
+    expectLoadable(itinerary, 'after splitDay');
+    itinerary.deleteDay(0);
+    expectLoadable(itinerary, 'after deleteDay');
+    itinerary.editDay(0, 12.34);
+    expectLoadable(itinerary, 'after editDay');
   });
 });

@@ -18,6 +18,10 @@
   --bg: #191712;
   --surface: #221f18;
   --surface-hi: #2c281f;
+  /* One step DARKER than --bg: the app header, the sticky scope line and the
+     strip all sit against the page rather than on it, and all four places that
+     wanted this shade had the raw hex written out. */
+  --surface-sunk: #1d1a14;
   --line: #3a352a;
   --line-soft: #2b2820;
 
@@ -54,15 +58,66 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Map + side panel side by side, full viewport height. */
-  display: flex;
+  /* Header, then the three-column body, then the timeline strip. */
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100vh;
   overflow: hidden;
 }
 
+#app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px;
+  height: 46px;
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Truncates rather than wraps. The header is a fixed 46px, so a title that wraps
+   does not make it taller — it paints over the map and the left panel below.
+   At 900px this went to four lines and 84px tall. Truncating sets the app's
+   supported floor at "the title gets shorter", not "the layout breaks". */
+#app-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-family: var(--serif);
+  font-size: 17px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#app-title span {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-left: 10px;
+}
+
+/* The ODbL data credit (see index.html). Yields before the title and the plans
+   bar on a narrow window rather than pushing either out of the header. */
+#app-credit {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--text-faint);
+}
+
+#app-body {
+  display: flex;
+  min-height: 0;
+}
+
 #map {
+  position: relative; /* containing block for #map-controls */
   flex: 1 1 auto;
-  height: 100vh;
+  height: 100%;
   background: #e7e4dd; /* soft tone under the tiles while they load */
 }
 
@@ -71,11 +126,11 @@ body {
    Left panel (#panel-left) owns what's along the way: food stops + sights. */
 #panel,
 #panel-left {
-  height: 100vh;
+  height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #1d1a14 0%, var(--bg) 220px);
+  background: linear-gradient(180deg, var(--surface-sunk) 0%, var(--bg) 220px);
   scrollbar-width: thin;
   scrollbar-color: var(--surface-hi) transparent;
 }
@@ -85,7 +140,6 @@ body {
   width: 380px;
   border-left: 1px solid var(--line);
   box-shadow: -18px 0 40px -24px rgba(0, 0, 0, 0.7);
-  animation: panel-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 #panel-left {
@@ -93,21 +147,6 @@ body {
   width: 340px;
   border-right: 1px solid var(--line);
   box-shadow: 18px 0 40px -24px rgba(0, 0, 0, 0.7);
-  animation: panel-in-left 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@keyframes panel-in {
-  from {
-    transform: translateX(26px);
-    opacity: 0;
-  }
-}
-
-@keyframes panel-in-left {
-  from {
-    transform: translateX(-26px);
-    opacity: 0;
-  }
 }
 
 #panel::-webkit-scrollbar,
@@ -125,118 +164,66 @@ body {
   background: #3a352a;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #panel,
-  #panel-left {
-    animation: none;
-  }
-  .summary__fill {
-    animation: none;
-  }
-}
-
-/* --- Headers (sticky) ----------------------------------------------------- */
-#panel-header,
-#panel-left-header {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  padding: 18px var(--pad) 15px;
-  background: linear-gradient(180deg, #1d1a14, rgba(29, 26, 20, 0.94));
-  backdrop-filter: blur(6px);
-  border-bottom: 1px solid var(--line);
-}
-
-#panel-header h1,
-#panel-left-header h1 {
-  margin: 0;
-  font-family: var(--serif);
-  font-optical-sizing: auto;
-  font-weight: 600;
-  font-size: 1.5rem;
-  line-height: 1.05;
-  letter-spacing: -0.015em;
-  color: var(--text);
-}
-
-/* The left panel is the companion, not the star — slightly smaller title. */
-#panel-left-header h1 {
-  font-size: 1.15rem;
-}
-
-#panel-header p,
-#panel-left-header p {
-  margin: 6px 0 0;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-
-/* Section blocks get shared horizontal padding + rhythm. */
-#controls,
-#towns,
-#pois,
-#favorites,
-#itinerary {
-  padding: 0 var(--pad);
-}
-#favorites {
-  margin-top: 16px;
-}
-#controls {
-  margin-top: 16px;
-}
-#towns {
-  margin-top: 22px;
-}
-#pois {
-  margin-top: 16px;
+/* The left panel's sections carry the shared horizontal padding, not #places
+   itself — .places__scope is sticky and has to span the panel's full width. */
+#places {
   padding-bottom: 24px;
 }
-#itinerary {
-  margin-top: 22px;
-  padding-bottom: 24px;
-}
-
-/* --- Plans bar (pick / rename / new / duplicate / delete a named plan) --- */
-#plans {
+#places > .pois,
+#places > .pois__note {
   padding: 0 var(--pad);
+}
+#places > .pois:first-of-type {
   margin-top: 14px;
 }
+
+/* --- Plans bar (pick / rename / new / duplicate / reset / delete a plan) --- */
+/* Lives in the 46px app header now, so it carries no block spacing of its own
+   and must not grow past its content. */
+#plans {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+/* The header is the bar's frame, so the bar brings no card of its own: no
+   padding, background, border or shadow, and nothing that may wrap. As a padded
+   card it measured 55px against the header's fixed 46px and hung out of both
+   edges — the surround was what made it read as a floating box. */
 .plans__bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  gap: 6px;
 }
-/* Select grows to fill the row; the name field rides alongside and both wrap
-   above the action buttons on a narrow panel. */
+/* One shared height across the select, the name field and the buttons, so the
+   whole control reads as a single row of chips rather than three sizes of one. */
 .plans__select,
 .plans__name {
   min-width: 0;
+  height: 28px;
   font-family: var(--sans);
-  font-size: 0.82rem;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
   background: var(--surface-hi);
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 6px 8px;
+  padding: 0 7px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+/* Plain widths, not flex bases: a `flex: 0 1 150px` item contributes only its
+   text width to the bar's max-content size, so the header sized #plans smaller
+   than the bar wanted and both fields shrank ~35px on a window with room to
+   spare.
+   They do NOT shrink on a narrow window either — #plans is `flex: 0 0 auto`, so
+   nothing ever squeezes .plans__bar and these min-width: 0 rules never come into
+   play. Below roughly 1100px the bar keeps its full width and the header
+   overflows instead; the title truncating is what absorbs that. Making the bar
+   responsive is out of scope, deliberately. */
 .plans__select {
-  flex: 2 1 140px;
+  width: 150px;
   cursor: pointer;
 }
 .plans__name {
-  flex: 1 1 110px;
+  width: 130px;
 }
 .plans__select:hover,
 .plans__name:hover {
@@ -250,10 +237,26 @@ body {
 }
 .plans__actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
 }
-/* Compact button variant for the plans bar's three actions. */
+/* Height, padding and size are set here rather than on .btn--sm: the day panel's
+   Split/Delete buttons share that class and are not in a 46px row.
+   flex/nowrap because a fixed height plus a shrinkable two-word label is how
+   "Reset trip" ends up as two clipped lines; the credit is what yields in the
+   header.
+   font-size in px, matching the select and the name field: .btn--sm is 0.72rem,
+   so at a 24px root the buttons' text grew and the fields' did not — two type
+   sizes in one 28px row. The chip row is px throughout because the header it
+   sits in is a fixed 46px; .btn--sm keeps its rem for the day panel, which
+   scales with the user's text size as it should. */
+.plans__actions .btn {
+  flex: none;
+  height: 28px;
+  padding: 0 9px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+/* Compact button variant, shared with the day panel's row of actions. */
 .btn--sm {
   font-size: 0.72rem;
   padding: 6px 9px;
@@ -295,67 +298,6 @@ body {
   color: #ffcf6f;
 }
 
-/* --- Controls (the planning console) ------------------------------------ */
-#controls {
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  padding: 14px 14px 16px;
-  box-shadow: var(--shadow);
-  /* A thin river-blue rule at the top marks this as the live planning zone. */
-  border-top: 2px solid var(--river-deep);
-}
-
-.controls__heading {
-  margin: 0 0 12px;
-  font-family: var(--serif);
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-
-.controls__heading--done {
-  color: var(--done);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.controls__heading--done::before {
-  content: "🏁";
-  font-size: 1.1rem;
-}
-
-.controls__row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.controls__row input[type="range"] {
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 22px;
-  accent-color: var(--river);
-  cursor: pointer;
-}
-.controls__row input[type="range"]:disabled {
-  cursor: not-allowed;
-  accent-color: var(--text-faint);
-}
-
-.controls__num {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  font-size: 0.72rem;
-  color: var(--text-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
 /* Shared field styling for every number input. */
 input[type="number"] {
   font-family: var(--sans);
@@ -380,60 +322,6 @@ input[type="number"]:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
-.controls__num input[type="number"] {
-  width: 66px;
-  font-size: 0.95rem;
-}
-
-.controls__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-/* Breaks committed past the last planned day — a small list under the buttons. */
-.controls__breaks:empty {
-  display: none;
-}
-.controls__breaks {
-  margin-top: 12px;
-}
-.controls__breaks-label {
-  margin-bottom: 6px;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-.pending-break-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.pending-break {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  gap: 4px 10px;
-  padding: 6px 8px;
-  margin-bottom: 5px;
-  font-size: 0.76rem;
-  background: var(--surface-hi);
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-}
-.pending-break__name {
-  min-width: 0;
-  color: var(--text);
-  overflow-wrap: anywhere;
-}
-.pending-break__dist {
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 /* --- Buttons ------------------------------------------------------------- */
 .btn {
   font-family: var(--sans);
@@ -485,36 +373,6 @@ input[type="number"]:disabled {
   background: rgba(240, 112, 95, 0.12);
   border-color: var(--day);
   color: #ff8676;
-}
-
-/* --- Section headings (map-legend style labels) -------------------------- */
-.towns__heading,
-.itinerary__heading {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin: 0 0 12px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-}
-.towns__heading::before,
-.itinerary__heading::before {
-  content: "";
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex: none;
-}
-.towns__heading::before {
-  background: var(--town);
-  box-shadow: 0 0 0 3px rgba(246, 167, 35, 0.18);
-}
-.itinerary__heading::before {
-  background: var(--day);
-  box-shadow: 0 0 0 3px rgba(240, 112, 95, 0.18);
 }
 
 /* --- Towns (overnight options) ------------------------------------------ */
@@ -603,15 +461,7 @@ input[type="number"]:disabled {
   font-variant-numeric: tabular-nums;
 }
 
-.towns__empty,
-.itinerary__empty {
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: var(--text-faint);
-  padding: 2px 0;
-}
-
-/* --- POIs (food + sights along the pending stretch) --------------------- */
+/* --- POIs (food + sights along the focused day's stretch) --------------- */
 /* Two collapsible sections; each summary carries a legend dot in its kind's
    colour (orange food / teal sight) and a chevron that flips when open. */
 .pois {
@@ -650,6 +500,11 @@ input[type="number"]:disabled {
 .pois--sight .pois__summary::before {
   background: #2a9d8f;
   box-shadow: 0 0 0 3px rgba(42, 157, 143, 0.18);
+}
+/* Overnight candidates: amber, the same colour as the town dots on the map. */
+.pois--town .pois__summary::before {
+  background: var(--town);
+  box-shadow: 0 0 0 3px rgba(246, 167, 35, 0.18);
 }
 .pois__count {
   color: var(--text-dim);
@@ -774,7 +629,7 @@ input[type="number"]:disabled {
 
 /* --- Row actions: ☕ add-break + ⭐ favorite (towns/POIs/favorites) -------- */
 /* Both action buttons share a flex cell in the right column of a row grid; the
-   × remove (row-remove) is used on day-card legs and pending-break rows. */
+   × remove (row-remove) is used on the day panel's break legs. */
 .row-actions {
   grid-column: 3;
   align-self: center;
@@ -856,11 +711,16 @@ input[type="number"]:disabled {
 }
 
 /* Absolute route km shown small beside the day-relative distance (towns). */
+/* nowrap: this is the trailing "km 158.8" on a town row, and in the 340px panel
+   the line broke between the unit and the number — leaving a row ending in a
+   dangling "km" and the figure orphaned on the next line. It wraps as one piece
+   or not at all. */
 .meta__abs {
   margin-left: 6px;
   color: var(--text-faint);
   opacity: 0.75;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .pois__empty,
@@ -902,189 +762,11 @@ input[type="number"]:disabled {
   color: var(--text-faint);
 }
 
-/* --- Itinerary summary (the river filling toward Dresden) --------------- */
-.summary {
-  padding: 12px 14px;
-  margin-bottom: 18px;
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
-  border-radius: 10px;
-}
-
-.summary__head {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 9px;
-}
-.summary__head span:last-child {
-  color: var(--text-dim);
-}
-
-.summary__track {
-  height: 7px;
-  border-radius: 999px;
-  background: #14120d;
-  border: 1px solid var(--line-soft);
-  overflow: hidden;
-}
-.summary__fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--river-deep), var(--river));
-  transform-origin: left center;
-  animation: fill-grow 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-}
-@keyframes fill-grow {
-  from {
-    transform: scaleX(0);
-  }
-}
-
-.summary--done {
-  border-color: rgba(78, 201, 126, 0.4);
-  background: rgba(78, 201, 126, 0.1);
-}
-.summary--done .summary__head,
-.summary--done .summary__head span:last-child {
-  color: var(--done);
-}
-.summary--done .summary__fill {
-  background: linear-gradient(90deg, #15803d, var(--done));
-  box-shadow: 0 0 12px rgba(78, 201, 126, 0.6);
-}
-
-/* --- Itinerary day cards, threaded on a route "spine" ------------------- */
-.day-list {
-  position: relative;
-  padding-left: 30px;
-}
-/* The spine: a faint blue line running down through the day nodes. */
-.day-list::before {
-  content: "";
-  position: absolute;
-  left: 9px;
-  top: 10px;
-  bottom: 12px;
-  width: 2px;
-  border-radius: 2px;
-  background: linear-gradient(
-    180deg,
-    var(--done),
-    rgba(91, 147, 255, 0.5) 12%,
-    rgba(91, 147, 255, 0.5)
-  );
-}
-
-.day-card {
-  position: relative;
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-bottom: 9px;
-  transition: border-color 0.15s ease;
-}
-.day-card:hover {
-  border-color: #413b2e;
-}
-/* Red node on the spine — mirrors the numbered day pins on the map. */
-.day-card::before {
-  content: "";
-  position: absolute;
-  left: -25px;
-  top: 15px;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--day);
-  border: 2px solid var(--bg);
-  box-shadow: 0 0 0 2px rgba(240, 112, 95, 0.25);
-}
-
-.day-card--finish {
-  border-color: rgba(78, 201, 126, 0.4);
-  background: rgba(78, 201, 126, 0.08);
-}
-.day-card--finish::before {
-  background: var(--done);
-  box-shadow: 0 0 0 2px rgba(78, 201, 126, 0.3),
-    0 0 10px rgba(78, 201, 126, 0.6);
-}
-
-.day-card__title {
-  font-family: var(--serif);
-  font-optical-sizing: auto;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text);
-  margin-bottom: 7px;
-}
-
-.day-card__body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px 12px;
-  font-size: 0.78rem;
-  color: var(--text-dim);
-}
-
-.day-card__edit {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-faint);
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-.day-card__edit input[type="number"] {
-  width: 58px;
-  font-size: 0.82rem;
-  padding: 3px 6px;
-}
-
-.day-card__range {
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-  font-weight: 500;
-}
-
-.day-card__town {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text);
-}
-.day-card__town::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--town);
-  flex: none;
-}
-.day-card__town--none {
-  color: var(--text-faint);
-  font-style: italic;
-}
-.day-card__town--none::before {
-  background: none;
-  border: 1px solid var(--text-faint);
-}
-
-/* --- Day-relative lead + break legs ------------------------------------- */
-.day-card__from {
-  margin: -3px 0 8px;
-  font-size: 0.72rem;
-  font-style: italic;
-  color: var(--text-faint);
-}
+/* --- Break legs (the focused day's stops) -------------------------------- */
+/* All that survives of the old scrolling itinerary's day cards: the day panel
+   renders one day's legs and reuses these class names for them. The card shell,
+   the spine it hung on and the progress summary went with the itinerary itself —
+   the strip owns whole-trip progress now. */
 /* Legs indented behind a faint rule that echoes the route spine. */
 .day-card__legs {
   list-style: none;
@@ -1116,16 +798,6 @@ input[type="number"]:disabled {
   font-weight: 400;
 }
 
-/* --- Footer / attribution ------------------------------------------------ */
-#panel-footer {
-  margin-top: auto;
-  padding: 14px var(--pad) 18px;
-  border-top: 1px solid var(--line-soft);
-  font-size: 0.66rem;
-  line-height: 1.5;
-  color: var(--text-faint);
-}
-
 /* =============================================================================
    Map markers (Leaflet divIcons — class names come from src/map.js).
    Restyled here for polish; sizes/anchors are unchanged so pins stay centred.
@@ -1148,19 +820,16 @@ input[type="number"]:disabled {
 .pin-icon--start {
   background: #157f3c;
 }
-
-.town-icon__dot {
-  display: block;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #f59e0b;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45),
-    0 0 0 4px rgba(245, 158, 11, 0.35);
+/* Leaflet marks a draggable marker's icon but adds no affordance of its own, and
+   a day pin that can be dragged along the route has to look like it. */
+.pin-icon.leaflet-marker-draggable {
+  cursor: grab;
+}
+.pin-icon.leaflet-marker-draggable:active {
+  cursor: grabbing;
 }
 
-/* POI dots — warm orange food / teal sights, distinct from the amber town dot. */
+/* POI dots — warm orange food / teal sights. */
 .poi-marker__dot {
   display: block;
   width: 10px;
@@ -1230,30 +899,6 @@ input[type="number"]:disabled {
     drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
-/* Ghost marker: the proposed day-end — distinct, outlined, pulsing, non-interactive. */
-.ghost-icon__dot {
-  display: block;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(37, 99, 235, 0.35);
-  border: 2px solid var(--river-deep);
-  animation: ghost-pulse 1.4s ease-in-out infinite;
-}
-@keyframes ghost-pulse {
-  0%,
-  100% {
-    transform: scale(0.8);
-    opacity: 0.7;
-    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
-  }
-  50% {
-    transform: scale(1.15);
-    opacity: 1;
-    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
-  }
-}
-
 /* --- Leaflet controls: light touch to match the app --------------------- */
 .leaflet-bar a,
 .leaflet-bar a:hover {
@@ -1272,12 +917,6 @@ input[type="number"]:disabled {
   background: rgba(255, 255, 255, 0.82) !important;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ghost-icon__dot {
-    animation: none;
-  }
-}
-
 /* Custom (user-labeled) stop marker: 📌 with a blue ring, distinguishing it
    from the amber ☕ ring of a place break. */
 .break-marker--custom .break-marker__glyph {
@@ -1285,12 +924,7 @@ input[type="number"]:disabled {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45), 0 0 0 3px rgba(37, 99, 235, 0.28);
 }
 
-/* --- Day mode (adding stops to a committed day) --------------------------- */
-.day-mode__hint {
-  margin: 8px 0 12px;
-  font-size: 0.8rem;
-  color: var(--text-dim);
-}
+/* --- The add-a-stop prompt (a route click awaiting its label) ------------- */
 .custom-stop {
   margin: 0 0 12px;
   padding: 10px 12px;
@@ -1324,14 +958,7 @@ input[type="number"]:disabled {
   gap: 8px;
 }
 
-/* --- Committed-day stops: selected card, add button, leg editing ---------- */
-.day-card--selected {
-  border-color: rgba(91, 147, 255, 0.55);
-  background: rgba(91, 147, 255, 0.07);
-}
-.day-card__add-stops {
-  margin-top: 10px;
-}
+/* --- Leg actions: ✎ edit a note, × remove the break ----------------------- */
 .leg-actions {
   flex: none;
   display: inline-flex;
@@ -1379,4 +1006,427 @@ input[type="number"]:disabled {
 }
 .leg-edit__input:focus-visible {
   outline: none;
+}
+
+/* --- Timeline strip ------------------------------------------------------
+   The trip, drawn to scale: 650 km always fits the width, so this can never
+   overflow. Blocks and handles are absolutely positioned from px values that
+   strip-geometry.js computes. */
+/* 24px of side padding, not 16: a boundary handle at km == totalKm sits at the
+   axis's right edge and hangs 5px past it, plus a 3px hover ring. Padding (not
+   an axis margin) keeps the summary and scale lines aligned with the axis ends. */
+#strip {
+  border-top: 1px solid var(--line);
+  background: var(--surface-sunk);
+  padding: 10px 24px 9px;
+  user-select: none;
+}
+
+.strip__summary {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.strip__summary b {
+  color: var(--text);
+}
+
+/* MUST stay overflow: visible. The last handle renders at x ≈ the axis width, and
+   being 10px wide with a -5px margin it straddles that edge — clipping here would
+   shear in half the boundary you grab to move the end of the trip. #strip's 24px
+   of side padding is what the overhang lives in.
+
+   touch-action: none belongs here and not only on the handle: a drag captures the
+   pointer on the AXIS, because the re-render on the first pointermove destroys the
+   handle element and any capture held on it (see strip.js). */
+.strip__axis {
+  position: relative;
+  height: 46px;
+  overflow: visible;
+  touch-action: none;
+}
+
+.strip__block,
+.strip__remainder {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.strip__block {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.strip__block:hover {
+  background: var(--surface-hi);
+}
+
+.strip__block--focused {
+  background: #232c3d;
+  border-color: var(--river);
+  box-shadow: inset 0 0 0 1px var(--river);
+}
+
+/* :hover out-specifies --focused, so without this the focused day reverts to the
+   plain grey hover fill exactly while you are pointing at it — as if the click
+   had dropped the focus it just set. Stay in the blue, one step brighter. */
+.strip__block--focused:hover {
+  background: #2a3548;
+}
+
+.strip__block:focus-visible,
+.strip__handle:focus-visible {
+  outline: 2px solid var(--river);
+  outline-offset: 1px;
+}
+
+.strip__block-label {
+  display: block;
+  padding: 4px 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.strip__block-km {
+  color: var(--text-dim);
+}
+
+.strip__block-town {
+  display: block;
+  font-size: 10px;
+  color: var(--town);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* One layer for the whole axis, each break at its absolute route km — not a
+   child of its day, which clipped them against the block's overflow: hidden and
+   limited them to the widest label tier. z-index lifts them over the blocks that
+   follow them in source order; pointer-events: none keeps block clicks working. */
+.strip__glyph {
+  position: absolute;
+  bottom: 2px;
+  z-index: 1;
+  font-size: 10px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.strip__remainder {
+  border: 1px dashed var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  cursor: copy;
+}
+
+.strip__add {
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.strip__add:hover {
+  color: var(--text);
+  border-color: var(--river);
+}
+
+.strip__flag {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* Sits in the scale line, replacing "km 650 · Dresden". On the axis at right: 0
+   it collided with the last block and the last handle, which is what a finished
+   plan always leaves it doing. */
+.strip__finish {
+  color: var(--done);
+}
+
+/* The boundary itself: a thin grab bar straddling two blocks, 10 px wide.
+   Deliberately NOT the grab target — a press is hit-tested against the geometry
+   in strip.js (its hitTestHandle call, tolerance HANDLE_TOLERANCE_PX in
+   strip-geometry.js), because at MIN_DAY_KM two handles sit ~11 px apart and
+   overlapping CSS grab zones let paint order decide which boundary you got. The
+   button remains for rendering, focus and the keyboard. It used to carry an
+   ::after with -7px insets for a ~24 px touch target; that is gone, because at
+   z-index 2 it also swallowed the left edge of "+ add a day".
+
+   z-index because handles are interleaved with the blocks in source order (that
+   order is the tab order) — without it, day n+1 would paint over the left half
+   of the handle sitting on its own start. */
+.strip__handle {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  z-index: 2;
+  width: 10px;
+  margin-left: -5px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: var(--river);
+  opacity: 0.85;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+/* The glow is narrower than the grab, deliberately. :hover needs the pointer on
+   the 10px bar; hitTestHandle grabs from 12px away, so a press 6px off the bar
+   works without having lit up first. Closing that honestly would mean hit-testing
+   hover in JS on every pointermove and carrying a hovered index through the
+   render the way `dragging` is carried — real interaction state, on a path that
+   currently does nothing while idle, to move a glow by two pixels. And the
+   asymmetry fails in the safe direction: aiming at the bar always works, and being
+   slightly off works too. Reviewed and left as is (Task 14). */
+.strip__handle:hover,
+.strip__handle--dragging {
+  opacity: 1;
+  box-shadow: 0 0 0 3px rgba(91, 147, 255, 0.25);
+}
+
+.strip__scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 5px;
+}
+
+/* Screen-reader only. The handle is a role="slider" whose element is destroyed
+   and recreated by every render, so it can never announce its own
+   aria-valuenow changing — an arrow-key nudge is spoken from here instead. */
+.strip__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- Focused day panel --------------------------------------------------- */
+.day-panel {
+  padding: 14px var(--pad) 20px;
+}
+
+/* The empty state is three short lines in a 380px panel, so it gets room to
+   breathe and its "+ add a first day" reads as the thing to do rather than as a
+   footnote under the hint. */
+.day-panel--empty {
+  padding-top: 24px;
+}
+.day-panel--empty .day-panel__hint {
+  max-width: 30ch;
+}
+
+.day-panel__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.day-panel__title {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.day-panel__stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.day-panel__from {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-dim);
+  margin: 2px 0 14px;
+}
+
+.day-panel__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.day-panel__field > span:first-child {
+  flex: 1;
+}
+
+.day-panel__field input[type="number"] {
+  width: 68px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: right;
+  color: var(--text);
+  background: var(--surface-hi);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 3px 6px;
+}
+
+.day-panel__overnight {
+  flex-wrap: wrap;
+}
+
+.day-panel__overnight-name {
+  color: var(--town);
+  font-size: 13px;
+}
+
+.day-panel__overnight-name--none {
+  color: var(--text-faint);
+  font-style: italic;
+}
+
+.day-panel__hint {
+  flex: 1 0 100%;
+  font-size: 11px;
+  color: var(--text-faint);
+  margin: 2px 0 0;
+}
+
+.day-panel__snap-note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--town);
+  background: rgba(246, 167, 35, 0.09);
+  border-left: 2px solid var(--town);
+  border-radius: 0 6px 6px 0;
+  padding: 6px 9px;
+  margin: 0 0 8px;
+}
+
+.day-panel__section {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 16px 0 6px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.day-panel__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+/* --- Left panel: scope header + row caps --------------------------------- */
+.places__scope {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px var(--pad);
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.places__scope b {
+  color: var(--text);
+}
+
+.places__scope-range {
+  color: var(--river);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.places__more {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-align: center;
+  margin: 8px 0 2px;
+}
+
+.places__more button {
+  font: inherit;
+  color: var(--river);
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --- Map overlay controls ------------------------------------------------ */
+/* These live inside the Leaflet container, so the stacking order has to clear
+   every pane, .leaflet-control-container (800), AND the corner containers
+   .leaflet-top/.leaflet-bottom, which are 1000 — a marker or a control must never
+   take a click meant for these. 900 cleared the panes but sat UNDER the corners;
+   it only looked right because Leaflet leaves the top-right corner empty (zoom
+   goes top-left, attribution bottom-right), so the first control ever added there
+   would have covered these buttons. 1001 is correct by construction instead.
+   main.js keeps their events from reaching the map underneath. */
+#map-controls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.map-btn {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(25, 23, 18, 0.82);
+  border: 1px solid rgba(242, 237, 226, 0.18);
+  border-radius: 999px;
+  padding: 6px 11px;
+  cursor: pointer;
+  backdrop-filter: blur(3px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.map-btn:hover {
+  background: rgba(25, 23, 18, 0.95);
+  border-color: var(--river);
+}
+
+.map-btn:focus-visible {
+  outline: none;
+  border-color: var(--river);
+  box-shadow: 0 0 0 3px rgba(91, 147, 255, 0.35);
 }

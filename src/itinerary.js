@@ -1,6 +1,22 @@
+import { clampBoundaryKm, MIN_DAY_KM } from './boundaries.js';
+
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
+
+// Boundary edits write user-facing lengths that get persisted, so keep them at
+// one decimal — a drag snapping to a town at km 76.2345 must not write 76.2345
+// to storage. addDay and hydrate store lengths as given.
+function round1(n) {
+  return Math.round(n * 10) / 10;
+}
+
+// The smallest length that survives storage. hydrate rejects a non-positive
+// targetKm and drops the whole plan, so a merge whose real span rounds to zero
+// stores this instead. Deliberately NOT MIN_DAY_KM: a merged span of 4 km is
+// short but perfectly loadable, and inflating it to 5 would push the survivor's
+// end out and drag every later day with it.
+const MIN_STORED_KM = 0.1;
 
 function isValidTargetKm(targetKm) {
   return typeof targetKm === 'number' && Number.isFinite(targetKm) && targetKm > 0;
@@ -10,6 +26,12 @@ function isValidTargetKm(targetKm) {
  * Stable identity for a plan-level break: its name at a route distance.
  * Module-level (main.js imports it) so callers can match a place against
  * getBreaks() without re-deriving the composition.
+ *
+ * Character-identical to ui-util.js's `poiKey`/`townKey`, and staying that way:
+ * the render helpers import no data module and this model imports no render
+ * helper, so neither side can import the other without inverting a layer. The
+ * cross-module key contract test in itinerary.test.js is what holds the two
+ * together — if this format changes, that test is the thing that will say so.
  */
 export function breakKey(b) {
   return `${b.name}@${b.routeDistanceKm}`;
@@ -28,7 +50,7 @@ function isValidBreak(place) {
 
 /**
  * Shapes an internal day record into the public, defensive-copy form
- * returned by getDays()/addDay()/editDay()/setTownChoice().
+ * returned by getDays()/addDay()/editDay()/moveBoundary()/splitDay()/setTownChoice().
  */
 function toPublicDay(day, index) {
   return {
@@ -58,6 +80,9 @@ function toPublicDay(day, index) {
  *   getDays: () => Array<{index: number, targetKm: number, startKm: number, endKm: number, townChoice: any|null}>,
  *   addDay: (targetKm: number) => object,
  *   editDay: (index: number, targetKm: number) => object,
+ *   moveBoundary: (index: number, endKm: number) => object,
+ *   splitDay: (index: number) => object|null,
+ *   deleteDay: (index: number) => void,
  *   setTownChoice: (index: number, town: any) => object,
  *   removeLastDay: () => void,
  *   reset: () => void,
@@ -122,22 +147,144 @@ export function createItinerary({ totalKm } = {}) {
     return toPublicDay(days[days.length - 1], days.length - 1);
   }
 
-  function editDay(index, targetKm) {
+  // Moves the boundary at the END of days[index] to endKm. Local: the delta is
+  // handed to the next day, so days beyond the neighbour never move. The last
+  // boundary has no neighbour, so moving it extends or shrinks the plan — that
+  // is the append/trim gesture.
+  function moveBoundary(index, endKm) {
     assertValidIndex(index);
-    assertValidTargetKm(targetKm);
-    days[index].targetKm = targetKm;
+    if (typeof endKm !== 'number' || !Number.isFinite(endKm)) {
+      throw new Error(`endKm must be a finite number, got: ${endKm}`);
+    }
+    const day = days[index];
+    const target = clampBoundaryKm(days, index, endKm, { totalKm: total });
+    // Position unchanged AND the stored length already matches it: nothing to do.
+    // The second term matters — a day clamped at totalKm stores a length longer
+    // than its span, and skipping on delta alone would leave that stale value in
+    // storage and in the returned day.
+    if (round1(target - day.endKm) === 0 && round1(target - day.startKm) === day.targetKm) {
+      return toPublicDay(day, index);
+    }
+    const next = days[index + 1];
+    const nextEnd = next ? next.endKm : null;
+    // Derive both lengths from the boundary POSITIONS rather than adding a delta
+    // to the stored length. A day clamped at totalKm carries a targetKm larger
+    // than its real span (addDay and hydrate both permit it), and a delta applied
+    // to that inflated length shrinks it without moving the boundary — the drag
+    // looks stuck until the overshoot burns off. Positions can't drift that way.
+    const length = round1(target - day.startKm);
+    // A pair spanning under 2 x MIN_DAY_KM has no legal boundary between them, so
+    // boundaryBounds collapses its window to a single position that can sit past
+    // the neighbour's end. Deriving a length from that yields a negative number,
+    // an inverted day, and — since hydrate rejects a non-positive length — the loss
+    // of every day in the plan on the next reload. A boundary with nowhere legal to
+    // go simply doesn't move. Refuse rather than floor: flooring the neighbour at
+    // MIN_DAY_KM would extend its end and shift every day downstream, breaking
+    // locality.
+    //
+    // Deliberately NOT boundaries.js's boundaryWindow, which asks whether the
+    // REQUEST was legal. This asks whether the OUTPUT is well-formed, after the
+    // rounding two lines up — the last thing standing between a squeezed plan and
+    // a stored inverted day, so it stays an assertion about what is about to be
+    // written. Callers deciding whether to ask at all (strip.js's proposeKm) use
+    // the shared predicate instead.
+    if (next && round1(nextEnd - (day.startKm + length)) < MIN_DAY_KM) {
+      return toPublicDay(day, index);
+    }
+    day.targetKm = length;
+    // The neighbour's length comes off the REALIZED boundary (start + rounded
+    // length), not the requested target. Rounding both halves against the raw
+    // target lets them both round up at a .x5 step, adding 0.1 km to the pair and
+    // shifting every day beyond it — the one thing this function promises not to do.
+    if (next) next.targetKm = round1(nextEnd - (day.startKm + length));
     recomputeFrom(index);
     return toPublicDay(days[index], index);
   }
 
-  function setTownChoice(index, town) {
+  // The typed-distance path: setting a day's length is moving its boundary to
+  // start + length, with the same local semantics and the same clamps. An
+  // over-long length clamps rather than throws — assertValidTargetKm only
+  // rejects nonsense input, not lengths the boundary window can't fit.
+  function editDay(index, targetKm) {
     assertValidIndex(index);
-    days[index].townChoice = town ?? null;
+    assertValidTargetKm(targetKm);
+    const startKm = index === 0 ? 0 : days[index - 1].endKm;
+    return moveBoundary(index, startKm + targetKm);
+  }
+
+  // Inserts a boundary at the day's midpoint, turning one day into two that sum
+  // to the original — so nothing downstream moves. The length comes from the
+  // day's real span, not its stored targetKm, which may be inflated if the day
+  // was clamped at totalKm. The SECOND half keeps the overnight town, because its
+  // end is where the original day ended (that is still where you sleep); the new
+  // first half starts with none. Deriving the second half as `length - first`
+  // rather than rounding it independently keeps the two provably summing to the
+  // original — assuming the span is already at 0.1 km precision, which every
+  // write path guarantees (round1 or integer input); a raw x.x5 span would gain
+  // 0.05 km here. Returns null when the day is too short to split.
+  function splitDay(index) {
+    assertValidIndex(index);
+    const day = days[index];
+    const length = day.endKm - day.startKm;
+    if (length < 2 * MIN_DAY_KM) return null;
+    const first = round1(length / 2);
+    const second = round1(length - first);
+    days.splice(
+      index,
+      1,
+      { targetKm: first, startKm: 0, endKm: 0, townChoice: null },
+      { targetKm: second, startKm: 0, endKm: 0, townChoice: day.townChoice ?? null },
+    );
+    recomputeFrom(index);
     return toPublicDay(days[index], index);
   }
 
+  // Removes the boundary at the END of days[index] by merging the day into the
+  // next one, which keeps its own end — so the trip past it is untouched. The
+  // merged length is derived from POSITIONS (the survivor's end minus the deleted
+  // day's start) rather than by summing two stored lengths, either of which may be
+  // inflated by a totalKm clamp. The last day has no next day, so deleting it
+  // truncates the plan. Breaks are plan-level and re-bucket themselves from the
+  // new ranges.
+  //
+  // The merged length is floored at MIN_STORED_KM: two vestigial days stranded
+  // past a shrunk route span zero km, and hydrate rejects a non-positive length
+  // by dropping the whole plan on the next reload. Floor rather than refuse — the
+  // opposite of moveBoundary's guard — because the delete has already been asked
+  // for and only needs its stored length to be representable; refusing a boundary
+  // move preserves locality, but a button that silently does nothing is worse.
+  // A stored length longer than the real span is already a permitted state; the
+  // end stays clamped at totalKm, so nothing moves.
+  function deleteDay(index) {
+    assertValidIndex(index);
+    if (index === days.length - 1) {
+      days.pop();
+      return;
+    }
+    const next = days[index + 1];
+    next.targetKm = Math.max(round1(next.endKm - days[index].startKm), MIN_STORED_KM);
+    days.splice(index, 1);
+    recomputeFrom(index);
+  }
+
   function removeLastDay() {
-    days.pop();
+    if (days.length) deleteDay(days.length - 1);
+  }
+
+  // Choosing where you sleep is choosing where the day ends, so a town choice
+  // snaps the boundary to the town's position along the route — a day's km then
+  // means the distance you actually ride. The town's perpendicular offsetKm is
+  // never folded in; the UI shows it separately. Snapping clamps — or refuses,
+  // for a wedged pair with no legal boundary between them — like any
+  // boundary move, and the day panel derives its "stopped at" note by comparing
+  // townChoice.routeDistanceKm against endKm. Clearing a choice leaves the
+  // boundary where it is.
+  function setTownChoice(index, town) {
+    assertValidIndex(index);
+    days[index].townChoice = town ?? null;
+    const km = town?.routeDistanceKm;
+    if (typeof km === 'number' && Number.isFinite(km)) moveBoundary(index, km);
+    return toPublicDay(days[index], index);
   }
 
   function reset() {
@@ -241,6 +388,9 @@ export function createItinerary({ totalKm } = {}) {
     getDays,
     addDay,
     editDay,
+    moveBoundary,
+    splitDay,
+    deleteDay,
     setTownChoice,
     removeLastDay,
     reset,
