@@ -23,8 +23,8 @@ import { esc } from './ui-util.js';
 export function createPlansBar({ el, callbacks = {} }) {
   // The bar (select + name input + the four actions) is re-rendered
   // wholesale by render(); currentPlans/activePlanId track what's shown so
-  // an empty rename can revert to the canonical name and Delete can label its
-  // confirm with the active plan's name.
+  // an empty rename can revert to the canonical name and the Reset/Delete
+  // confirms can name the plan they are about to act on.
   let currentPlans = [];
   let activePlanId = null;
 
