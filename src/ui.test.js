@@ -45,6 +45,24 @@ describe('createBanner', () => {
     expect(el.innerHTML).toBe('');
   });
 
+  // show() rebuilds the banner's DOM, so each × is a fresh node with exactly one
+  // handler — and dismissing one must not leave the next show unable to close.
+  it('rewires the dismiss button on every show', () => {
+    const banner = mount();
+    banner.show('first');
+    banner.show('second');
+
+    el.querySelector('.banner__dismiss').click();
+    expect(el.hidden).toBe(true);
+    expect(el.innerHTML).toBe('');
+
+    banner.show('third');
+    expect(el.hidden).toBe(false);
+    el.querySelector('.banner__dismiss').click();
+    expect(el.hidden).toBe(true);
+    expect(el.innerHTML).toBe('');
+  });
+
   it('hides and empties on hide()', () => {
     const banner = mount();
     banner.show('The route data changed.');

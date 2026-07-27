@@ -21,16 +21,17 @@ import { esc } from './ui-util.js';
  * @param {() => void} opts.callbacks.onDeletePlan
  */
 export function createPlansBar({ el, callbacks = {} }) {
-  // The bar (select + name input + the four actions) is re-rendered
-  // wholesale by render(); currentPlans/activePlanId track what's shown so
-  // an empty rename can revert to the canonical name and the Reset/Delete
-  // confirms can name the plan they are about to act on.
-  let currentPlans = [];
+  // The bar (select + name input + the four actions) is re-rendered wholesale by
+  // render(). What has to outlive a render is only which plan is active and what
+  // it is called: an empty rename reverts to that name, and the Reset/Delete
+  // confirms say it out loud. Kept as the bar's own two values rather than a
+  // reference to the caller's plans array, so updateActiveName has nothing of
+  // main.js's to reach into.
   let activePlanId = null;
+  let activeName = '';
 
   function activePlanName() {
-    const plan = currentPlans.find((p) => p.id === activePlanId);
-    return plan ? plan.name : '';
+    return activeName;
   }
 
   el.addEventListener('change', (e) => {
@@ -80,9 +81,9 @@ export function createPlansBar({ el, callbacks = {} }) {
   // sync. All plan names are OSM-independent user text but still escaped, as the
   // rest of the render modules escape anything they interpolate.
   function render({ plans = [], activePlanId: activeId = null } = {}) {
-    currentPlans = plans;
     activePlanId = activeId;
     const active = plans.find((p) => p.id === activeId) || null;
+    activeName = active ? active.name : '';
     const options = plans
       .map(
         (p) =>
@@ -105,5 +106,26 @@ export function createPlansBar({ el, callbacks = {} }) {
       </div>`;
   }
 
-  return { render };
+  // Renames the active plan in place. Deliberately NOT a render(): the rename
+  // arrives from the name field's `change`, which fires on blur, and that blur is
+  // usually a mousedown on one of the action buttons. Rebuilding the bar there
+  // detaches the pressed button between mousedown and mouseup, the browser then
+  // resolves no click at all, and New/Duplicate/Reset/Delete silently does
+  // nothing — the user has to click it twice. Patching the two places the name
+  // shows leaves the pressed button attached. Written through textContent and
+  // value, so a hostile name needs no esc() here.
+  function updateActiveName(name) {
+    // activePlanName() feeds the Reset/Delete confirms and the empty-rename
+    // revert, so the bar's own record moves with the rename.
+    activeName = name;
+    const select = el.querySelector('[data-plan-select]');
+    const option = select && [...select.options].find((o) => o.value === activePlanId);
+    if (option) option.textContent = name;
+    // The store has the last word on the name, so what it returned shows here even
+    // when that differs from what was typed.
+    const field = el.querySelector('[data-plan-name]');
+    if (field && field.value !== name) field.value = name;
+  }
+
+  return { render, updateActiveName };
 }

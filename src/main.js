@@ -656,7 +656,11 @@ async function boot() {
     if (!plan) return;
     const entry = planList.find((p) => p.id === activePlanId);
     if (entry) entry.name = plan.name;
-    renderPlansBar(); // rename only — no re-hydrate
+    // Patched, not re-rendered (see plans-bar.js's updateActiveName): a rename
+    // lands on the name field's blur, and rebuilding the bar under a mousedown
+    // swallows the click that caused the blur. No re-hydrate either — the plan's
+    // days have not changed, only its name.
+    plansBar.updateActiveName(plan.name);
   }
 
   renderPlansBar();
