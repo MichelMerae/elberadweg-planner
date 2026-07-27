@@ -149,6 +149,7 @@ export function createMap({
   // down when the marker is removed) and moving the camera (a pane shift slides
   // the icon out from under the cursor).
   let draggingPinIndex = null;
+  let draggingPinMarker = null;
   let pendingInvalidate = false;
 
   // fitBounds/panTo end in zoomend, which would look exactly like the user
@@ -254,6 +255,55 @@ export function createMap({
   const favLayer = L.layerGroup().addTo(map);
   let townMarker = null;
 
+  // Leaflet ends a marker drag on a document-level mouseup/touchend, and its
+  // mousemove never asks whether the button is still down. A pointer that comes
+  // up where the page can't see it — released outside the window, claimed by a
+  // native gesture — therefore leaves the gesture half alive: the pin follows the
+  // bare cursor, rewriting the plan on hover, no dragend arrives, and everything
+  // guarded on draggingPinIndex stays switched off (pins frozen, camera dead, a
+  // deferred resize never run). A pointer that is provably not held while we
+  // still believe it is means exactly that, which is how the strip watches its
+  // own drags too. Not window blur: focus can leave and come back with the button
+  // still down, and that drag is still the user's to finish.
+  function onAbandonPointerMove(e) {
+    if (e.buttons === 0) recoverAbandonedPinDrag();
+  }
+
+  function onAbandonPointerCancel() {
+    // One task later, because Leaflet's touchcancel path does end the drag
+    // properly, and where it will, it should be the one that does.
+    setTimeout(recoverAbandonedPinDrag, 0);
+  }
+
+  // Handed to Leaflet's own finisher rather than unpicked by hand: it detaches
+  // the document listeners, releases the Draggable._dragging static (still set,
+  // and while set it blocks map panning and every later drag — Leaflet's own bug,
+  // but ours to survive) and fires the dragend we never got, so recovery runs
+  // through the ordinary path and the boundary commits where the pin really sits.
+  // Committing beats clearing: the previews have already moved the model, so
+  // dropping the commit would leave storage disagreeing with the screen rather
+  // than undoing anything — the same call the strip makes on a cancelled gesture.
+  function recoverAbandonedPinDrag() {
+    if (draggingPinIndex === null) return;
+    const draggable = draggingPinMarker?.dragging?._draggable;
+    if (typeof draggable?.finishDrag === 'function') draggable.finishDrag(true);
+    // finishDrag fires dragend only for a gesture that moved; if this one never
+    // did, nothing has cleared the latch and it is still ours to clear.
+    if (draggingPinIndex !== null) endPinDrag();
+  }
+
+  function endPinDrag() {
+    draggingPinIndex = null;
+    draggingPinMarker = null;
+    window.removeEventListener('pointermove', onAbandonPointerMove, true);
+    window.removeEventListener('pointercancel', onAbandonPointerCancel, true);
+    // Ahead of any commit, so the stretch is framed at the real size.
+    if (pendingInvalidate) {
+      pendingInvalidate = false;
+      invalidate();
+    }
+  }
+
   // Draggable boundary pins: the map's twin of the strip handles. Dragging emits
   // the snapped route km continuously (commit false) and once on release.
   function setDayPins(pins, { draggable = false, onDragBoundary } = {}) {
@@ -279,6 +329,9 @@ export function createMap({
       if (draggable) {
         marker.on('dragstart', () => {
           draggingPinIndex = index;
+          draggingPinMarker = marker;
+          window.addEventListener('pointermove', onAbandonPointerMove, true);
+          window.addEventListener('pointercancel', onAbandonPointerCancel, true);
         });
         marker.on('drag', (e) => {
           if (typeof onDragBoundary !== 'function') return;
@@ -286,12 +339,7 @@ export function createMap({
         });
         marker.on('dragend', (e) => {
           // Cleared before the commit: that render is the one meant to rebuild.
-          draggingPinIndex = null;
-          // Before the commit as well, so the stretch is framed at the real size.
-          if (pendingInvalidate) {
-            pendingInvalidate = false;
-            invalidate();
-          }
+          endPinDrag();
           if (typeof onDragBoundary !== 'function') return;
           const { lat, lng } = e.target.getLatLng();
           onDragBoundary(index, [lng, lat], true);
