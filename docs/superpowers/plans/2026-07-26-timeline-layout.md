@@ -3906,6 +3906,8 @@ Expected: PASS, every file. Report the final test count in the commit message.
 
 - [ ] **Step 5: Manual verification pass**
 
+> **Add to the walk (from the pin-drag latch fix `0870103`, which no test can fully reach):** start dragging a map day pin, Alt-Tab away while holding, release outside the window, come back and move the mouse — the drag must end immediately at the pin's position (one commit, no plan-rewriting on hover afterwards), the pins and both ⤢ buttons must still work, and the map must still pan. Also check the recovery's commit lands where a user would expect when the pin was mid-flight.
+
 At 1512 x 900 with a fresh localStorage, walk the list and confirm each one:
 
 - [ ] Empty state: strip is all dashed remainder, day panel says "No days yet", map fits the whole route.
