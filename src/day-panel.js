@@ -71,8 +71,16 @@ function startBreakEdit(btn, callbacks) {
   };
   input.addEventListener('keydown', (e) => {
     e.stopPropagation(); // this editor owns Esc; it must not reach the document
-    if (e.key === 'Enter') finish(true);
-    else if (e.key === 'Escape') {
+    if (e.key === 'Enter') {
+      // preventDefault, or saving re-opens the editor. A browser runs the keydown's
+      // default action AFTER this handler returns, and resolves it against whatever
+      // holds focus BY THEN — and by then finish(true) has re-rendered the panel and
+      // focus has been restored to this leg's ✎. Chromium duly synthesises a click
+      // on that button, which opens a fresh editor over the note just saved.
+      // (Measured in Chromium; the focus restoration is what makes it reachable.)
+      e.preventDefault();
+      finish(true);
+    } else if (e.key === 'Escape') {
       finish(false);
       btn.focus(); // keyboard context back to the ✎ — cancel never re-renders
     }

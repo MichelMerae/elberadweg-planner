@@ -29,6 +29,19 @@ function press(node, key) {
   node.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true }));
 }
 
+// Enter as a browser really delivers it: keydown, and then — unless the handler
+// prevented the default — the click the browser synthesises against whatever holds
+// focus WHEN THE DEFAULT ACTION RUNS, which is after the handler has had its say.
+// That ordering is the whole point: a handler that moves focus to a button and
+// does not preventDefault hands that button a click nobody asked for. jsdom fires
+// neither half for the other, so both happen here by hand.
+function pressEnter(node) {
+  const event = new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+  node.dispatchEvent(event);
+  const focused = document.activeElement;
+  if (!event.defaultPrevented && focused?.matches?.('button')) focused.click();
+}
+
 beforeEach(() => {
   document.body.innerHTML = '';
 });
@@ -306,6 +319,34 @@ describe('createDayPanel - editing a break inline', () => {
     press(input, 'Enter');
 
     expect(callbacks.onEditBreak).toHaveBeenCalledWith('Café Elbterrasse@195', '20 min cake');
+  });
+
+  // Found in Chromium during Task 14's manual pass, and only reachable through the
+  // browser's own Enter: saving re-rendered the panel, focus was restored to this
+  // leg's ✎, and the keydown's default action — resolved against whatever holds
+  // focus once the handler returns — then synthesised a click on that button,
+  // re-opening the editor over the note just saved.
+  it('saves on Enter without the browser re-opening the editor', () => {
+    const panel = mount();
+    panel.render({ day: DAY, dayCount: 4, breaks: [food], fromName: 'Lenzen' });
+    // What main.js does with the save: persist, then re-render.
+    callbacks.onEditBreak.mockImplementation(() => {
+      panel.render({
+        day: DAY,
+        dayCount: 4,
+        breaks: [{ ...food, note: '20 min cake' }],
+        fromName: 'Lenzen',
+      });
+    });
+    el.querySelector('[data-action="edit-break"]').click();
+    const input = el.querySelector('.leg-edit__input');
+    input.value = '20 min cake';
+
+    pressEnter(input);
+
+    expect(callbacks.onEditBreak).toHaveBeenCalledWith('Café Elbterrasse@195', '20 min cake');
+    expect(el.querySelector('.leg-edit__input')).toBeNull();
+    expect(el.querySelector('.day-card__leg').textContent).toContain('20 min cake');
   });
 
   it('restores the leg on Escape without reporting', () => {
