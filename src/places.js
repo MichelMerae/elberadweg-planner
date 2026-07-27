@@ -1,9 +1,15 @@
 // The left panel: everything you can choose from, windowed to the focused day's
 // stretch — favorites, overnight candidates, food, sights. One delegated
-// listener serves all four sections. No Leaflet, no data modules: main.js
+// listener serves all four sections. No Leaflet and no data of its own: main.js
 // windows the lists and passes them in.
 
-import { esc, round1, townKey, poiKey, FAV_GLYPH } from './ui-util.js';
+import { esc, round1, townKey, poiKey, favGlyphFor } from './ui-util.js';
+// The one model import, and only for the key builder — a pure function, no store
+// and no storage, the same trade strip.js makes with boundaries.js. The favorites
+// Set main.js hands us is keyed with favKey, so spelling that shape by hand on
+// this side is a contract nothing binds: change the separator there and every
+// star switches off with the suite still green.
+import { favKey } from './favorites.js';
 
 // Presentation-only stopgap: a dense stretch can hold 450+ food POIs, and a panel
 // that scrolls 50,000 px is unusable. Ranking/grouping is a separate project —
@@ -19,16 +25,20 @@ const ROW_CAP = 40;
 // Day-relative wording (spec §4): distance from the day's reference point (the
 // last overnight stop), absolute route km shown small in a .meta__abs span.
 // fromName is an OSM-derived town name, so escape it before innerHTML use.
+//
+// The detour is rounded like every other km on screen. It arrives with two
+// decimals, and printing it raw put "0.05 km off route" here and "0.1 km off
+// route" in the day panel for the same town at the same moment.
 function townMeta(town, dayStartKm, fromName) {
   const rel = round1(town.routeDistanceKm - dayStartKm);
-  return `${rel} km from ${esc(fromName)} · ${town.offsetKm} km off route <span class="meta__abs">km ${round1(town.routeDistanceKm)}</span>`;
+  return `${rel} km from ${esc(fromName)} · ${round1(town.offsetKm)} km off route <span class="meta__abs">km ${round1(town.routeDistanceKm)}</span>`;
 }
 
 // Same day-relative wording as towns, but the absolute km sits inline in
 // parentheses (spec §4) rather than in a trailing .meta__abs span.
 function poiMeta(poi, dayStartKm, fromName) {
   const rel = round1(poi.routeDistanceKm - dayStartKm);
-  return `${rel} km from ${esc(fromName)} (km ${round1(poi.routeDistanceKm)}) · ${poi.offsetKm} km off route`;
+  return `${rel} km from ${esc(fromName)} (km ${round1(poi.routeDistanceKm)}) · ${round1(poi.offsetKm)} km off route`;
 }
 
 // The ☕ break + ⭐ favorite actions shared by every place row (towns, POIs,
@@ -95,9 +105,10 @@ export function createPlaces({ el, callbacks = {} }) {
   function townRow(town, i, { startKm, fromName, selectedTownKey, breakKeys, favoriteKeys }) {
     const selected = townKey(town) === selectedTownKey ? ' town--selected' : '';
     const isBreak = breakKeys.has(townKey(town));
-    // Favorites use the kind-prefixed key shape; towns carry no kind of their
-    // own, so build the lookup the way main.js snapshots them.
-    const isFav = favoriteKeys.has(`town:${townKey(town)}`);
+    // Favorites use the kind-prefixed key shape. A town candidate carries no kind
+    // of its own — it becomes one only once starred — so name the kind here and
+    // let favKey build the string, the way main.js snapshots the Set.
+    const isFav = favoriteKeys.has(favKey({ ...town, kind: 'town' }));
     return `
       <div class="town${selected}" role="button" tabindex="0"
            data-place-section="town" data-place-index="${i}">
@@ -111,7 +122,9 @@ export function createPlaces({ el, callbacks = {} }) {
   function poiRow(poi, i, kind, { startKm, fromName, breakKeys, favoriteKeys }) {
     const hours = poi.openingHours ? `<span class="poi__hours">${esc(poi.openingHours)}</span>` : '';
     const isBreak = breakKeys.has(poiKey(poi));
-    const isFav = favoriteKeys.has(`${kind}:${poiKey(poi)}`);
+    // The section's kind, not the record's: the two agree for every POI the data
+    // produces, and this row is in this section either way.
+    const isFav = favoriteKeys.has(favKey({ ...poi, kind }));
     return `
       <div class="poi poi--${kind}" role="button" tabindex="0"
            data-place-section="${kind}" data-place-index="${i}" data-poi-key="${esc(poiKey(poi))}">
@@ -124,7 +137,7 @@ export function createPlaces({ el, callbacks = {} }) {
   }
 
   function favRow(fav, i, { days, breakKeys }) {
-    const glyph = FAV_GLYPH[fav.kind] || '⭐';
+    const glyph = favGlyphFor(fav);
     const cat = fav.category ? `<span class="poi__cat">${esc(fav.category.replace(/_/g, ' '))}</span>` : '';
     const tag = dayTagFor(fav, days);
     const beyond = tag === 'beyond plan' ? ' fav-day--beyond' : '';

@@ -560,6 +560,31 @@ describe('createStrip - boundary drag', () => {
     expect(axis.querySelector('.strip__handle--dragging')).toBeNull();
   });
 
+  it('still commits a gesture whose day vanished under it', () => {
+    // Losing the move is the harmless half. main.js keeps gesture state BETWEEN
+    // calls — the plan generation the gesture opened in, cleared by its commit —
+    // so a commit that never arrives leaves that latch closed and the NEXT
+    // boundary drag, on the strip or on a map pin, is refused end to end and in
+    // silence. map.js's dragend path has no early return of its own and so never
+    // had this hole.
+    const { axis, strip, handle } = mountLive([80, 160, 240]);
+    const seen = [];
+
+    fire(handle(2), 'pointerdown', { x: 480 });
+    callbacks.onMoveBoundary.mockImplementation((index, endKm, opts = {}) => {
+      seen.push({ index, endKm, commit: !!opts.commit });
+      strip.render({ days: days(80), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
+    });
+    fire(axis, 'pointermove', { x: 520 }); // the preview that swaps the plan out
+    fire(axis, 'pointermove', { x: 560 }); // boundary 2 has no day behind it now
+    fire(axis, 'pointerup', { x: 560, buttons: 0 });
+
+    // The km is a formality — main.js refuses a move onto a day that is gone —
+    // but the commit itself is what ends the gesture.
+    expect(seen.at(-1)).toEqual({ index: 2, endKm: expect.any(Number), commit: true });
+    expect(seen.filter((m) => m.commit)).toHaveLength(1);
+  });
+
   it('does not drag a boundary that has nowhere legal to go', () => {
     const { axis, moves, handle } = mountLive([6, 9]);
 

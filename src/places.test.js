@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createPlaces } from './places.js';
+import { favKey } from './favorites.js';
 
 let el;
 let callbacks;
@@ -100,6 +101,20 @@ describe('createPlaces - overnight candidates', () => {
     expect(row.textContent).toContain('104.6 km from Lenzen');
     expect(row.textContent).toContain('0.4 km off route');
     expect(row.querySelector('.meta__abs').textContent).toBe('km 265.1');
+  });
+
+  // The detour is data, carrying two decimals, and every other km on screen goes
+  // through round1 — so an unrounded one put "0.05 km off route" in this panel and
+  // "0.1 km off route" in the day panel for the same town, at the same moment.
+  it('rounds the detour the same way every other km is rounded', () => {
+    const places = mount();
+    places.render(renderArgs({
+      towns: [town('Niegripp', 265, 0.05)],
+      food: [{ ...poi('Café Elbterrasse', 195), offsetKm: 0.05 }],
+    }));
+
+    expect(el.querySelector('[data-place-section="town"]').textContent).toContain('0.1 km off route');
+    expect(el.querySelector('[data-place-section="food"]').textContent).toContain('0.1 km off route');
   });
 
   it('chooses a town as the overnight on a body click', () => {
@@ -223,6 +238,27 @@ describe('createPlaces - key shapes', () => {
 
     expect(el.querySelector('[data-place-section="fav"] [data-action="break"]').getAttribute('aria-pressed')).toBe('false');
   });
+
+  // The prefixed shape above is favorites.js's, and main.js snapshots the lookup
+  // Set with favKey itself — so these rows have to build the same string from the
+  // same builder. Spelled by hand on this side, a separator change in favorites.js
+  // would turn every star off with the suite still green.
+  it('builds the favorite key the way favorites.js does', () => {
+    const places = mount();
+    const candidate = town('Rosenhof', 265);
+    const cafe = poi('Café Elbterrasse', 195);
+    places.render(renderArgs({
+      towns: [candidate],
+      food: [cafe],
+      favoriteKeys: new Set([
+        favKey({ ...candidate, kind: 'town' }),
+        favKey({ ...cafe, kind: 'food' }),
+      ]),
+    }));
+
+    expect(el.querySelector('[data-place-section="town"] [data-action="fav"]').getAttribute('aria-pressed')).toBe('true');
+    expect(el.querySelector('[data-place-section="food"] [data-action="fav"]').getAttribute('aria-pressed')).toBe('true');
+  });
 });
 
 describe('createPlaces - the 40-row cap', () => {
@@ -345,6 +381,18 @@ describe('createPlaces - favorites', () => {
     }));
 
     expect(el.querySelector('[data-place-section="fav"] .poi__meta').textContent).toContain('km 213.1');
+  });
+
+  // kind comes from a stored list a user could have hand-edited, and a bare
+  // property lookup on the glyph table reaches Object.prototype — 'constructor'
+  // would interpolate a function body into the row. Same guarded-lookup invariant
+  // ui-util.js documents for break glyphs.
+  it.each(['constructor', 'toString', 'unheard-of'])('falls back to a star for kind %s', (kind) => {
+    const places = mount();
+    places.render(renderArgs({ favorites: [{ ...poi('Grenzturm', 213, kind), category: null }] }));
+
+    const name = el.querySelector('[data-place-section="fav"] .poi__name').textContent;
+    expect(name).toBe('⭐ Grenzturm');
   });
 
   it('selects a favorite through the POI callback', () => {

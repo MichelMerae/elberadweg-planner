@@ -159,7 +159,21 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
     // A latched index can outlive the day it belongs to: switching plans
     // re-renders the strip with a different set of days mid-gesture, and
     // deriving bounds from a stale index then reads endKm of undefined.
-    if (!state.days[index]) return;
+    //
+    // There is nothing to preview for a day that is gone, but a COMMIT still has
+    // to travel. main.js keeps gesture state between calls — the plan generation
+    // the gesture opened in, cleared by whichever commit ends it — and refuses
+    // every boundary move that arrives with a stale one. Swallowing this commit
+    // therefore does not just lose the move: it leaves that latch closed, and the
+    // NEXT drag on either surface is refused end to end, in silence. main.js
+    // refuses this one too (the day does not exist), so the km is a formality —
+    // 0 says plainly that there is no position left to report — but the refusal
+    // clears the latch and re-renders, which is the whole point of sending it.
+    // map.js's dragend path never had this hole: it has no early return.
+    if (!state.days[index]) {
+      if (commit) callbacks.onMoveBoundary?.(index, 0, { commit: true });
+      return;
+    }
     const km = proposeKm(index, kmAtClientX(clientX));
     if (km === null) {
       // The window collapsed under the drag. Nothing legal left to ask for, but a

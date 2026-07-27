@@ -320,7 +320,7 @@ async function boot() {
     const breakKeys = new Set(itinerary.getBreaks().map(breakKey));
     const favs = favorites.list();
     // Kind-prefixed (favKey: `${kind}:${name}@${km}`), unlike breakKeys — places
-    // builds the matching lookups per section.
+    // names the kind for each section and calls the same favKey to look a row up.
     const favoriteKeys = new Set(favs.map(favKey));
     const startKm = day ? day.startKm : 0;
     const endKm = day ? day.endKm : 0;

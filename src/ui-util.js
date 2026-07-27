@@ -42,7 +42,22 @@ export function glyphFor(b) {
 
 // Glyph per kind in the favorites list — here a food place reads literally as a
 // fork 🍴 (not the coffee ☕ used for break legs), a sight 📷, a town 🛏.
-export const FAV_GLYPH = { town: '🛏', food: '🍴', sight: '📷' };
+const FAV_GLYPH = { town: '🛏', food: '🍴', sight: '📷' };
+
+/**
+ * The glyph for a favorited place's kind. Guarded exactly as glyphFor is, and
+ * for the same reason: `kind` comes from a stored list a user could have
+ * hand-edited, so a bare lookup reaches Object.prototype and `kind:
+ * "constructor"` interpolates a function body into the row. The table is not
+ * exported — the guard is the only way in.
+ *
+ * ⭐ is the right fallback here (unlike break legs, which fall back to 📌): every
+ * row in that section IS a favorite, so a star says nothing untrue about one
+ * whose kind we don't recognise.
+ */
+export function favGlyphFor(place) {
+  return Object.hasOwn(FAV_GLYPH, place.kind) ? FAV_GLYPH[place.kind] : '⭐';
+}
 
 // Escape user-facing data (OSM town names) before innerHTML interpolation.
 // None of the current dataset needs it, but a data rebuild could introduce
