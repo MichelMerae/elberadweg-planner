@@ -97,7 +97,7 @@ export function createPlansBar({ el, callbacks = {} }) {
         <div class="plans__actions">
           <button type="button" class="btn btn--sm" data-plan-action="new">New</button>
           <button type="button" class="btn btn--sm" data-plan-action="duplicate">Duplicate</button>
-          <button type="button" class="btn btn--sm btn--danger" data-plan-action="reset"
+          <button type="button" class="btn btn--sm" data-plan-action="reset"
                   title="Remove every day and break, keeping the plan">Reset trip</button>
           <button type="button" class="btn btn--sm btn--danger" data-plan-action="delete"
                   title="Delete this plan and everything in it">Delete plan</button>

@@ -170,45 +170,48 @@ body {
   margin-top: 14px;
 }
 
-/* --- Plans bar (pick / rename / new / duplicate / delete a named plan) --- */
+/* --- Plans bar (pick / rename / new / duplicate / reset / delete a plan) --- */
 /* Lives in the 46px app header now, so it carries no block spacing of its own
-   and must not grow past its content. Task 12 restyles it for the header. */
+   and must not grow past its content. */
 #plans {
   flex: 0 0 auto;
   min-width: 0;
 }
+/* The header is the bar's frame, so the bar brings no card of its own: no
+   padding, background, border or shadow, and nothing that may wrap. As a padded
+   card it measured 55px against the header's fixed 46px and hung out of both
+   edges — the surround was what made it read as a floating box. */
 .plans__bar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  gap: 6px;
 }
-/* Select grows to fill the row; the name field rides alongside and both wrap
-   above the action buttons on a narrow panel. */
+/* One shared height across the select, the name field and the buttons, so the
+   whole control reads as a single row of chips rather than three sizes of one. */
 .plans__select,
 .plans__name {
   min-width: 0;
+  height: 28px;
   font-family: var(--sans);
-  font-size: 0.82rem;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text);
   background: var(--surface-hi);
   border: 1px solid var(--line);
   border-radius: 7px;
-  padding: 6px 8px;
+  padding: 0 7px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+/* Plain widths, not flex bases: a `flex: 0 1 150px` item contributes only its
+   text width to the bar's max-content size, so the header sized #plans smaller
+   than the bar wanted and both fields shrank ~35px on a window with room to
+   spare. They still shrink (min-width: 0) once the window really is narrow. */
 .plans__select {
-  flex: 2 1 140px;
+  width: 150px;
   cursor: pointer;
 }
 .plans__name {
-  flex: 1 1 110px;
+  width: 130px;
 }
 .plans__select:hover,
 .plans__name:hover {
@@ -222,10 +225,20 @@ body {
 }
 .plans__actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
 }
-/* Compact button variant for the plans bar's three actions. */
+/* Height and padding are set here rather than on .btn--sm: the day panel's
+   Split/Delete/Add stop buttons share that class and are not in a 46px row.
+   flex/nowrap because a fixed height plus a shrinkable two-word label is how
+   "Reset trip" ends up as two clipped lines — the select and the name field
+   shrink instead, and the credit yields before either of them. */
+.plans__actions .btn {
+  flex: none;
+  height: 28px;
+  padding: 0 9px;
+  white-space: nowrap;
+}
+/* Compact button variant, shared with the day panel's row of actions. */
 .btn--sm {
   font-size: 0.72rem;
   padding: 6px 9px;
