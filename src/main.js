@@ -517,6 +517,18 @@ async function boot() {
   }
 
   function handleMoveBoundary(index, endKm, { commit } = {}) {
+    // A latched boundary can outlive the day it belongs to: Reset trip, Delete
+    // plan and a plan switch all empty or replace the days mid-gesture — finger A
+    // holding a map pin, finger B on a header button — and moveBoundary asserts on
+    // the stale index. Same guard, same reason, as strip.js's emitMove.
+    if (!itinerary.getDays()[index]) {
+      // map.js suppresses the pin rebuild while a pin drag is latched, counting on
+      // the commit render to do it. That render is the one being declined here, so
+      // the release has to render anyway or the vanished plan's pins stay on the
+      // map — draggable, and pointing at days that no longer exist.
+      if (commit) renderAll();
+      return;
+    }
     itinerary.moveBoundary(index, endKm);
     if (commit) persistPlan();
     renderAll({ dragging: !commit });
