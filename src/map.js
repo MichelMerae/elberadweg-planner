@@ -53,7 +53,16 @@ const FOCUS_MAX_ZOOM = 13;
 // the harmless side: a wheel-zoom inside the window is missed once and the next
 // step of the same gesture reports it, where a missed settle strands the camera
 // silently. The honest fix is a positive signal — counting the settle events a
-// move is expected to produce — which needs more design than a constant (Task 14).
+// move is expected to produce — which needs more design than a constant.
+//
+// Re-measured in Task 14's verification pass, in an automated Chromium with a busy
+// main thread: zoomend arrived with 497-997ms of the window left, and a plain
+// animated PAN's moveend landed 700ms in — which is why moveend is not a signal
+// here (see the listener note below). No run was observed losing the zoomend race,
+// but ~500ms of margin on a 1000ms window is not much, and it is thinner on slower
+// hardware. Left at a second deliberately: widening it trades this failure for its
+// opposite, a real user zoom inside the window that never hands the camera over.
+// The settle-counting fix above is the recorded follow-up.
 const PROGRAMMATIC_SETTLE_MS = 1000;
 
 // The keys Leaflet's keyboard handler pans and zooms the map with. Pressing one
