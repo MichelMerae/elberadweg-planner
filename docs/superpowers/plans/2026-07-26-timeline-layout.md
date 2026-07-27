@@ -3862,9 +3862,9 @@ comm -23 /tmp/used-classes.txt /tmp/styled-classes.txt
 
 Expected: only class names that are intentionally unstyled (BEM element names used purely as hooks). Anything surprising means a rule was deleted too eagerly.
 
-- [ ] **Step 2: Move the OSM attribution**
+- [ ] **Step 2: Move the OSM attribution** — ⚠️ **STALE, verify before doing anything.** Task 9 already put the ODbL credit in the header (`index.html:29-30`, `#app-credit`), and it is visibly rendering there — screenshot-confirmed 2026-07-27. Following this step verbatim would show the credit **twice**. The requirement is only that the credit stays visible, which it does; so either skip this step, or move the credit from the header to the scale line and delete `#app-credit` (a layout judgement — the header placement currently looks fine). Leaflet's own "© OpenStreetMap contributors" in the map corner is separate and unaffected. Keep the test below either way, pointed at wherever the credit actually lives.
 
-The `#panel-footer` credit is gone, so put the ODbL credit in the strip's scale line — in `strip.js`'s `render`, the scale becomes:
+Original instruction, for reference: the `#panel-footer` credit is gone, so put the ODbL credit in the strip's scale line — in `strip.js`'s `render`, the scale becomes:
 
 ```js
     scaleEl.innerHTML = `
