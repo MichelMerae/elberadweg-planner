@@ -3904,6 +3904,11 @@ Add the assertion to `src/strip.test.js`:
   });
 ```
 
+**Docs/comment staleness to fix in this pass (from Task 12's spec review):**
+- The design spec's §8 says the plans bar's "Contents unchanged (select, name field, New / Duplicate / Delete)" — superseded by the Reset-trip decision this plan's Task 12 block required; correct the spec text so it stops contradicting the shipped UI (now four actions, "Delete" relabelled "Delete plan").
+- `main.js` comment referencing `renderPlans`, which no longer exists under that name anywhere (`renderPlansBar` in main.js, `render` in plans-bar.js).
+- `style.css` `.plans__*` comment claims the fixed-width fields "still shrink (min-width: 0) once the window really is narrow" — they can't, `#plans` is `flex: 0 0 auto`; a narrow window overflows the header instead. Fix the comment (responsive work stays out of scope).
+
 - [ ] **Step 3: Update the README**
 
 Rewrite the bullet list and the "How it works" paragraph: the slider/commit loop becomes the strip loop (add a day, drag its boundary, pick where you sleep), describe local editing ("editing one day resizes its neighbour, never the whole trip"), town snapping, split/delete, the focused-day panel, the always-visible to-scale strip, and the keyboard handles. Delete the ghost-marker and "commit the day" sentences. Keep the localStorage, data-provenance and quick-start sections as they are.
