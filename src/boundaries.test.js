@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MIN_DAY_KM, boundaryBounds, clampBoundaryKm } from './boundaries.js';
+import { MIN_DAY_KM, boundaryBounds, boundaryWindow, clampBoundaryKm } from './boundaries.js';
 
 const TOTAL_KM = 650;
 
@@ -55,6 +55,46 @@ describe('boundaryBounds', () => {
     const bounds = boundaryBounds(list, 0, { totalKm: TOTAL_KM });
     expect(bounds.min).toBe(5);
     expect(bounds.max).toBe(bounds.min);
+  });
+});
+
+// The one definition of "this boundary has nowhere legal to go", which strip.js
+// asks before proposing a move and the itinerary refuses on for the same reason.
+describe('boundaryWindow', () => {
+  it('returns the unfloored window when the boundary can move', () => {
+    expect(boundaryWindow(days(80, 160, 240), 1, { totalKm: TOTAL_KM })).toEqual({
+      min: 85,
+      max: 235,
+    });
+  });
+
+  it('returns null when the pair is too squeezed to hold a boundary', () => {
+    // Days 0 and 1 span 8 km together — under 2 × MIN_DAY_KM, so neither half can
+    // be 5 km long wherever the boundary goes.
+    expect(boundaryWindow(days(4, 8, 300), 0, { totalKm: TOTAL_KM })).toBeNull();
+  });
+
+  // The distinction that makes this a separate function: boundaryBounds reports
+  // min === max here, and reading "nowhere to go" off `min >= max` would refuse a
+  // move the model accepts — the midpoint leaves both days exactly MIN_DAY_KM.
+  it('allows the single position of a pair spanning exactly 2 x MIN_DAY_KM', () => {
+    const list = days(3, 2 * MIN_DAY_KM, 300);
+    expect(boundaryBounds(list, 0, { totalKm: TOTAL_KM })).toEqual({ min: 5, max: 5 });
+    expect(boundaryWindow(list, 0, { totalKm: TOTAL_KM })).toEqual({ min: 5, max: 5 });
+  });
+
+  it('lets the last boundary run to the end of the route', () => {
+    expect(boundaryWindow(days(80, 160), 1, { totalKm: TOTAL_KM })).toEqual({
+      min: 85,
+      max: TOTAL_KM,
+    });
+  });
+
+  // The last boundary has no neighbour, but it does have the end of the route: a
+  // plan already within MIN_DAY_KM of Dresden cannot make its final day any
+  // longer, so that boundary is stuck too.
+  it('refuses the last boundary when the route end is closer than MIN_DAY_KM', () => {
+    expect(boundaryWindow(days(646, 648), 1, { totalKm: TOTAL_KM })).toBeNull();
   });
 });
 

@@ -2,9 +2,10 @@
 // its own DOM and interaction; emits intent through callbacks. No Leaflet, no
 // data modules — main.js passes plain days/breaks in (same contract as ui.js).
 
-import { esc, round1, BREAK_GLYPH } from './ui-util.js';
-import { boundaryBounds } from './boundaries.js';
-import { stripLayout, kmToX, xToKm, hitTestHandle } from './strip-geometry.js';
+import { round1 } from './ui-util.js';
+import { boundaryWindow } from './boundaries.js';
+import { stripLayout, xToKm, hitTestHandle } from './strip-geometry.js';
+import { summaryMarkup, axisMarkup, scaleMarkup } from './strip-markup.js';
 
 // jsdom (and a first paint before layout settles) reports width 0; a plausible
 // width keeps the strip renderable and the geometry tests honest.
@@ -17,28 +18,6 @@ const DRAG_THRESHOLD_PX = 3;
 
 const KEY_STEP_KM = 1;
 const KEY_STEP_SHIFT_KM = 5;
-
-/**
- * A block's CSS box from its geometry, the only place px land in the DOM.
- *
- * Two hazards, both owned here rather than in the pure geometry:
- *
- * 1. `width` is deliberately NEGATIVE for an inverted day (endKm before
- *    startKm, which the model can transiently hold on pathological stored
- *    data) so that `x + width` keeps equalling `kmToX(endKm)` and handle
- *    positions stay truthful. CSS `width: -80px` is invalid, gets dropped, and
- *    an absolutely positioned div then falls back to `auto` — visible garbage.
- * 2. Rounding `x` and `width` independently scatters seams: 0.1 km is ~0.2 px,
- *    adjacent edges already agree to ~1e-13, and one edge can round up while
- *    its neighbour rounds down. So round the two EDGES and derive the width
- *    from them — block i's right edge is then the same number as block i+1's
- *    left edge, by construction, at any axis width.
- */
-function span(x, width) {
-  const left = round1(x);
-  const right = round1(x + width);
-  return { left, width: Math.max(0, right - left) };
-}
 
 /**
  * @param {Object} opts
@@ -83,96 +62,17 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
   // rect.width, not clientWidth: clientWidth truncates to an integer while the
   // pointer maths below measures the same axis fractionally, and the two
   // disagreeing put a boundary up to a px away from where it was grabbed.
-  const width = measureWidth || (() => axisEl.getBoundingClientRect().width || FALLBACK_WIDTH);
+  const axisWidth = measureWidth || (() => axisEl.getBoundingClientRect().width || FALLBACK_WIDTH);
 
   function axisOpts() {
-    return { totalKm: state.totalKm, width: width() };
+    return { totalKm: state.totalKm, width: axisWidth() };
   }
 
-  function summary() {
-    const { days, totalKm } = state;
-    const planned = days.length ? days[days.length - 1].endKm : 0;
-    const remaining = Math.max(0, totalKm - planned);
-    const avg = days.length ? round1(planned / days.length) : 0;
-    const right = days.length
-      ? `${days.length} ${days.length === 1 ? 'day' : 'days'} · ⌀ ${avg} km/day`
-      : 'no days yet';
-    return `
-      <span><b>${round1(planned)} / ${round1(totalKm)} km planned</b> · ${round1(remaining)} km to Dresden</span>
-      <span>${right}</span>`;
-  }
-
-  /**
-   * The glyph for a break's kind.
-   *
-   * `kind` comes from a stored plan a user could have hand-edited, so a bare
-   * property lookup reaches Object.prototype — `kind: "toString"` interpolates a
-   * function body into the markup. And '☕' as the fallback mislabels an unknown
-   * break as a coffee stop; 📌 (custom) is the honest default.
-   */
-  function glyphFor(b) {
-    return Object.hasOwn(BREAK_GLYPH, b.kind) ? BREAK_GLYPH[b.kind] : '📌';
-  }
-
-  // Breaks inside (startKm, endKm]. Day 1 starts at km 0 and owns a break sitting
-  // exactly there, which is why the lower edge opens up for it.
-  function breaksIn(startKm, endKm) {
-    return state.breaks.filter(
-      (b) => b.routeDistanceKm > (startKm === 0 ? -1 : startKm) && b.routeDistanceKm <= endKm,
-    );
-  }
-
-  /**
-   * One glyph layer for the whole axis, each break at its absolute route km.
-   *
-   * These used to be children of the day they fell in, which cost three things: a
-   * block's `overflow: hidden` clipped them, every offset needed the block's own
-   * rendered left edge subtracted (a whole class of off-by-a-block bug), and they
-   * were gated behind the widest label tier — 88 px, about 39 km at desktop
-   * width — so a 20 km day with a café silently showed nothing. At axis level
-   * they work at every tier. They are pointer-events: none, so clicks still reach
-   * the block underneath.
-   */
-  function glyphLayer() {
-    const opts = axisOpts();
-    return state.breaks
-      .filter((b) => Number.isFinite(b.routeDistanceKm) && b.routeDistanceKm >= 0 && b.routeDistanceKm <= state.totalKm)
-      .map((b) => {
-        const x = kmToX(b.routeDistanceKm, opts);
-        return `<span class="strip__glyph" style="left:${round1(x)}px" title="${esc(b.name)}">${glyphFor(b)}</span>`;
-      })
-      .join('');
-  }
-
-  function blockLabel(block, day) {
-    const km = `${round1(day.endKm - day.startKm)} km`;
-    const town = day.townChoice ? `<span class="strip__block-town">🛏 ${esc(day.townChoice.name)}</span>` : '';
-    if (block.tier === 'full') {
-      return `<span class="strip__block-label"><b>${block.index + 1}</b> <span class="strip__block-km">${km}</span>${town}</span>`;
-    }
-    if (block.tier === 'km') {
-      return `<span class="strip__block-label"><b>${block.index + 1}</b> <span class="strip__block-km">${km}</span></span>`;
-    }
-    if (block.tier === 'number') {
-      return `<span class="strip__block-label"><b>${block.index + 1}</b></span>`;
-    }
-    return '';
-  }
-
-  function handle(index) {
-    const day = state.days[index];
-    const { min, max } = boundaryBounds(state.days, index, { totalKm: state.totalKm });
-    const x = kmToX(day.endKm, axisOpts());
-    const town = day.townChoice ? ` (${day.townChoice.name})` : '';
-    const label = `Day ${index + 1} end, km ${round1(day.endKm)}${town}, arrow keys adjust`;
-    // Re-derived from `dragging` on every render rather than set on the node:
-    // the node this class belongs to is destroyed by the drag's first preview.
-    const active = dragging && dragging.index === index ? ' strip__handle--dragging' : '';
-    return `
-      <button type="button" class="strip__handle${active}" data-boundary-index="${index}"
-              style="left:${round1(x)}px" role="slider" tabindex="0"
-              aria-valuenow="${round1(day.endKm)}" aria-valuemin="${round1(min)}" aria-valuemax="${round1(max)}"
-              aria-label="${esc(label)}" title="${esc(label)}"></button>`;
+  // A role="slider" that is destroyed and recreated on every change never
+  // announces its own aria-valuenow, so the value is spoken from a live region
+  // that sits outside the axis and survives the rebuild.
+  function announce(text) {
+    liveEl.textContent = text;
   }
 
   // A selector for whatever the axis currently holds focus on, so render() can
@@ -202,66 +102,30 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
       focusedIndex: next.focusedIndex ?? null,
       breaks: next.breaks || [],
     };
-    summaryEl.innerHTML = summary();
+    const axis = axisOpts();
+    const layout = stripLayout(state.days, axis);
 
-    const layout = stripLayout(state.days, axisOpts());
-    // Day then its own boundary, left to right along the trip. Handles are
-    // absolutely positioned and lifted by z-index, so source order costs nothing
-    // visually and buys the tab order: all blocks and then all handles made a
-    // keyboard user cross the whole route twice to reach day 2's end.
-    const blocks = layout.blocks
-      .map((block) => {
-        const day = state.days[block.index];
-        const box = span(block.x, block.width);
-        const focused = block.index === state.focusedIndex ? ' strip__block--focused' : '';
-        const town = day.townChoice ? ` — ${day.townChoice.name}` : '';
-        // Name the breaks: on a narrow day their glyphs overlap into one
-        // illegible cluster, and a 5 km day is ~11 px wide.
-        const marks = breaksIn(day.startKm, day.endKm);
-        const marked = marks.length ? ` · ${marks.map((b) => `${glyphFor(b)} ${b.name}`).join(', ')}` : '';
-        const title = `Day ${block.index + 1} · ${round1(day.endKm - day.startKm)} km · km ${round1(day.startKm)} → ${round1(day.endKm)}${town}${marked}`;
-        return `
-          <div class="strip__block${focused}" data-day-index="${block.index}" role="button" tabindex="0"
-               style="left:${box.left}px;width:${box.width}px" title="${esc(title)}">
-            ${blockLabel(block, day)}
-          </div>${handle(block.index)}`;
-      })
-      .join('');
-
-    const { remainder } = layout;
-    const tailBox = span(remainder.x, remainder.width);
-    const arrived = state.days.length > 0 && tailBox.width <= 0;
-    const tail =
-      tailBox.width > 0
-        ? `<div class="strip__remainder" style="left:${tailBox.left}px;width:${tailBox.width}px">
-             <button type="button" class="strip__add" data-action="add-day">+ add a day</button>
-             <span class="strip__flag">⚑ Dresden</span>
-           </div>`
-        : '';
-
+    summaryEl.innerHTML = summaryMarkup(state);
     const restore = focusedSelector();
-    axisEl.innerHTML = blocks + tail + glyphLayer();
+    axisEl.innerHTML = axisMarkup(state, layout, axis, dragging ? dragging.index : null);
     // preventScroll: the strip sits at the bottom of a height:100vh,
     // overflow:hidden body, and scrolling that to "reveal" the handle shoves the
     // whole app off screen.
     if (restore) axisEl.querySelector(restore)?.focus({ preventScroll: true });
-    // The finish marker lives here rather than on the axis: at right: 0 over a
-    // collapsed remainder it sat on top of the last block and underneath the last
-    // handle. The scale line already names Dresden, so it says "reached" instead.
-    scaleEl.innerHTML =
-      `<span>km 0 · Hamburg</span>` +
-      (arrived
-        ? `<span class="strip__finish">⚑ km ${round1(state.totalKm)} · Dresden reached</span>`
-        : `<span>km ${round1(state.totalKm)} · Dresden</span>`);
+    scaleEl.innerHTML = scaleMarkup(state, layout);
   }
 
   // --- Interaction -------------------------------------------------------
 
   // The axis as the pointer sees it: one measurement feeding both the km mapping
   // and the hit-test, so a press lands on the boundary it looks like it lands on.
+  // The width comes from the same seam render() measures, not from this rect: in
+  // production the two are the same number, and in a test the injected
+  // measureWidth is then authoritative on its own rather than only when the
+  // stubbed rect happens to agree with it.
   function pointerAxis() {
     const rect = axisEl.getBoundingClientRect();
-    return { left: rect.left, width: rect.width || width() };
+    return { left: rect.left, width: axisWidth() };
   }
 
   function kmAtClientX(clientX) {
@@ -277,19 +141,21 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
    * The km boundary `index` may legally take for a requested `km`, or null when
    * it has nowhere to go.
    *
-   * Null is not the same as "clamped". boundaryBounds floors max at min, so a
-   * pair of days spanning under 2 x MIN_DAY_KM collapses to a single reported
-   * position that is itself a move the model refuses. Asking for it would report
-   * a change that never happened — and on a plan that squeezed, that is how a
-   * drag rewrites days it never actually moved.
+   * Null is not the same as "clamped": on a pair of days too squeezed to hold a
+   * boundary between them, asking for the one position the window reports would
+   * report a change that never happened — and on a plan that squeezed, that is
+   * how a drag rewrites days it never actually moved. boundaryWindow owns that
+   * distinction (the model refuses the same moves for the same reason).
    */
   function proposeKm(index, km) {
-    const { min, max } = boundaryBounds(state.days, index, { totalKm: state.totalKm });
-    if (min >= max) return null;
-    return round1(Math.min(Math.max(km, min), max));
+    const window = boundaryWindow(state.days, index, { totalKm: state.totalKm });
+    if (!window) return null;
+    return round1(Math.min(Math.max(km, window.min), window.max));
   }
 
-  function emitMove(index, clientX, commit) {
+  // `commit` travels in the same `{ commit }` shape it is emitted in, so the
+  // call sites below read the way onMoveBoundary's contract does.
+  function emitMove(index, clientX, { commit }) {
     // A latched index can outlive the day it belongs to: switching plans
     // re-renders the strip with a different set of days mid-gesture, and
     // deriving bounds from a stale index then reads endKm of undefined.
@@ -372,7 +238,7 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
     // dragging.index, never a fresh hit-test: hitTestHandle is stateless
     // nearest-wins, so re-running it here would hand the gesture to a crowded
     // neighbour the moment the pointer crossed its midpoint.
-    emitMove(dragging.index, e.clientX, false);
+    emitMove(dragging.index, e.clientX, { commit: false });
   }
 
   // `e` is absent only for internal calls, which are already known to belong to
@@ -399,7 +265,7 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
       // (A cancelled gesture commits here too — the previews have already been
       // applied to the model, so leaving them unpersisted would only make the
       // screen and storage disagree.)
-      emitMove(done.index, done.lastX, true);
+      emitMove(done.index, done.lastX, { commit: true });
     } else {
       // Below the threshold this was a click, not a drag. Focus the day under the
       // pointer — on a run of near-minimum days the handles cover their blocks
@@ -479,13 +345,6 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
       callbacks.onAddDay?.(kmAtClientX(e.clientX));
     }
   });
-
-  // A role="slider" that is destroyed and recreated on every change never
-  // announces its own aria-valuenow, so the value is spoken from a live region
-  // that sits outside the axis and survives the rebuild.
-  function announce(text) {
-    liveEl.textContent = text;
-  }
 
   return { render };
 }

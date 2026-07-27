@@ -22,6 +22,19 @@ export function poiKey(poi) {
 // coffee ☕ stop, a sight 📷, a town waypoint 🛏 — matching the day-end marker).
 export const BREAK_GLYPH = { food: '☕', sight: '📷', town: '🛏', custom: '📌' };
 
+/**
+ * The glyph for a break's kind — shared, so the strip and the day panel can
+ * never label the same break two different ways on one screen.
+ *
+ * `kind` comes from a stored plan a user could have hand-edited, so a bare
+ * property lookup reaches Object.prototype: `kind: "toString"` interpolates a
+ * function body into the markup. And '☕' as the fallback mislabels an unknown
+ * break as a coffee stop; 📌 (custom) is the honest default.
+ */
+export function glyphFor(b) {
+  return Object.hasOwn(BREAK_GLYPH, b.kind) ? BREAK_GLYPH[b.kind] : '📌';
+}
+
 // Glyph per kind in the favorites list — here a food place reads literally as a
 // fork 🍴 (not the coffee ☕ used for break legs), a sight 📷, a town 🛏.
 export const FAV_GLYPH = { town: '🛏', food: '🍴', sight: '📷' };

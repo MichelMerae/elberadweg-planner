@@ -175,6 +175,13 @@ export function createItinerary({ totalKm } = {}) {
     // go simply doesn't move. Refuse rather than floor: flooring the neighbour at
     // MIN_DAY_KM would extend its end and shift every day downstream, breaking
     // locality.
+    //
+    // Deliberately NOT boundaries.js's boundaryWindow, which asks whether the
+    // REQUEST was legal. This asks whether the OUTPUT is well-formed, after the
+    // rounding two lines up — the last thing standing between a squeezed plan and
+    // a stored inverted day, so it stays an assertion about what is about to be
+    // written. Callers deciding whether to ask at all (strip.js's proposeKm) use
+    // the shared predicate instead.
     if (next && round1(nextEnd - (day.startKm + length)) < MIN_DAY_KM) {
       return toPublicDay(day, index);
     }

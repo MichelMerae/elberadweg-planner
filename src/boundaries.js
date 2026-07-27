@@ -30,9 +30,17 @@ export const ARRIVED_EPSILON_KM = 0.5;
  * @param {number} index - 0-based day index
  * @param {{totalKm: number, minDayKm?: number}} opts
  * @returns {{min: number, max: number}} - max is never below min, so a squeezed
- *   day yields a single legal position rather than an inverted window.
+ *   day yields a single reported position rather than an inverted window. That
+ *   position may be unreachable; see boundaryWindow.
  */
-export function boundaryBounds(days, index, { totalKm, minDayKm = MIN_DAY_KM } = {}) {
+export function boundaryBounds(days, index, opts = {}) {
+  const { min, max } = rawBounds(days, index, opts);
+  return { min, max: Math.max(min, max) };
+}
+
+// The window before the floor, where min > max still means "no legal position".
+// Both public views are derived from this one computation so they cannot drift.
+function rawBounds(days, index, { totalKm, minDayKm = MIN_DAY_KM } = {}) {
   // Fail on first use, not just on the last boundary: a forgotten totalKm
   // would otherwise return correct windows everywhere except the final day,
   // and the NaN it produced there gets persisted rather than thrown. Infinity
@@ -42,9 +50,35 @@ export function boundaryBounds(days, index, { totalKm, minDayKm = MIN_DAY_KM } =
   }
   const prevEnd = index === 0 ? 0 : days[index - 1].endKm;
   const isLast = index === days.length - 1;
-  const min = prevEnd + minDayKm;
-  const max = isLast ? totalKm : days[index + 1].endKm - minDayKm;
-  return { min, max: Math.max(min, max) };
+  return {
+    min: prevEnd + minDayKm,
+    // The last boundary has no next day to squeeze, so it may run to the end of
+    // the route: moving it extends or shrinks the plan itself.
+    max: isLast ? totalKm : days[index + 1].endKm - minDayKm,
+  };
+}
+
+/**
+ * The window boundary `index` may be moved within, or **null** when it has
+ * nowhere legal to go — the one definition of that condition.
+ *
+ * A pair of days spanning less than 2 x minDayKm cannot hold a boundary between
+ * them at all: both halves would have to be at least minDayKm long and there is
+ * not that much route between the neighbours. `boundaryBounds` still reports a
+ * window there, because a `role="slider"` has to describe itself with
+ * aria-valuemin <= aria-valuemax whatever the plan looks like — but that single
+ * floored position is itself a move the model refuses.
+ *
+ * So: a caller deciding whether to ASK for a move wants this function, and a
+ * caller describing the window wants `boundaryBounds`. Reading "nowhere to go"
+ * off the floored window (`min >= max`) is the subtly wrong version — it also
+ * refuses a pair spanning exactly 2 x minDayKm, whose midpoint is legal.
+ *
+ * @returns {{min: number, max: number}|null}
+ */
+export function boundaryWindow(days, index, opts = {}) {
+  const { min, max } = rawBounds(days, index, opts);
+  return min > max ? null : { min, max };
 }
 
 /** `km` clamped into boundaryBounds(days, index, opts). */
