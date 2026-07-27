@@ -165,6 +165,11 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
       // The window collapsed under the drag. Nothing legal left to ask for, but a
       // release still has to reach main.js once so the moves already applied get
       // persisted; the boundary's own value is a no-op move that does that.
+      //
+      // Untested insurance, and known to be: reaching it needs the day list
+      // swapped mid-gesture for one where this boundary has nowhere to go. Left in
+      // rather than removed — the alternative is a drag whose moves are on screen
+      // and not in storage — but noted so the silence is not read as coverage.
       if (!commit) return;
       callbacks.onMoveBoundary?.(index, round1(state.days[index].endKm), { commit: true });
       return;

@@ -96,7 +96,16 @@ function blockLabelMarkup(block, day) {
  */
 function handleMarkup(days, index, axis, activeIndex) {
   const day = days[index];
-  const { min, max } = boundaryBounds(days, index, { totalKm: axis.totalKm });
+  const bounds = boundaryBounds(days, index, { totalKm: axis.totalKm });
+  // A slider's value has to lie inside the range it reports, and on squeezed
+  // stored data it did not: hand-edited days of 10 and 2 km put boundary 0 at
+  // km 10 with a legal window of [5, 7]. Widening the reported range to contain
+  // the value keeps the announcement coherent (an out-of-range valuenow is
+  // undefined behaviour for a screen reader), and it is a no-op for every
+  // well-formed plan — MIN_DAY_KM on both neighbours puts endKm inside [min, max]
+  // by construction. The model still refuses the moves it always refused.
+  const min = Math.min(bounds.min, day.endKm);
+  const max = Math.max(bounds.max, day.endKm);
   const x = kmToX(day.endKm, axis);
   const town = day.townChoice ? ` (${day.townChoice.name})` : '';
   const label = `Day ${index + 1} end, km ${round1(day.endKm)}${town}, arrow keys adjust`;

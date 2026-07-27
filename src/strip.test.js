@@ -98,6 +98,19 @@ function press(target, key, { shiftKey = false } = {}) {
   target.dispatchEvent(new window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, key, shiftKey }));
 }
 
+// What a browser really does when Enter lands on a real <button>: keydown, and
+// then — unless the handler prevented the default — the click it synthesises. jsdom
+// does neither for the other, and the gap between them is where two review
+// findings lived: a keydown-only test certifies a button that does nothing when a
+// user actually presses it, and the synthesised click is exactly what a stale drag
+// latch eats. The strip's day blocks are role="button" DIVS, which get no
+// synthesised click at all, so this only clicks real buttons — same as the browser.
+function activate(target, key = 'Enter') {
+  const event = new window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, key });
+  target.dispatchEvent(event);
+  if (!event.defaultPrevented && target.matches('button')) target.click();
+}
+
 describe('createStrip - keyboard boundary nudges', () => {
   it('nudges a boundary 1 km per arrow press, committing each one', () => {
     const { handle } = mountLive([80, 160]);
@@ -218,6 +231,29 @@ describe('createStrip - keyboard on a day block', () => {
 
     press(block(0), 'Enter');
     press(block(0), 'ArrowRight');
+
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+  });
+
+  // A handle is a real <button>, so Enter on one produces a click nothing else
+  // would: the arrow-key branch declines the key without preventing the default,
+  // and the click handler answers by focusing the day. Only reachable through the
+  // browser's synthesised click, which is why this needs `activate`.
+  it('focuses a day when Enter lands on its boundary handle', () => {
+    const { handle } = mountLive([80, 160], { focusedIndex: 1 });
+
+    activate(handle(0));
+
+    expect(callbacks.onFocusDay).toHaveBeenCalledWith(0);
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+  });
+
+  // The same press must not ALSO nudge the boundary: the keydown branch has to
+  // decline Enter outright rather than falling through to a direction of 0.
+  it('does not move a boundary on Enter', () => {
+    const { handle } = mountLive([80, 160]);
+
+    activate(handle(0));
 
     expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
   });
@@ -494,12 +530,10 @@ describe('createStrip - boundary drag', () => {
     fire(axis, 'pointermove', { x: 200 });
     fire(axis, 'pointercancel', { x: 200, buttons: 0 });
 
-    // Tab to the add button and press Enter. The browser fires keydown and then
-    // synthesises the click; jsdom does neither for the other, so do both by hand.
+    // Tab to the add button and press Enter, keydown and synthesised click both.
     const add = axis.querySelector('[data-action="add-day"]');
     add.focus();
-    press(add, 'Enter');
-    add.click();
+    activate(add);
 
     expect(callbacks.onAddDay).toHaveBeenCalledWith(null);
   });
@@ -796,6 +830,21 @@ describe('createStrip - handles', () => {
     expect(handles[0].getAttribute('aria-valuemin')).toBe('5');
     expect(handles[0].getAttribute('aria-valuemax')).toBe('155');
     expect(handles[0].getAttribute('aria-label')).toContain('Day 1 end');
+  });
+
+  // A slider must report a value inside its own range. On hand-edited storage it
+  // did not: 10 km then 2 km puts boundary 0 at km 10 with a legal window of
+  // [5, 7], and an out-of-range aria-valuenow is undefined behaviour for a screen
+  // reader. The range widens to contain the value; the move is still refused.
+  it('keeps aria-valuenow inside the range it reports on squeezed data', () => {
+    const strip = mount();
+    strip.render({ days: days(10, 12), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
+
+    const handle = el.querySelector('.strip__handle');
+    const now = Number(handle.getAttribute('aria-valuenow'));
+    expect(now).toBe(10);
+    expect(now).toBeGreaterThanOrEqual(Number(handle.getAttribute('aria-valuemin')));
+    expect(now).toBeLessThanOrEqual(Number(handle.getAttribute('aria-valuemax')));
   });
 
   it('lets the last handle run to the end of the route', () => {

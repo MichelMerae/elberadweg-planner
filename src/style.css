@@ -1186,6 +1186,14 @@ input[type="number"]:disabled {
   touch-action: none;
 }
 
+/* The glow is narrower than the grab, deliberately. :hover needs the pointer on
+   the 10px bar; hitTestHandle grabs from 12px away, so a press 6px off the bar
+   works without having lit up first. Closing that honestly would mean hit-testing
+   hover in JS on every pointermove and carrying a hovered index through the
+   render the way `dragging` is carried — real interaction state, on a path that
+   currently does nothing while idle, to move a glow by two pixels. And the
+   asymmetry fails in the safe direction: aiming at the bar always works, and being
+   slightly off works too. Reviewed and left as is (Task 14). */
 .strip__handle:hover,
 .strip__handle--dragging {
   opacity: 1;
