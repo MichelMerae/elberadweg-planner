@@ -7,11 +7,12 @@ import { ARRIVED_EPSILON_KM, MIN_DAY_KM } from './boundaries.js';
 import { createPlanStore } from './storage.js';
 import { createFavorites, favKey } from './favorites.js';
 import { createMap } from './map.js';
-import { createUI } from './ui.js';
+import { createBanner } from './ui.js';
 import { round1, townKey, poiKey } from './ui-util.js';
 import { createStrip } from './strip.js';
 import { createDayPanel } from './day-panel.js';
 import { createPlaces } from './places.js';
+import { createPlansBar } from './plans-bar.js';
 import meta from './data/route.meta.json';
 
 const DEFAULT_TARGET_KM = 80;
@@ -113,9 +114,10 @@ async function boot() {
     },
   });
 
-  const ui = createUI({
-    plansEl: document.getElementById('plans'),
-    bannerEl: document.getElementById('banner'),
+  // Trip-level, so it sits in the header: which plan you are editing, its name,
+  // and the plan-wide operations.
+  const plansBar = createPlansBar({
+    el: document.getElementById('plans'),
     callbacks: {
       onSelectPlan: handleSelectPlan,
       onRenamePlan: handleRenamePlan,
@@ -124,6 +126,8 @@ async function boot() {
       onDeletePlan: handleDeletePlan,
     },
   });
+
+  const banner = createBanner({ el: document.getElementById('banner') });
 
   // The strip owns the whole-trip view. Boundary drags fire continuously with
   // commit:false for live feedback and once with commit:true on release, so a
@@ -238,7 +242,7 @@ async function boot() {
   }
 
   function renderPlansBar() {
-    ui.renderPlans({ plans: planList, activePlanId });
+    plansBar.render({ plans: planList, activePlanId });
   }
 
   // The route-changed banner is per-plan: show it only when the active plan was
@@ -248,8 +252,8 @@ async function boot() {
   // plan built on the current route.
   function renderBanner() {
     const rv = store.getActivePlan()?.routeVersion;
-    if (rv && rv !== meta.builtAt) ui.showBanner(ROUTE_CHANGED_MESSAGE);
-    else ui.hideBanner();
+    if (rv && rv !== meta.builtAt) banner.show(ROUTE_CHANGED_MESSAGE);
+    else banner.hide();
   }
 
   // The plan is complete when the last endKm is within the shared arrival
