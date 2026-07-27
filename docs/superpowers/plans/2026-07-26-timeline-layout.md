@@ -54,7 +54,9 @@
 - Create: `src/boundaries.js`
 - Test: `src/boundaries.test.js`
 
-- [ ] **Step 1: Write the failing test**
+> **✅ DONE (2026-07-26)** — `7bfa849`, plus `35691fb` from review (`boundaryBounds` fails loudly on a missing or NaN `totalKm` instead of returning a silent NaN window).
+
+- [x] **Step 1: Write the failing test**
 
 Create `src/boundaries.test.js`:
 
@@ -122,12 +124,12 @@ describe('clampBoundaryKm', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/boundaries.test.js`
 Expected: FAIL — `Failed to resolve import "./boundaries.js"`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `src/boundaries.js`:
 
@@ -171,12 +173,12 @@ export function clampBoundaryKm(days, index, km, opts) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/boundaries.test.js`
 Expected: PASS, 8 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/boundaries.js src/boundaries.test.js
@@ -191,7 +193,9 @@ git commit -m "feat: pure boundary math for local day editing"
 - Modify: `src/itinerary.js`
 - Test: `src/itinerary.test.js:51-90` (rewrite the `editDay` describe block), `src/itinerary.test.js:472-493` (one expectation)
 
-- [ ] **Step 1: Write the failing test**
+> **✅ DONE (2026-07-26)** — `5666ab9`, plus `35bfb80` and `067f993` from review: lengths are derived from the new POSITIONS rather than from deltas, which is what keeps an edit local at a rounding half-step.
+
+- [x] **Step 1: Write the failing test**
 
 In `src/itinerary.test.js`, **replace the whole `describe('createItinerary - editDay', ...)` block** (currently lines 51-90) with:
 
@@ -372,12 +376,12 @@ Then in `describe('createItinerary - break re-bucketing across day edits', ...)`
     expect(days[1]).toMatchObject({ startKm: 60, endKm: 160 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run src/itinerary.test.js`
 Expected: FAIL — `itinerary.moveBoundary is not a function`, plus the `editDay` local expectations failing against today's ripple behaviour.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `src/itinerary.js`, add the import at the top of the file:
 
@@ -441,12 +445,12 @@ Add `moveBoundary` to the returned object (alongside `editDay`) and to the JSDoc
  *   moveBoundary: (index: number, endKm: number) => object,
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test`
 Expected: PASS, all files. The `clamping`, `setTownChoice`, `removeLastDay`, `hydrate` and break describes are unaffected.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/itinerary.js src/itinerary.test.js
@@ -468,7 +472,9 @@ EOF
 - Modify: `src/itinerary.js`
 - Test: `src/itinerary.test.js`
 
-- [ ] **Step 1: Write the failing test**
+> **✅ DONE (2026-07-26)** — `0a37934`, plus `0996243`, `9bc517e`, `f1ba86c` and `13c6741`: a boundary move with no legal position between the pair is refused, and `deleteDay`'s merged length is floored at the grid step so the plan survives a reload.
+
+- [x] **Step 1: Write the failing test**
 
 Append to `src/itinerary.test.js`:
 
@@ -606,12 +612,12 @@ describe('createItinerary - deleteDay', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run src/itinerary.test.js`
 Expected: FAIL — `itinerary.splitDay is not a function`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `src/itinerary.js`, add the import of `MIN_DAY_KM`:
 
@@ -672,12 +678,12 @@ Delete the old `removeLastDay` (the bare `days.pop()` version), and add both new
  *   deleteDay: (index: number) => void,
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test`
 Expected: PASS. The existing `removeLastDay / reset` describe still passes through the delegation.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/itinerary.js src/itinerary.test.js
@@ -692,7 +698,9 @@ git commit -m "feat: splitDay and deleteDay as local, inverse day operations"
 - Modify: `src/itinerary.js:133-137`
 - Test: `src/itinerary.test.js` (extend the `setTownChoice` describe)
 
-- [ ] **Step 1: Write the failing test**
+> **✅ DONE (2026-07-26)** — `7e143bb`, plus `fe98960` and `b029736` covering the three snap paths and the `isFinite` half of the guard.
+
+- [x] **Step 1: Write the failing test**
 
 Append to the existing `describe('createItinerary - setTownChoice', ...)` block in `src/itinerary.test.js`:
 
@@ -744,12 +752,12 @@ Append to the existing `describe('createItinerary - setTownChoice', ...)` block 
   });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run src/itinerary.test.js`
 Expected: FAIL — `expected 80 to be 76.2` on the first new test.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Replace `setTownChoice` in `src/itinerary.js`:
 
@@ -770,12 +778,12 @@ Replace `setTownChoice` in `src/itinerary.js`:
   }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npm test`
 Expected: PASS. The three original `setTownChoice` tests use towns without `routeDistanceKm`, so they are unaffected.
 
-- [ ] **Step 5: Write the failing storage test**
+- [x] **Step 5: Write the failing storage test**
 
 Snapping is what first puts fractional lengths into storage, so pin the round-trip and the unchanged schema version. Append to `src/storage.test.js` — the double is the existing factory `createFakeStorage()` (do not add another), `PLANS_KEY` is already defined at the top of that file, and the persisted field is `schemaVersion`, not `version`:
 
@@ -813,12 +821,12 @@ describe('createPlanStore - snapped fractional lengths', () => {
 
 The double, the key constant and the schema field name above were all checked against the real `src/storage.test.js` and `src/storage.js`. Do not add a second double.
 
-- [ ] **Step 6: Run the storage tests**
+- [x] **Step 6: Run the storage tests**
 
 Run: `npx vitest run src/storage.test.js`
 Expected: PASS with no production change — `normalizeDay` already passes `targetKm` through untouched, and this is the regression guard proving no migration is needed.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/itinerary.js src/itinerary.test.js src/storage.test.js
@@ -835,7 +843,9 @@ git commit -m "feat: overnight town choice snaps the day boundary to the town"
 
 No new tests: this is a pure move, and `src/itinerary.test.js`'s `cross-module key contract` describe already imports `townKey`/`poiKey` **from `./ui.js`** — it must keep passing, which is exactly the regression guard for this task.
 
-- [ ] **Step 1: Create the shared module**
+> **✅ DONE (2026-07-26)** — `2fa8e83`. The `ui.js` re-export it left behind is load-bearing: `itinerary.test.js` imports the key helpers through it (see the deviations section at the end).
+
+- [x] **Step 1: Create the shared module**
 
 Create `src/ui-util.js` by moving these verbatim out of `src/ui.js`: `round1` (line 10), `townKey` (16), `poiKey` (30), `BREAK_GLYPH` (43), `FAV_GLYPH` (47), `esc` (52), `debounce` (61). Keep their comments. Add a header:
 
@@ -847,7 +857,7 @@ Create `src/ui-util.js` by moving these verbatim out of `src/ui.js`: `round1` (l
 
 Each moved function/const gets `export`.
 
-- [ ] **Step 2: Import them back into `ui.js`**
+- [x] **Step 2: Import them back into `ui.js`**
 
 At the top of `src/ui.js`, replace the deleted definitions with:
 
@@ -859,16 +869,16 @@ import { round1, townKey, poiKey, BREAK_GLYPH, FAV_GLYPH, esc, debounce } from '
 export { townKey, poiKey };
 ```
 
-- [ ] **Step 3: Run the suite**
+- [x] **Step 3: Run the suite**
 
 Run: `npm test`
 Expected: PASS — in particular `cross-module key contract > ui townKey/poiKey and itinerary breakKey produce identical keys`.
 
-- [ ] **Step 4: Verify the app still boots**
+- [x] **Step 4: Verify the app still boots**
 
 Run: `npm run dev` and load the printed URL. Expected: the app renders exactly as before (this task changes no behaviour). Stop the server.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/ui-util.js src/ui.js
@@ -883,7 +893,9 @@ git commit -m "refactor: extract shared render helpers into ui-util.js"
 - Create: `src/strip-geometry.js`
 - Test: `src/strip-geometry.test.js`
 
-- [ ] **Step 1: Write the failing test**
+> **✅ DONE (2026-07-26)** — `570651b`, plus `b685d1d` guarding non-finite positions.
+
+- [x] **Step 1: Write the failing test**
 
 Create `src/strip-geometry.test.js`:
 
@@ -1012,12 +1024,12 @@ describe('hitTestHandle', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/strip-geometry.test.js`
 Expected: FAIL — `Failed to resolve import "./strip-geometry.js"`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `src/strip-geometry.js`:
 
@@ -1112,12 +1124,12 @@ export function hitTestHandle(x, layout, { tolerance = HANDLE_TOLERANCE_PX } = {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/strip-geometry.test.js`
 Expected: PASS, 15 tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/strip-geometry.js src/strip-geometry.test.js
@@ -1149,12 +1161,14 @@ No new behaviour, so no new test; the existing sub-epsilon layout test and `hasR
 3. **Never round `x` and `width` independently.** 0.1 km is ~0.2 px, so rounding in geometry would destroy the km grid; adjacent edges already agree to ~1e-13 and fractional CSS renders seamlessly. If you round at all, round cumulatively — `left = round(x)`, `width = round(x + w) - round(x)` — or independent rounding will scatter 1 px seams and overlaps along the axis.
 4. **Give the axis a couple of px of horizontal breathing room.** The last handle renders at x ≈ the axis width, so `overflow: hidden` on the strip would clip it in half.
 
-- [ ] **Step 1: Install jsdom**
+> **✅ DONE (2026-07-26)** — `882e9aa`, plus `5188aee` (a `render()` with no argument re-lays-out retained state, for resize) and `bb8e9e1`. Its review found the Critical that reshaped Task 8 — see the note in that section.
+
+- [x] **Step 1: Install jsdom**
 
 Run: `npm install --save-dev jsdom`
 Expected: `package.json` gains `"jsdom"` under `devDependencies`. The global vitest environment stays `node`; DOM test files opt in per file with a docblock comment.
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `src/strip.test.js`:
 
@@ -1359,12 +1373,12 @@ describe('createStrip - handles', () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npx vitest run src/strip.test.js`
 Expected: FAIL — `Failed to resolve import "./strip.js"`.
 
-- [ ] **Step 4: Write minimal implementation**
+- [x] **Step 4: Write minimal implementation**
 
 Create `src/strip.js`:
 
@@ -1530,12 +1544,12 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
 }
 ```
 
-- [ ] **Step 5: Run test to verify it passes**
+- [x] **Step 5: Run test to verify it passes**
 
 Run: `npx vitest run src/strip.test.js`
 Expected: PASS, 15 tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add package.json package-lock.json src/strip.js src/strip.test.js
@@ -1549,6 +1563,8 @@ git commit -m "feat: render the trip as a to-scale timeline strip"
 **Files:**
 - Modify: `src/strip.js`
 - Test: `src/strip.test.js`
+
+> **✅ DONE (2026-07-26)** — see the outcome block after this task's steps for the commits and the decisions it settled. One later correction belongs with it: `emitMove`'s dead-index guard swallowed the COMMIT of a gesture as well as its previews, which left main.js's cross-call gesture latch closed and refused the next drag on either surface — fixed in the final-review batch at the end of this file.
 
 > ## CRITICAL — read before writing any code
 >
@@ -1620,7 +1636,7 @@ git commit -m "feat: render the trip as a to-scale timeline strip"
 
 5. **`data-strip-axis` is dead.** Task 7 renders the attribute; nothing reads it. Either use it as your axis hook here or delete it — don't leave an attribute that looks like an API but isn't.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `src/strip.test.js`:
 
@@ -1737,12 +1753,12 @@ describe('createStrip - pointer drag', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/strip.test.js`
 Expected: FAIL — `onMoveBoundary` never called.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 In `src/strip.js`, import the clamp helper alongside `boundaryBounds`:
 
@@ -1827,12 +1843,12 @@ Guard the block click so a drag never also focuses — at the top of the existin
 
 and declare `let justDragged = false;` next to `let dragging = null;`, setting `justDragged = dragging.moved;` inside `endDrag` before clearing `dragging`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run src/strip.test.js`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/strip.js src/strip.test.js
@@ -1863,7 +1879,9 @@ The app runs with the strip live at the end of this task; the old right-panel co
 **Files:**
 - Modify: `index.html`, `src/style.css`, `src/main.js`
 
-- [ ] **Step 1: Restructure `index.html`**
+> **✅ DONE (2026-07-26)** — `674ca08` (the index.html/style.css/main.js shell, carried under a docs subject) and `2df03ba`, plus `f50ee0b` (`touch-action: none` on the axis, which is what a drag captures) and `77af24c`. Step 5b measured the label tiers and moved them — see that step.
+
+- [x] **Step 1: Restructure `index.html`**
 
 Replace the `<body>` contents with the new zones **plus the legacy containers**, which have to survive this task:
 
@@ -1904,7 +1922,7 @@ Replace the `<body>` contents with the new zones **plus the legacy containers**,
 
 `#panel-left-header` and `#panel-footer` are genuinely gone now — nothing renders into them. The OSM attribution the footer carried moves into the strip's scale line (wired in Task 14; keep the credit visible, ODbL requires it).
 
-- [ ] **Step 2: Replace the layout shell in `src/style.css`**
+- [x] **Step 2: Replace the layout shell in `src/style.css`**
 
 Replace the `body` rule and the `#map` / panel-shell rules (lines 49-97) with a rows-then-columns shell:
 
@@ -1988,7 +2006,7 @@ body {
 
 Delete the `panel-in` / `panel-in-left` keyframes and the two `animation:` lines (the panels no longer slide in; the strip is the entrance now), and drop those selectors from the `prefers-reduced-motion` block.
 
-- [ ] **Step 3: Add the strip styles**
+- [x] **Step 3: Add the strip styles**
 
 Append to `src/style.css`:
 
@@ -2157,7 +2175,7 @@ Append to `src/style.css`:
 }
 ```
 
-- [ ] **Step 4: Mount the strip in `src/main.js`**
+- [x] **Step 4: Mount the strip in `src/main.js`**
 
 Add the import:
 
@@ -2251,13 +2269,13 @@ Add the strip render to `renderAll`, and clamp focus first:
   }
 ```
 
-- [ ] **Step 5: Verify in the browser**
+- [x] **Step 5: Verify in the browser**
 
 Run: `npm run dev`, open the URL with an existing multi-day plan in localStorage (or commit three days with the old controls).
 
 Expected: the strip appears along the bottom with one to-scale block per day; clicking a block highlights it; dragging a boundary resizes that day and its neighbour only, with the numbers updating live; the `+ add a day` button appends a day; clicking the dashed remainder adds a day ending near the clicked point. Confirm in DevTools that `localStorage['elberadweg-plans']` updates once per drag (watch `updatedAt`), not continuously.
 
-- [ ] **Step 5b: Verify the label tiers actually fit (deferred here from Task 7)**
+- [x] **Step 5b: Verify the label tiers actually fit (deferred here from Task 7)** — **measured, and they did not fit.** Real Archivo in Chromium clipped every km-tier label, so the constants shipped at **88 / 70 / 28 px**, not the 64 / 30 / 14 below. That raised the break-visibility floor to ~39 km, which is the finding recorded in Task 7 above and fixed by hoisting the glyphs to the axis (`67affc6`).
 
 This is the first point in the project where real CSS, real fonts and a real layout engine exist together, so it is the only place the tier thresholds can be checked. `labelTier`'s 64 / 30 / 14 px encode font metrics; at a 1400 px axis over 650.24 km (2.15 px/km) they mean full tier ≥ 29.7 km, km tier ≥ 13.9 km, number tier ≥ 6.5 km — ordinary 55–80 km days land at 118–172 px with room to spare, so only short days and narrow windows exercise the boundaries.
 
@@ -2269,7 +2287,7 @@ In the browser, build a plan containing days near each threshold (roughly 30 km,
 
 If either clips, raise the constant in `src/strip-geometry.js` and move the matching `labelTier` boundary fixtures in `src/strip-geometry.test.js` — they are private constants, nothing else depends on the values. Note in your report which tiers you measured and what you found; "they all fit" without having looked is worse than saying you couldn't check.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add index.html src/style.css src/main.js
@@ -2286,7 +2304,9 @@ git commit -m "feat: grid layout shell with the timeline strip mounted"
 
 > **From Task 8's quality review — becomes reachable when this task adds deletion:** the strip's focus restoration (`strip.js`, `focusedSelector` → re-focus after the innerHTML write) no-ops when the focused day or boundary no longer exists, dropping keyboard focus to `<body>` so the user restarts tabbing from the top of the document. Unreachable today (deleting requires focus on a control outside the axis), but once Delete lives in this panel, deleting the focused day should fall back to the nearest surviving index rather than losing focus. Also note: the strip is deliberately not a complete interface for very short days — this panel's `‹ ›` stepper is their accessible path and must not be cut.
 
-- [ ] **Step 1: Write the failing test**
+> **✅ DONE (2026-07-27)** — `071c7ba` (module + tests only), plus `03eeb77` and `4df74f5` from review. Every step touching `main.js` / `style.css` / `index.html` was deferred to the integration pass by design; those steps are annotated below.
+
+- [x] **Step 1: Write the failing test**
 
 Create `src/day-panel.test.js`:
 
@@ -2486,12 +2506,12 @@ describe('createDayPanel - day operations', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/day-panel.test.js`
 Expected: FAIL — `Failed to resolve import "./day-panel.js"`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `src/day-panel.js`. First move three functions out of `src/ui.js` verbatim — they belong to the legs and the stop prompt, which now live here:
 
@@ -2649,7 +2669,7 @@ export function createDayPanel({ el, callbacks = {} }) {
 
 `startBreakEdit` takes `callbacks` as a second parameter now (it used to close over `ui.js`'s `callbacks`); update its `callbacks.onEditBreak` call site accordingly. Keep its comment about the unchanged-value restore path — that behaviour (a plain blur must not eat the next click) is load-bearing.
 
-- [ ] **Step 4: Add the panel styles**
+- [x] **Step 4: Add the panel styles** — in the integration pass (`dd47a6c`), not here.
 
 Append to `src/style.css`:
 
@@ -2766,7 +2786,7 @@ Append to `src/style.css`:
 }
 ```
 
-- [ ] **Step 5: Wire it into `main.js` and drop the old sections**
+- [x] **Step 5: Wire it into `main.js` and drop the old sections** — in the integration pass (`b113e9f`), not here.
 
 In `src/main.js`, import and create the panel next to the `createStrip` call from Task 9:
 
@@ -2852,12 +2872,12 @@ Delete `pendingTarget`, `pendingTown`, `selectedDayIndex`, `selectedDay`, `exitD
 
 In `src/ui.js`, delete `renderControls`, `renderCustomStopPrompt`, `renderPendingBreaks`, `renderItinerary`, `dayLegs`, `dayFromName`, `setPendingTarget`, the `controlsEl.innerHTML` block and every listener bound to it, and remove them from the returned object.
 
-- [ ] **Step 6: Run the suite and verify in the browser**
+- [x] **Step 6: Run the suite and verify in the browser** — suite here; the browser half in the integration pass, which is the first build that mounted this panel.
 
 Run: `npm test` — expected PASS.
 Run: `npm run dev` — expected: the right panel shows only the focused day; clicking a strip block switches it; typing a distance resizes locally; Split and Delete work; `‹ ›` steps between days; a break at km 0 reads "at the start".
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/day-panel.js src/day-panel.test.js src/main.js src/ui.js src/style.css
@@ -2878,7 +2898,9 @@ EOF
 - Create: `src/places.js`, `src/places.test.js`
 - Modify: `src/main.js`, `src/ui.js`, `src/style.css`
 
-- [ ] **Step 1: Write the failing test**
+> **✅ DONE (2026-07-27)** — `978a286` (module + tests only), plus `32dcc99` and `7da20fb` from review. Shared-file steps deferred to the integration pass, as annotated below.
+
+- [x] **Step 1: Write the failing test**
 
 Create `src/places.test.js`:
 
@@ -3096,12 +3118,12 @@ describe('createPlaces - hover', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/places.test.js`
 Expected: FAIL — `Failed to resolve import "./places.js"`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `src/places.js`, consolidating what `ui.js` did across three containers into one. Move these verbatim as private helpers: `townMeta` (`src/ui.js:23-26`), `poiMeta` (`src/ui.js:36-39`), `rowActions` (`492-503`), `dayTagFor` (`651-658`), `highlightPoiRow` (`716-729`). The row markup comes from `renderTowns` (`575-581`), `poiRow` (`587-600`) and `favoriteRow` (`660-677`) with one change: every row carries `data-place-section` + `data-place-index` instead of `data-town-index` / `data-poi-index` / `data-fav-index`, so a single delegated listener replaces the three `wireRowList` calls.
 
@@ -3280,7 +3302,7 @@ The hover listeners move across from `src/ui.js:326-343` unchanged apart from th
 
 Note the `show-all` handler calls `expanded.add(...)` and then re-renders through `callbacks.onExpandSection` — `main.js` wires that to `renderPlaces()`. This keeps the module free of a self-render path, matching how every other panel here works.
 
-- [ ] **Step 4: Wire into `main.js`, delete the old left-panel code**
+- [x] **Step 4: Wire into `main.js`, delete the old left-panel code** — in the integration pass (`b113e9f`), not here.
 
 In `src/main.js` replace `renderPending` / `drawPois` / `renderFavoritesSection` with:
 
@@ -3332,7 +3354,7 @@ In `src/main.js` replace `renderPending` / `drawPois` / `renderFavoritesSection`
 
 Delete `ui.js`'s `renderTowns`, `renderPois`, `renderFavorites`, `renderPoisNote`, `highlightPoiRow`, `rowActions`, `wireRowList`, `poiRow`, `poiSection`, `favoriteRow`, `dayTagFor`, `townMeta`, `poiMeta` and the hover listeners, along with their entries in the returned object. `main.js` now calls `places.highlightPoiRow(...)` for the marker-hover path.
 
-- [ ] **Step 5: Move the left-panel CSS**
+- [x] **Step 5: Move the left-panel CSS** — in the integration pass (`dd47a6c`), not here.
 
 The existing `.poi`, `.town`, `.row-action*`, `.pois__*` rules already match the moved markup, so keep them. Add:
 
@@ -3381,12 +3403,12 @@ The existing `.poi`, `.town`, `.row-action*`, `.pois__*` rules already match the
 }
 ```
 
-- [ ] **Step 6: Run the suite and verify**
+- [x] **Step 6: Run the suite and verify** — suite here; the browser half in the integration pass.
 
 Run: `npm test` — expected PASS.
 Run: `npm run dev` — expected: left panel headed with the focused day and its km range; the four sections present; food capped at 40 with the footer; `show all` expands; switching focus collapses it again; clicking a candidate sets the overnight town **and** resizes the day (the strip block visibly changes width).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/places.js src/places.test.js src/main.js src/ui.js src/style.css
@@ -3464,7 +3486,9 @@ Tasks 10, 11 and 13 were executed in parallel, each scoped to its own module onl
 >
 > **Every `ui.js` line number in this section is stale — find the code by name.** Measured 2026-07-26 against the real file: `activePlanName` is at **174** (plan says 225), the `change` listener at **179** (plan says 230), the `click` listener at **195** (plan says 246), `renderPlans` at **633** (plan says 684). A uniform ~50-line drift from Task 5's `ui-util.js` extraction, which removed lines the plan was written against — the same drift the Task 11 review found in its own section. **And the integration pass moves `renderPlans` again**: it deletes `renderCustomStopPrompt`, `renderPendingBreaks`, `breakEditButton` and `startBreakEdit` (~150 lines, all *above* `renderPlans` and *below* the plans-bar state/listeners), so after integration the plans-bar block stays put around 174-208 while `renderPlans` moves up by roughly that much. The function names and the "verbatim move, `plansEl` → `el` rename only" instruction are correct and are what to trust.
 
-- [ ] **Step 1: Move the module**
+> **✅ DONE (2026-07-27)** — `753a146`, `2b886d7`, and `aae4f18`, which settles the question this section opens with: **"Reset trip" came back**, in the plans bar. "Remove last day" did not — Delete day supersedes it.
+
+- [x] **Step 1: Move the module**
 
 Create `src/plans-bar.js` holding `renderPlans`, the `currentPlans` / `activePlanId` tracking, `activePlanName`, and the two `plansEl` listeners — all four moved verbatim from `src/ui.js:222-259` (state + listeners) and `src/ui.js:684-705` (`renderPlans`), with `plansEl` renamed to `el` and `renderPlans` renamed to `render`:
 
@@ -3497,7 +3521,7 @@ export function createPlansBar({ el, callbacks = {} }) {
 
 The four `/* verbatim */` bodies are copied byte-for-byte from those line ranges — no logic changes, only the `plansEl` → `el` rename. Confirm afterwards that `git diff` shows no behavioural edit inside them.
 
-- [ ] **Step 2: Compose it from `ui.js`**
+- [x] **Step 2: Compose it from `ui.js`**
 
 `ui.js` is now only a facade. Its whole body becomes:
 
@@ -3584,16 +3608,16 @@ Then in `src/main.js`: delete the standalone `createStrip`, `createDayPanel` and
 
 Rename the call sites accordingly: `strip.render(...)` → `ui.renderStrip(...)`, `dayPanel.render(...)` → `ui.renderDay(...)`, `places.render(...)` → `ui.renderPlaces(...)`, and the map-hover path to `ui.highlightPoiRow(...)`. `onSelectFavorite` is gone — a favorite row's body click resolves to `onSelectPoi` inside `places.js`.
 
-- [ ] **Step 3: Style the header plans bar**
+- [x] **Step 3: Style the header plans bar**
 
 Replace the `.plans__bar` rule so it sits inline in the header (`display: flex; align-items: center; gap: 6px;` with no card background or bottom border), keeping `.plans__select`, `.plans__name` and `.plans__actions` as they are.
 
-- [ ] **Step 4: Run the suite and verify**
+- [x] **Step 4: Run the suite and verify**
 
 Run: `npm test` — expected PASS.
 Run: `npm run dev` — expected: plans control in the top-right; switch, rename, New, Duplicate, Delete all behave as before, and switching a plan focuses the new plan's last day.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/plans-bar.js src/ui.js src/main.js src/style.css
@@ -3607,7 +3631,9 @@ git commit -m "refactor: plans bar into the header, ui.js becomes a facade"
 **Files:**
 - Modify: `src/map.js`, `src/main.js`, `src/style.css`
 
-- [ ] **Step 1: Extend `map.js`**
+> **✅ DONE (2026-07-27)** — `9494d3c` (module only), then a long tail of fixes the browser found: `9291a1b` (a pin drag and the camera fighting each other), `df5063d`, `0870103` (a drag whose release the page never saw), `5b8efa8` (only book a frame the map actually drew), `e2fe639`, `d9393d7`. The camera-attribution blocker the final review caught is fixed in this batch — see the final-review section at the end.
+
+- [x] **Step 1: Extend `map.js`**
 
 Add to `createMap`:
 
@@ -3671,7 +3697,7 @@ Add to `createMap`:
 
 Mark the route dashed and muted by changing `ROUTE_STYLE` to `{ color: '#2563eb', weight: 3, opacity: 0.5, dashArray: '7 6' }`. Delete `setGhost`, `GHOST_ICON` and their entry in the returned object; add `setRouteHighlight`, `focusRange`, `fitWholeRoute`, `isWellInsideView`. Replace the initial `map.fitBounds(...)` call with `fitWholeRoute({ animate: false })`. Also delete the `.ghost-icon` rules from `style.css`.
 
-- [ ] **Step 2: Add the map overlay controls**
+- [x] **Step 2: Add the map overlay controls** — in the integration pass (`b113e9f`, `dd47a6c`), and at `z-index: 900` rather than the 500 written below.
 
 In `index.html`, inside `<div id="map">`, add:
 
@@ -3684,7 +3710,7 @@ In `index.html`, inside `<div id="map">`, add:
 
 Style `#map-controls` as an absolutely positioned column at `top: 10px; right: 10px; z-index: 500` (above Leaflet's panes) with `.map-btn` matching the dark translucent chips from the mockup.
 
-- [ ] **Step 3: Own the camera policy in `main.js`**
+- [x] **Step 3: Own the camera policy in `main.js`** — in the integration pass (`b113e9f`), and keyed on the focused index **and** its span rather than the index alone.
 
 ```js
   // Camera policy: fit the focused stretch when focus changes; during a drag
@@ -3784,11 +3810,11 @@ Wire the draggable pins:
     );
 ```
 
-- [ ] **Step 4: Verify in the browser**
+- [x] **Step 4: Verify in the browser** — in the integration pass; nothing mounted this module until then.
 
 Run: `npm run dev`. Expected: the focused day's stretch is thick and blue against the dashed rest; focusing another day reframes the map; dragging a strip handle keeps the endpoint visible without the map jumping, then reframes on release; dragging a numbered pin resizes the day; a manual pan stops the auto-fit until `⤢ this day`; `⤢ whole route` zooms out; clicking the route adds a stop to the focused day and the label prompt appears in the day panel.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add index.html src/map.js src/main.js src/style.css
@@ -3898,6 +3924,7 @@ EOF
 >
 > ### Still open for the user
 > - **The `PROGRAMMATIC_SETTLE_MS` follow-up.** Re-measured here: `zoomend` arrived with 497–997 ms of the 1000 ms window left, and a pan's `moveend` landed 700 ms in. No run was observed losing the `zoomend` race, but ~500 ms of margin under a busy main thread is thin, and thinner on slower hardware. The constant is left alone deliberately — widening it trades this failure for a real user zoom that never hands the camera over. The fix is the recorded one: count the settle events a move is expected to produce.
+>   **Answered by the final review, and not in the direction this predicted.** The margin measured here was never the problem: the window is armed when a move is CALLED, and what blew it was the delay before Leaflet's animation could START (967 ms, on the add-day tick). A second one-shot deadline now covers that gap and re-arms the settle window from the real `zoomstart`. `PROGRAMMATIC_SETTLE_MS` is still 1000 ms and settle-counting is still the general fix — see the final-review section at the end of this file.
 > - **Pin-drag `snap()` cost** — see above; measured as fine by feel, not optimised.
 > - **POI marker overlap on the Hamburg stretch** — unchanged and out of scope (a spiderfy/cluster question); the caps agreeing means marker→row hover is at least always *possible* now.
 
@@ -4023,7 +4050,7 @@ Expected: PASS, every file. Report the final test count in the commit message.
 
 > **Add to the walk (from the pin-drag latch fix `0870103`, which no test can fully reach):** start dragging a map day pin, Alt-Tab away while holding, release outside the window, come back and move the mouse — the drag must end immediately at the pin's position (one commit, no plan-rewriting on hover afterwards), the pins and both ⤢ buttons must still work, and the map must still pan. Also check the recovery's commit lands where a user would expect when the pin was mid-flight.
 >
-> **And (from the booked-frame fix `5b8efa8`):** hold a pin drag, change the focused day via a strip handle's ArrowRight (or a second finger on touch), release the pin — the camera must catch up to the newly focused day on the next render rather than staying where it was. And watch for any run where the camera stops following after rapid day-clicks — that would mean 1000 ms is still too short a settle window on this hardware (the positive-signal fix is the recorded follow-up).
+> **And (from the booked-frame fix `5b8efa8`):** hold a pin drag, change the focused day via a strip handle's ArrowRight (or a second finger on touch), release the pin — the camera must catch up to the newly focused day on the next render rather than staying where it was. And watch for any run where the camera stops following after rapid day-clicks. **This one was later observed for real** — on adding a second day, not on rapid clicks, and because the animation started late rather than settled late. Fixed in the final-review batch; the gesture to walk now is "add five days one at a time and watch the map re-frame after each".
 
 At 1512 x 900 with a fresh localStorage, walk the list and confirm each one:
 
@@ -4070,6 +4097,37 @@ and rewrites the README around the new loop.
 EOF
 git push
 ```
+
+---
+
+## Final branch review (2026-07-27)
+
+A whole-branch merge review of all fourteen tasks, run against a production build in Chromium. **Verdict: NOT READY**, on one blocker plus small findings. All of them are fixed in the batch that carries this section; the commits are in this branch immediately after it, and are deliberately not cited by SHA here — a previous pass in this project recorded SHAs it could not yet know and got them wrong.
+
+**The blocker — camera-follow died on the second day, silently.** `map.js` decides whether a `zoomend` was ours or the user's by a time window armed when a camera move is CALLED. The window was sized for the animation's own duration, but the gap that actually killed it was the one BEFORE the animation starts: on the add-day tick, `fitBounds` was called at t and Leaflet fired `zoomstart` at t+967, because the same tick was rebuilding ~600 place rows and up to 80 POI markers and the main thread never reached the animation. `zoomend` landed at t+1228, outside the window, so the app read its own fit as a manual zoom, set `cameraFollows = false`, and every later render early-returned — the map sat on day 1 while both panels showed day 5, with only `⤢ this day` able to break the tie.
+
+The fix keeps the window design (settle-counting is still the recorded general fix) and adds a second, one-shot deadline: how long we still expect an animation of our own, with the first `zoomstart` inside it re-arming the settle window from where the animation really began. `dragend` and the pan keys spend that deadline too, so a fit that panned without zooming cannot leave a re-arm for the user's next wheel to spring. Residual, accepted and commented in the code: a user zoom starting within 3 s of a no-zoom programmatic move is swallowed once — the same harmless direction the window already fails in, where the failure it replaces was silent and permanent. **No `moveend` listener was added**; that race was measured and reverted in Task 14 and nothing here changes it.
+
+Reproduced and re-verified in Chromium on a production build with fresh storage, modelling the starvation by hogging the main thread for ~900 ms immediately after the fit (which reproduces the reported timings: animation start ~960 ms, end ~1230 ms). Before: day 1 frames, then days 2–5 never do — their pins sit at (1215,764) through (1581,2106) on an 816×620 map and no further zoom animation runs at all. After: all five adds re-frame.
+
+**The others, all small:** `strip.js`'s `emitMove` swallowed the commit of a gesture whose day list was swapped under it, which left main.js's cross-call gesture latch closed and refused the NEXT boundary drag on either surface (map.js's equivalent path has no early return — the surfaces diverged exactly where the handler keeps state between calls); `places.js` printed `offsetKm` raw while the day panel rounded it, so one town read "0.05 km off route" on the left and "0.1 km off route" on the right at the same moment; the favorites glyph was an unguarded table lookup, so a stored `kind` of `constructor` rendered a function body into the row; and the kind-prefixed favorites key was spelled by hand in `places.js` while `favorites.js` defined it, with nothing binding the two.
+
+### Deviations from spec (deliberate, discovered in final review)
+
+- **The scale line renders only its two endpoints.** Spec §2's "focused boundary's km called out" was dropped. The strip already prints the focused day's numbers in its own block and in the day panel.
+- **Label tiers shipped at 88 / 70 / 28 px**, not the spec's 64 / 30 / 14. Measured against real Archivo in Chromium, where every km-tier label clipped. Task 9 Step 5b has the measurement; the knock-on effect on break glyphs was fixed by hoisting them to the axis.
+- **`customStopDraft` still exists and is needed.** The spec described it as removed with day mode. It is the draft a route click leaves awaiting its label, and the day panel renders the prompt from it.
+- **The `createUI` facade was never built.** `main.js` imports the four render modules directly, and `ui.js` is `createBanner` plus two re-exports. This is the better shape — a pass-through layer that only forwards is a place for drift to hide, and the layering rules hold without it. **The re-export is load-bearing:** `itinerary.test.js`'s cross-module key contract test imports `./ui.js`, so deleting it breaks a test that exists to catch exactly the kind of drift this section is about.
+
+### Observed and deliberately left alone
+
+- **Editing a boundary from the strip does not move focus to that day.** Defensible and intended: the strip is the whole-trip surface, and a drag there is a trip-shape edit, not a change of what you are reading. Focus follows a block CLICK, which is the gesture that means "show me this day".
+
+### Follow-ups (pre-existing on master, NOT introduced by this branch)
+
+- **`storage.js:231-232` — `load()` persists unconditionally, so an unreadable blob is destroyed on read.** A corrupt or forward-schema payload yields the empty default and is then written straight back over the user's data, with no backup key. Contrast the v1 migration path at `:145`, which preserves `LEGACY_KEY`. The fix is to write only when the load actually migrated something, and to park anything unparseable under a dated key first.
+- **`main.js:711-714` — a data-load failure leaves a blank shell** while the comment there claims the opposite. If `route`/`towns` fail, boot stops with nothing on screen and nothing said.
+- **`main.js` has no test file at all.** Two behaviours in it are load-bearing and unpinned: the withheld-persist-at-boot discipline (`:225-228`, which exists because persisting a hydrate-failure empties the stored plan) and the plan-generation guard (`:549-568`, which fixed a MEASURED cross-plan corruption — dragging plan A's day-2 pin and switching to B mid-drag rewrote B's days). Both are the kind of thing a later refactor removes as dead code.
 
 ---
 
