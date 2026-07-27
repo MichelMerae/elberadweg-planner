@@ -44,26 +44,45 @@ const WHOLE_ROUTE_PADDING_PX = [28, 28];
 // keeps a town or two in frame.
 const FOCUS_MAX_ZOOM = 13;
 
-// How long after a camera move of our own a zoomend still counts as ours.
-// Leaflet's pan/zoom animations run 250ms with a late-scheduled 250ms fallback
-// timer, but the gap that matters is the measured one: fitBounds to zoomend in
-// Chromium, with a full render pass in between, came in at 2, 209, 305, 311, 319
-// and 374ms — and once past 400, which read our own fit as the user's and left
-// camera-follow off for the rest of the session. A second keeps the failure on
-// the harmless side: a wheel-zoom inside the window is missed once and the next
-// step of the same gesture reports it, where a missed settle strands the camera
-// silently. The honest fix is a positive signal — counting the settle events a
-// move is expected to produce — which needs more design than a constant.
+// How long a camera move of our own stays attributable to us, in two parts,
+// because a move has two gaps that can each run long and only one of them is the
+// animation.
 //
-// Re-measured in Task 14's verification pass, in an automated Chromium with a busy
-// main thread: zoomend arrived with 497-997ms of the window left, and a plain
-// animated PAN's moveend landed 700ms in — which is why moveend is not a signal
-// here (see the listener note below). No run was observed losing the zoomend race,
-// but ~500ms of margin on a 1000ms window is not much, and it is thinner on slower
-// hardware. Left at a second deliberately: widening it trades this failure for its
-// opposite, a real user zoom inside the window that never hands the camera over.
-// The settle-counting fix above is the recorded follow-up.
+// PROGRAMMATIC_SETTLE_MS is the settling gap. Leaflet's pan/zoom animations run
+// 250ms with a late-scheduled 250ms fallback timer, but the measured number is
+// what this is set from: fitBounds to zoomend in Chromium, with a full render pass
+// in between, came in at 2, 209, 305, 311, 319 and 374ms — and once past 400,
+// which read our own fit as the user's and left camera-follow off for the rest of
+// the session. Re-measured in Task 14's verification pass in an automated Chromium
+// with a busy main thread: zoomend arrived with 497-997ms of the window left, and
+// a plain animated PAN's moveend landed 700ms in — which is why moveend is not a
+// signal here (see the listener note below).
+//
+// PROGRAMMATIC_START_MS is the gap the single-window version never accounted for,
+// and it is the one that shipped the bug. Measured on a production build with
+// fresh storage: adding the second day called fitBounds at t and Leaflet fired
+// zoomstart at t+967 — the same tick was rebuilding ~600 place rows and up to 80
+// POI markers, and the main thread never reached the animation — so zoomend landed
+// at t+1228, 228ms outside a window armed when the call was MADE. Camera-follow
+// went off silently for the session, and only "⤢ this day" could get it back. That
+// delay is main-thread starvation, not animation: it has no natural bound, so it
+// cannot be covered by widening the settle window (which would trade this failure
+// for its opposite — a real user zoom inside a much longer window that never hands
+// the camera over). Instead the first zoomstart inside the start deadline is taken
+// as our animation finally beginning, and re-arms the settle window from there.
+//
+// Three seconds is generous for a render that has to finish first, and short
+// enough to bound the residual: a programmatic move that produces no zoom at all
+// leaves the deadline unspent, so a user zoom that begins inside those 3s is
+// swallowed ONCE — the same harmless direction the settle window already fails in
+// (the next step of the gesture reports it), where the failure it replaces was
+// silent and permanent. The unambiguous user signals clear the deadline early
+// (dragend and the pan keys, below), so an idle map cannot sit on one.
+//
+// The honest fix is still a positive signal — counting the settle events a move is
+// expected to produce — and still needs more design than a pair of constants.
 const PROGRAMMATIC_SETTLE_MS = 1000;
+const PROGRAMMATIC_START_MS = 3000;
 
 // The keys Leaflet's keyboard handler pans and zooms the map with. Pressing one
 // with the map focused is the user taking the camera, exactly as a drag is.
@@ -171,8 +190,11 @@ function cappedByKind(pois, kind) {
  *   enters a POI marker (with the POI record) and again with null when it leaves.
  * @param {() => void} [opts.onUserMove] - fired when the user pans or zooms the
  *   map themselves. A pan is always theirs; a zoom is attributed to the app for
- *   PROGRAMMATIC_SETTLE_MS after any move the app made, so a user zoom inside
- *   that window is missed rather than a settling animation being mistaken for one.
+ *   PROGRAMMATIC_SETTLE_MS after any move the app made — measured from the move's
+ *   own zoomstart if one arrives within PROGRAMMATIC_START_MS, since that
+ *   animation can start long after the call that asked for it. So a user zoom
+ *   inside either window is missed rather than a settling animation being
+ *   mistaken for one.
  * @returns {{
  *   setRouteHighlight: (coords: Array<[number, number]>|null) => void,
  *   setDayPins: (
@@ -228,6 +250,11 @@ export function createMap({
   // interrupting move extend the suppression instead of ending it.
   let programmaticUntil = 0;
 
+  // How long we are still willing to believe that the last move of ours has an
+  // animation coming. One-shot: the first zoomstart inside it is that animation
+  // (see the listener), and spends it.
+  let programmaticStartUntil = 0;
+
   // Reports whether the move ran. A caller that records "this stretch is framed"
   // off a refused move would never ask for that frame again — it has to hear the
   // refusal, not infer it.
@@ -236,7 +263,12 @@ export function createMap({
     // makes itself (Marker's autoPan), so any camera move of ours would desync
     // the pin from the cursor and skew the km it reports. Wait for the release.
     if (draggingPinIndex !== null) return false;
-    programmaticUntil = performance.now() + PROGRAMMATIC_SETTLE_MS;
+    // A second move before the first one's animation started re-arms both: the
+    // suppression extends rather than ending, same as it does for the settle
+    // window on an interrupting move.
+    const now = performance.now();
+    programmaticUntil = now + PROGRAMMATIC_SETTLE_MS;
+    programmaticStartUntil = now + PROGRAMMATIC_START_MS;
     fn();
     return true;
   }
@@ -244,7 +276,24 @@ export function createMap({
   // The map fires dragend from one place only — the user finishing a pan — so it
   // never needs the window. Nothing programmatic can produce it.
   map.on('dragend', () => {
+    // Also ends the wait for our own animation. A fit that panned without zooming
+    // leaves that deadline unspent, and a pan says plainly that the camera is the
+    // user's now — leaving it live would hand them a re-arm for their next
+    // wheel-zoom to spring.
+    programmaticStartUntil = 0;
     if (typeof onUserMove === 'function') onUserMove();
+  });
+
+  // Our own move's animation, starting at last. The settle window was armed when
+  // the move was CALLED, and on a busy main thread the animation can start after
+  // it has already expired (967ms, measured — see PROGRAMMATIC_START_MS), so
+  // re-arm it from where the animation really begins. One-shot: the deadline is
+  // spent here, so the next zoomstart with no move of ours behind it is the
+  // user's and its zoomend says so.
+  map.on('zoomstart', () => {
+    if (performance.now() >= programmaticStartUntil) return;
+    programmaticUntil = performance.now() + PROGRAMMATIC_SETTLE_MS;
+    programmaticStartUntil = 0;
   });
 
   map.on('zoomend', () => {
@@ -272,6 +321,7 @@ export function createMap({
   // under them where a mouse pan would have been respected.
   map.getContainer().addEventListener('keydown', (e) => {
     if (!PAN_KEYS.has(e.key)) return;
+    programmaticStartUntil = 0; // as unambiguous as a drag: same reason as dragend
     if (typeof onUserMove === 'function') onUserMove();
   });
 

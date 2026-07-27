@@ -60,9 +60,20 @@ const noopCtx = new Proxy(
   },
 );
 
-// Comfortably beyond PROGRAMMATIC_SETTLE_MS, whatever map.js has it tuned to, so
-// these tests don't sit on the boundary the next tuning pass moves.
+// Comfortably beyond both of map.js's deadlines, whatever it has them tuned to,
+// so these tests don't sit on the boundary the next tuning pass moves.
 const WELL_PAST_WINDOW = 30000;
+
+// A driveable performance.now(), because every deadline in map.js is measured
+// against it. The tests that only need "long afterwards" pin the clock with a
+// plain mockReturnValue; the attribution ones below have to step it.
+function fakeClock() {
+  let now = performance.now();
+  vi.spyOn(performance, 'now').mockImplementation(() => now);
+  return (ms) => {
+    now += ms;
+  };
+}
 
 // Two permanent mutations of shared state, both deliberate:
 //
@@ -289,6 +300,123 @@ describe('createMap - who moved the camera', () => {
     expect(api.focusRange([])).toBe(false);
     expect(api.focusRange(null)).toBe(false);
     expect(api.fitWholeRoute({ animate: false })).toBe(true);
+  });
+});
+
+// The measured production failure: adding a second day fired zoomstart 967ms
+// after the fitBounds call — the same tick's render work starved the main thread
+// before Leaflet's animation could start — and the zoomend at 1228ms landed past a
+// window armed when the call was MADE. The app read its own fit as the user's and
+// camera-follow went off for the rest of the session, silently.
+describe('createMap - a programmatic zoom whose animation starts late', () => {
+  // Arms the deadlines and emits nothing, which is what a real fit does in a
+  // browser: the animation starts a frame or more after the call. jsdom runs the
+  // fit synchronously instead, so its zoomstart would land INSIDE
+  // moveProgrammatically — the one timing production never produces, and the only
+  // one the single-window code survived.
+  function programmaticFit(api) {
+    vi.spyOn(capturedMap, 'fitBounds').mockImplementation(() => {});
+    expect(api.focusRange(HAMBURG_END)).toBe(true);
+  }
+
+  it('counts the zoom as ours when the animation only started 967ms after the fit', () => {
+    const onUserMove = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onUserMove });
+    const advance = fakeClock();
+    advance(WELL_PAST_WINDOW); // the constructor's own fit is long settled
+
+    programmaticFit(api);
+    advance(967);
+    capturedMap.fire('zoomstart'); // the animation, at last
+    advance(261);
+    capturedMap.fire('zoomend'); // 1228ms after the call, and still ours
+
+    expect(onUserMove).not.toHaveBeenCalled();
+  });
+
+  // The other direction, which is the one a re-arm can quietly break: a zoom with
+  // no programmatic move behind it is the user's, whether or not it announces
+  // itself with a zoomstart first.
+  it('hands the camera over for a zoom with no move of ours behind it', () => {
+    const onUserMove = vi.fn();
+    createMap({ routeFeature: ROUTE, onUserMove });
+    const advance = fakeClock();
+    advance(WELL_PAST_WINDOW);
+
+    capturedMap.fire('zoomstart');
+    capturedMap.fire('zoomend');
+
+    expect(onUserMove).toHaveBeenCalledTimes(1);
+  });
+
+  // A fit that produced no zoom at all leaves the start deadline unspent. It must
+  // expire on its own, or every later user zoom would spring a re-arm that was
+  // never meant for it.
+  it('stops waiting for an animation that never came', () => {
+    const onUserMove = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onUserMove });
+    const advance = fakeClock();
+    advance(WELL_PAST_WINDOW);
+
+    programmaticFit(api);
+    advance(4000); // past any wait for our animation to start
+    capturedMap.fire('zoomstart');
+    advance(100);
+    capturedMap.fire('zoomend');
+
+    expect(onUserMove).toHaveBeenCalledTimes(1);
+  });
+
+  // One-shot: the first zoomstart IS our animation, so it consumes the wait. A
+  // second one is a new gesture, and only a fresh programmatic move can cover it.
+  it('re-arms for the first zoomstart only', () => {
+    const onUserMove = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onUserMove });
+    const advance = fakeClock();
+    advance(WELL_PAST_WINDOW);
+
+    programmaticFit(api);
+    advance(500);
+    capturedMap.fire('zoomstart'); // ours
+    advance(100);
+    capturedMap.fire('zoomend');
+    expect(onUserMove).not.toHaveBeenCalled();
+
+    advance(1400); // the re-armed settle window has expired
+    capturedMap.fire('zoomstart'); // the user's, inside the old start deadline
+    advance(100);
+    capturedMap.fire('zoomend');
+
+    expect(onUserMove).toHaveBeenCalledTimes(1);
+  });
+
+  // A pan is unambiguous, and it says the wait is over: whatever our fit was going
+  // to animate, it isn't going to now.
+  it.each([
+    ['a drag', () => capturedMap.fire('dragend')],
+    [
+      'a pan key',
+      () =>
+        capturedMap
+          .getContainer()
+          .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })),
+    ],
+  ])('drops the wait when the user takes the camera with %s', (_label, takeCamera) => {
+    const onUserMove = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onUserMove });
+    const advance = fakeClock();
+    advance(WELL_PAST_WINDOW);
+
+    programmaticFit(api);
+    takeCamera();
+    expect(onUserMove).toHaveBeenCalledTimes(1);
+
+    advance(1500); // the settle window is gone; nothing may re-arm it now
+    capturedMap.fire('zoomstart');
+    advance(100);
+    capturedMap.fire('zoomend');
+
+    expect(onUserMove).toHaveBeenCalledTimes(2);
   });
 });
 
