@@ -75,6 +75,13 @@ async function boot() {
   // focused day. Not persisted.
   let customStopDraft = null;
 
+  // Which plan the itinerary currently holds: hydrateActivePlan bumps it, so a
+  // boundary gesture can tell whether the plan it started in is still loaded.
+  // gestureGeneration is the generation the open gesture began in, or null when no
+  // gesture is open. See handleMoveBoundary.
+  let planGeneration = 0;
+  let gestureGeneration = null;
+
   // Clamped at both ends: three modules call handleFocusDay, and an index below 0
   // would survive to focusedDay() as undefined — every panel would report "no day
   // focused" while the plan plainly has days.
@@ -232,6 +239,9 @@ async function boot() {
     // Object form so the new plan's breaks replace the previous plan's — the
     // array form would leak breaks across a plan switch.
     itinerary.hydrate({ days: active?.days ?? [], breaks: active?.breaks ?? [] });
+    // A different set of days is loaded, so any boundary gesture still in flight
+    // belongs to the plan that just left (handleMoveBoundary).
+    planGeneration += 1;
     // A different plan's days: the draft stop belongs to a day that no longer
     // exists, and clearing focus makes clampFocus pick the new plan's last day
     // rather than carrying over an index that merely still fits.
@@ -516,16 +526,35 @@ async function boot() {
     renderAll();
   }
 
+  // A boundary gesture — a map pin or a strip handle, held with finger A while
+  // finger B works the header — can outlive the plan it started in, and the latched
+  // index then goes wrong in two different ways. Both guards are needed; neither
+  // subsumes the other:
+  //
+  //   existence   the day is gone. Reset trip, Delete plan and Delete day empty or
+  //               shorten the plan the gesture is already in, and moveBoundary
+  //               asserts on an index past the end. Same guard, same reason, as
+  //               strip.js's emitMove. A same-plan deletion never changes the
+  //               generation, so only this layer sees it.
+  //   generation  the day still exists — in a different plan. A switch mid-gesture
+  //               leaves the index pointing at the NEW plan's day, which passes the
+  //               existence check whenever that plan is at least as long, and then
+  //               rewrites a day the user never touched. Measured: dragging plan A's
+  //               day-2 pin and switching to B mid-drag took B from [60, 70, 65] to
+  //               [60, 107.7, 27.3] on release, silently.
   function handleMoveBoundary(index, endKm, { commit } = {}) {
-    // A latched boundary can outlive the day it belongs to: Reset trip, Delete
-    // plan and a plan switch all empty or replace the days mid-gesture — finger A
-    // holding a map pin, finger B on a header button — and moveBoundary asserts on
-    // the stale index. Same guard, same reason, as strip.js's emitMove.
-    if (!itinerary.getDays()[index]) {
-      // map.js suppresses the pin rebuild while a pin drag is latched, counting on
-      // the commit render to do it. That render is the one being declined here, so
-      // the release has to render anyway or the vanished plan's pins stay on the
-      // map — draggable, and pointing at days that no longer exist.
+    // A preview with no gesture open starts one. A keyboard nudge arrives as a lone
+    // commit: it opens nothing, and the check below passes trivially.
+    if (!commit && gestureGeneration === null) gestureGeneration = planGeneration;
+    const fromAnotherPlan = gestureGeneration !== null && gestureGeneration !== planGeneration;
+    // Every commit ends the gesture, refused or not, so the next one starts clean.
+    if (commit) gestureGeneration = null;
+    if (fromAnotherPlan || !itinerary.getDays()[index]) {
+      // Not redundant with the renders the switch or the reset already ran: while a
+      // pin drag is latched setDayPins refuses every rebuild, and map.js clears
+      // draggingPinIndex just BEFORE handing us this commit — which makes this the
+      // first render able to sweep the pins the gesture came from. Measured with
+      // this line removed: 3 draggable pins left on an emptied plan, 0 with it.
       if (commit) renderAll();
       return;
     }
