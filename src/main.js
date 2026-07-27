@@ -60,7 +60,7 @@ async function boot() {
   // key already holds any pins migrated from the v1 schema in sub-project 1).
   const favorites = createFavorites({ storage: window.localStorage });
 
-  // Local mirror of the plans list ({id, name}) + active id for renderPlans.
+  // Local mirror of the plans list ({id, name}) + active id for renderPlansBar.
   // Kept in sync from each mutation's return value rather than re-reading the
   // store, so a quota-failed persist doesn't drop an in-memory plan on reload.
   let planList = initial.plans.map((p) => ({ id: p.id, name: p.name }));

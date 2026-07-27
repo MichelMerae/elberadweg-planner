@@ -756,9 +756,13 @@ describe('createItinerary - break re-bucketing across day edits', () => {
   });
 });
 
-// Break removal in the UI matches ui.js row keys (name@km) against
-// itinerary's breakKey. ui.js can't import itinerary.js (zero-imports rule),
-// so this test is the only thing pinning the two conventions together.
+// Break removal in the UI matches the render modules' row keys (name@km, from
+// ui-util.js, re-exported by ui.js) against itinerary's breakKey. The two are
+// character-identical implementations of one format, and deliberately stay that
+// way: ui-util.js imports no data module and the model imports no render helper,
+// so neither can import the other without inverting a layer. This test is the
+// mechanism that keeps them from drifting — the whole reason it can be left as a
+// duplication.
 describe('cross-module key contract', () => {
   it('ui townKey/poiKey and itinerary breakKey produce identical keys', async () => {
     const { townKey, poiKey } = await import('./ui.js');

@@ -128,7 +128,9 @@ Stopgap for volume: each section renders at most **40** rows, ordered as today, 
 
 ### 8. Plans bar
 
-Moves into the full-width header — it is trip-level and the right panel is now day-level. Contents unchanged (select, name field, New / Duplicate / Delete) to keep this project's scope on layout; the redundant select-plus-name-field pairing is noted as a separate cleanup.
+Moves into the full-width header — it is trip-level and the right panel is now day-level. Four actions: select, name field, New / Duplicate / **Reset trip** / **Delete plan**.
+
+> **Amended during Task 14 (2026-07-27).** This section originally said "contents unchanged (select, name field, New / Duplicate / Delete)", to keep the project's scope on layout. That could not survive §9: deleting `renderControls` took "Reset trip" and "Remove last day" with it, leaving no way to empty a plan short of deleting its days one at a time. Reset trip is therefore restored here, in the bar, because emptying the plan you are in is a whole-trip act and the day panel only ever addresses one day — and "Delete" is relabelled "Delete plan" so the two destructive actions sitting side by side name what each one destroys. "Remove last day" is deliberately NOT restored: Delete day on the focused day covers it, and the strip makes which day is last obvious. The redundant select-plus-name-field pairing is still noted as a separate cleanup.
 
 ### 9. What is removed
 

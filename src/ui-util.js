@@ -14,6 +14,11 @@ export function townKey(town) {
 
 // Stable identity for a POI, mirroring townKey — used to match a pending pin to
 // its row (poisInRange returns fresh objects each render).
+//
+// Character-identical to itinerary.js's breakKey, and staying that way: this
+// module imports no data module and the model imports no render helper, so
+// neither side can import the other without inverting a layer. The cross-module
+// key contract test in itinerary.test.js is what holds the two together.
 export function poiKey(poi) {
   return poi ? `${poi.name}@${poi.routeDistanceKm}` : null;
 }
