@@ -3809,7 +3809,7 @@ EOF
 **Files:**
 - Modify: `src/style.css`, `README.md`, `docs/superpowers/plans/2026-07-26-timeline-layout.md`
 
-> ## ✅ DONE (2026-07-27) — 472 tests, 16 files. Commits `8b35b29`, `52073db`, `c7e9290`, `b65e4d0`, `42ae2d5`, `374fe4d`, `a983483`, `02a297b`, `f9f3f1f`, `d9393d7`, `f0398bb`. Not pushed, branch not merged — that is the user's call.
+> ## ✅ DONE (2026-07-27) — 472 tests, 16 files. Commits `9e43d10`, `4de9e56`, `c7e9290`, `70e0898`, `42ae2d5`, `374fe4d`, `a983483`, `02a297b`, `f9f3f1f`, `d9393d7`, `f0398bb`. Not pushed, branch not merged — that is the user's call.
 >
 > **Three findings came out of the browser pass that no test had caught, and two of them were mine:**
 >
@@ -3818,9 +3818,9 @@ EOF
 > 3. **This task's own `moveend` listener killed camera-follow** (`d9393d7`). Reverted. The standing comment against that listener was right: gating on `programmaticUntil` is not enough, because the window is sized for `zoomend` and pans settle later — instrumented in Chromium, an animated pan's `moveend` landed 700 ms into the 1000 ms window, and every camera move of ours ends in a `moveend`, so the race ran on every fit. Losing it once switches camera-follow off silently for the session, which is exactly what the window mechanism exists to prevent. The keyboard-pan gap it was meant to close is now served by the narrow signal instead: a keydown on the map container for the keys Leaflet pans with. No window, no race, and the pin-drag autoPan storm cannot reach it.
 >
 > ### Ledger — Task 8's review
-> - ~~Split the markup builders out of `strip.js`~~ **DONE** `8b35b29`: `strip-markup.js` holds `summaryMarkup`/`axisMarkup`/`scaleMarkup` as pure functions of `(state, layout, axis, activeIndex)`; `strip.js` 491 → 350 lines. All naming nits with it — `handleMarkup`, `axisWidth()`, `emitMove(…, { commit })`, `announce` above its caller. The existing suite passed unmodified, which is what made it safe.
-> - ~~"Nowhere legal to go" encoded three times~~ **DONE (2 of 3)** `8b35b29`: `boundaries.js` grows `boundaryWindow` (returns null), and `strip.js`'s `proposeKm` reads it. The itinerary's own check **deliberately stays** — it asserts the OUTPUT is well-formed *after* rounding, which is a different question and the last thing between a squeezed plan and a stored inverted day. Recorded in a comment there. Also fixed a real edge in passing: reading it off the floored window refused a pair spanning exactly 2 × MIN_DAY_KM, whose midpoint is legal.
-> - ~~`pointerAxis` overrides the `measureWidth` injection~~ **DONE** `8b35b29`.
+> - ~~Split the markup builders out of `strip.js`~~ **DONE** `9e43d10`: `strip-markup.js` holds `summaryMarkup`/`axisMarkup`/`scaleMarkup` as pure functions of `(state, layout, axis, activeIndex)`; `strip.js` 491 → 350 lines. All naming nits with it — `handleMarkup`, `axisWidth()`, `emitMove(…, { commit })`, `announce` above its caller. The existing suite passed unmodified, which is what made it safe.
+> - ~~"Nowhere legal to go" encoded three times~~ **DONE (2 of 3)** `9e43d10`: `boundaries.js` grows `boundaryWindow` (returns null), and `strip.js`'s `proposeKm` reads it. The itinerary's own check **deliberately stays** — it asserts the OUTPUT is well-formed *after* rounding, which is a different question and the last thing between a squeezed plan and a stored inverted day. Recorded in a comment there. Also fixed a real edge in passing: reading it off the floored window refused a pair spanning exactly 2 × MIN_DAY_KM, whose midpoint is legal.
+> - ~~`pointerAxis` overrides the `measureWidth` injection~~ **DONE** `9e43d10`.
 > - ~~`press()` stops at keydown~~ **DONE** `a983483`: an `activate` helper does keydown plus the synthesised click, and clicks only real buttons as a browser does. It pins a path nothing reached: Enter on a boundary handle focuses its day *because* the arrow branch declines the key without preventing the default. Mutation-checked.
 > - ~~`aria-valuenow` outside `[min, max]`~~ **DONE** `a983483`: the reported range widens to contain the value. A no-op for every well-formed plan, and what the model refuses is unchanged.
 > - ~~Collapsed-window commit-in-place branch is untested insurance~~ **RECORDED IN CODE** `a983483` — the comment now says so, so the silence is not read as coverage.
@@ -3834,15 +3834,15 @@ EOF
 > - ~~Residual: a latched `draggingPinIndex` means a dead map~~ **RECORDED IN CODE** `c7e9290`, in the recovery function, together with the note not to "simplify" its three redundant insurance lines.
 >
 > ### Ledger — Task 10's review (day-panel.js)
-> - ~~Lift `glyphFor` into `ui-util.js`~~ **DONE** `8b35b29`. The panel's `|| '☕'` also reached `Object.prototype` for a hand-edited `kind: "toString"`.
-> - ~~`dayCount` has no default~~ **DONE** `52073db` (`= 0`, fails safe, tested).
-> - ~~Break exactly at the day's end duplicates a "0 km" leg~~ **DONE** `52073db`: reads "at the day end". Verified in the browser by ☕-ing the overnight town, which is the easy way to reach it.
-> - ~~The `done`-guard comment names a blur that never fires~~ **DONE** `52073db`: the comment now says what it really guards (Esc's own refocus), states the mid-edit discard, and says why it differs from the custom-stop prompt. Pinning test added — and it is the test that later caught finding 2.
+> - ~~Lift `glyphFor` into `ui-util.js`~~ **DONE** `9e43d10`. The panel's `|| '☕'` also reached `Object.prototype` for a hand-edited `kind: "toString"`.
+> - ~~`dayCount` has no default~~ **DONE** `4de9e56` (`= 0`, fails safe, tested).
+> - ~~Break exactly at the day's end duplicates a "0 km" leg~~ **DONE** `4de9e56`: reads "at the day end". Verified in the browser by ☕-ing the overnight town, which is the easy way to reach it.
+> - ~~The `done`-guard comment names a blur that never fires~~ **DONE** `4de9e56`: the comment now says what it really guards (Esc's own refocus), states the mid-edit discard, and says why it differs from the custom-stop prompt. Pinning test added — and it is the test that later caught finding 2.
 > - ~~Test consolidation: a `renderDay(overrides)` helper; `DAY`'s unread `targetKm`~~ **DECIDED AGAINST**: the repeated arguments are the state each test asserts against, a helper moves it out of view, and rewriting 18 call sites at the end of the project risks changing what they pin for no behaviour gain. The `targetKm` is kept deliberately — it is the shape main.js really passes.
 > - ~~`poiKey` / `breakKey` duplication~~ **DECIDED AGAINST** `374fe4d`, with both sides now saying why: `ui-util.js` imports no data module and the model imports no render helper, so neither can import the other without inverting a layer. The cross-module contract test is the mechanism that keeps them identical; its comment was itself stale (named `ui.js`) and is fixed.
-> - ~~Two unpinned focus properties~~ **DONE** `52073db`: both tests written, both mutants verified failing (the twin fallback landing on **Delete day**, and the `Math.min` clamp).
-> - ~~Inline note editor drops focus to `<body>`~~ **DONE** `52073db` — and see finding 2, which this fix caused and which is now fixed and tested.
-> - ~~Cosmetic: two test titles lost apostrophes; `restoreFocus`'s unreachable guard~~ **DONE** `52073db`.
+> - ~~Two unpinned focus properties~~ **DONE** `4de9e56`: both tests written, both mutants verified failing (the twin fallback landing on **Delete day**, and the `Math.min` clamp).
+> - ~~Inline note editor drops focus to `<body>`~~ **DONE** `4de9e56` — and see finding 2, which this fix caused and which is now fixed and tested.
+> - ~~Cosmetic: two test titles lost apostrophes; `restoreFocus`'s unreachable guard~~ **DONE** `4de9e56`.
 >
 > ### Ledger — the integration pass and its review
 > - ~~The two POI caps disagree~~ **DONE** `c7e9290`: both keep the **first 40 in route order**. Route order is the panel's reading order, makes "the first 40 along this stretch" an explicable cap, and makes the two sets identical by construction so every marker has a row to light up. The constants stay duplicated (map.js imports nothing but Leaflet); each names the other. `places.js`'s "nearest" wording was itself wrong and is fixed.
@@ -3850,33 +3850,33 @@ EOF
 > - ~~Left-panel rows wrap the trailing absolute km~~ **DONE** `42ae2d5`: `.meta__abs` is `nowrap`. Verified in the browser.
 > - ~~Stale dev servers~~ **N/A** — verified against port 5310, started here, confirmed serving this commit before trusting it.
 > - **Pin drags still walk the whole route per pointermove** — **LEFT AS IS, deliberately.** The item says "fix if pin drags feel heavy". They do not: dragged in Chromium, the pin tracks the cursor and the commit lands where it sits. Windowing the search around the previous km is a real optimisation, but it is a new index-adjacent code path added on feel rather than measurement, in a cleanup task. **Open for the user** if it feels heavy on slower hardware.
-> - ~~`route.js`: the dead `segKm > 0` guard, and the untested `startKm` clamp~~ **DONE** `b65e4d0`: the clamp has its test (two negative bounds are an ascending range until they clamp); the guard stays, marked as deliberate — duplicate consecutive vertices are ordinary in OSM data and a zero-length segment there divides by zero.
-> - ~~`stretchCoords` returns aliased arrays~~ **DOCUMENTED and pinned** `b65e4d0`.
+> - ~~`route.js`: the dead `segKm > 0` guard, and the untested `startKm` clamp~~ **DONE** `70e0898`: the clamp has its test (two negative bounds are an ascending range until they clamp); the guard stays, marked as deliberate — duplicate consecutive vertices are ordinary in OSM data and a zero-length segment there divides by zero.
+> - ~~`stretchCoords` returns aliased arrays~~ **DOCUMENTED and pinned** `70e0898`.
 > - ~~`map.setTownHighlight` is newly dead~~ **DELETED** `c7e9290`, API + `TOWN_ICON` + the `.town-icon__dot` rule. Not wired: the day pin already marks the day's end, the panel names the town, and the strip labels it — a fourth marker would be new behaviour added in a cleanup task. It can come back deliberately.
 > - ~~`.map-btn` z-index comment overstates 900~~ **DONE** `42ae2d5`: raised to 1001, which clears Leaflet's corner containers by construction rather than by the top-right corner happening to be empty.
 > - ~~Residual: `setPoiMarkers` strands `tempPoiMarker`~~ **FIXED** `c7e9290` (a shared `clearPoiHighlight`), with a test. Cheaper than leaving a known leak unproven.
 > - ~~Cosmetic: `.places__scope`'s raw `#1d1a14`; `.day-panel--empty` unstyled~~ **DONE** `42ae2d5`: `--surface-sunk` replaces four copies, and the empty state has a rule now that it holds a button.
 > - **`itinerary`'s mutators throw and main.js wraps none of them** — **KEPT THAT WAY**, per the note's own advice. The one guard added this pass (`pointAtKm`'s finite check) is on the route helpers, not the mutators.
-> - ~~`pointAtKm`/`stretchCoords` lost `pointAtDistance`'s loud failure~~ **DONE** `b65e4d0`: throws on a non-finite km. Also closes `stretchCoords`, whose "[] for an inverted range" rule looked like it covered NaN and did not.
+> - ~~`pointAtKm`/`stretchCoords` lost `pointAtDistance`'s loud failure~~ **DONE** `70e0898`: throws on a non-finite km. Also closes `stretchCoords`, whose "[] for an inverted range" rule looked like it covered NaN and did not.
 > - **The camera's drag nudge tracks the FOCUSED day, not the boundary being dragged** — **DECIDED AGAINST.** Threading the dragged index through `renderAll` into `renderCamera` is cheap, but it makes the camera pan to a boundary while the highlight sits on a different day, and on release nothing reframes (that day's key never changed) — leaving the map parked on one day with another highlighted. Worse than no help. Grabbing a handle is one click from focusing that day.
 > - ~~Recovery watcher can't filter by pointer~~ **RECORDED IN CODE** `c7e9290`.
 > - ~~Vacuous `panTo` assertion~~ **DONE** `c7e9290`, swapped for a forwarding check, with the reason in a comment so it is not "restored" later.
 > - ~~Three deliberately-redundant insurance lines~~ **RECORDED IN CODE** `c7e9290` — do not simplify.
 >
 > ### Ledger — the strip-clipping report
-> - ~~Redundant "+ add a first day" in the day panel's empty state~~ **DONE** `52073db`, wired to the same `handleAddDay(null)` the strip uses. Verified in the browser: the app now has a route to day 1 that does not depend on the strip being reachable.
+> - ~~Redundant "+ add a first day" in the day panel's empty state~~ **DONE** `4de9e56`, wired to the same `handleAddDay(null)` the strip uses. Verified in the browser: the app now has a route to day 1 that does not depend on the strip being reachable.
 > - ~~Close the dev unstyled-paint window~~ **DONE** `42ae2d5`: `index.html` links `/src/style.css`. The production build still emits exactly one stylesheet link — checked, not assumed.
 > - `expanded` survives a plan switch with an identically-spanned day — accepted, unchanged.
-> - ~~`render` with `towns: null` throws~~ **DONE** `52073db`: the five list fields tolerate an explicit null again.
+> - ~~`render` with `towns: null` throws~~ **DONE** `4de9e56`: the five list fields tolerate an explicit null again.
 > - ~~Test boilerplate: `renderArgs`, the `many` fixture built twice~~ **ALREADY DONE** in `places.test.js` before this pass (`renderArgs` exists, `MANY` is built once). Nothing to do.
 > - Orphan BEM names (`meta__abs`, `pois--town`/`pois--fav`) — recorded, unchanged.
 >
 > ### Ledger — Task 12's review and the docs staleness
 > - ~~`#app-title` spills at ≤ ~1000 px~~ **DONE** `42ae2d5`: truncates with an ellipsis instead of wrapping to four lines over the map. That sets the supported floor at "the title gets shorter", not "the layout breaks".
 > - ~~The chip row mixes px and rem~~ **DONE** `42ae2d5`: the header row is px throughout; `.btn--sm` keeps its rem for the day panel, where scaling with the user's text size is right.
-> - ~~Reset confirm doesn't say it can't be undone~~ **DONE** `b65e4d0`, verified in the real dialog.
-> - ~~Reset on an already-empty plan still writes~~ **DONE** `b65e4d0`, verified in the browser: `updatedAt` held across a confirmed reset of an empty plan.
-> - ~~Test gaps: render-twice-click-once, `banner.show()` twice~~ **ALREADY COVERED** before this pass (`plans-bar.test.js` "fires an action once after a re-render"; `ui.test.js` "rewires the dismiss button on every show"). The double-negative test name **is** renamed (`b65e4d0`). The `beforeEach` consolidation is **DECIDED AGAINST**: the mounts are not uniform (different active plans, two tests build their own bar), so a `beforeEach` would either not fit or hide the state each test depends on.
+> - ~~Reset confirm doesn't say it can't be undone~~ **DONE** `70e0898`, verified in the real dialog.
+> - ~~Reset on an already-empty plan still writes~~ **DONE** `70e0898`, verified in the browser: `updatedAt` held across a confirmed reset of an empty plan.
+> - ~~Test gaps: render-twice-click-once, `banner.show()` twice~~ **ALREADY COVERED** before this pass (`plans-bar.test.js` "fires an action once after a re-render"; `ui.test.js` "rewires the dismiss button on every show"). The double-negative test name **is** renamed (`70e0898`). The `beforeEach` consolidation is **DECIDED AGAINST**: the mounts are not uniform (different active plans, two tests build their own bar), so a `beforeEach` would either not fit or hide the state each test depends on.
 > - ~~Design spec §8 contradicts the shipped plans bar~~ **DONE** `374fe4d`: §8 records the amendment, why Reset trip belongs in the bar rather than the day panel, and why "Remove last day" was deliberately not restored.
 > - ~~`main.js` comment naming `renderPlans`~~ **DONE** `374fe4d`.
 > - ~~`.plans__*` comment claims the fields shrink~~ **DONE** `42ae2d5`: they cannot (`#plans` is `flex: 0 0 auto`), and the comment now says what happens below ~1100 px instead.
