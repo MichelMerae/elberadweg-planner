@@ -80,16 +80,29 @@ function vertexBefore(cumKm, km) {
  * segment rather than along a great circle; on route vertices a few hundred
  * metres apart the two agree to well under a metre.
  *
+ * Throws on a non-finite km rather than returning [NaN, NaN]. pointAtDistance
+ * fails loudly for the same input (turf refuses it), and the quiet version of
+ * this surfaced far away as a Leaflet "Invalid LatLng" with no clue where the NaN
+ * came from. No caller can reach it today — every one guards finiteness — which is
+ * exactly why the failure should stay legible if one ever stops.
+ *
  * @param {ReturnType<typeof createRouteIndex>} index
  * @param {number} km
  * @returns {[number, number]} [lng, lat]
  */
 export function pointAtKm(index, km) {
+  if (!Number.isFinite(km)) {
+    throw new Error(`pointAtKm needs a finite km, got: ${km}`);
+  }
   const { coords, cumKm, totalKm } = index;
   const clamped = Math.min(Math.max(km, 0), totalKm);
   const i = vertexBefore(cumKm, clamped);
   if (i >= coords.length - 1) return coords[coords.length - 1];
   const segKm = cumKm[i + 1] - cumKm[i];
+  // Belt and braces, deliberately kept: probing found no km on a fully coincident
+  // line that reaches it (that line returns early above), but two identical
+  // consecutive vertices are ordinary enough in OSM data, and a zero-length
+  // segment here would divide by zero and put NaN into a coordinate.
   const t = segKm > 0 ? (clamped - cumKm[i]) / segKm : 0;
   const [lng0, lat0] = coords[i];
   const [lng1, lat1] = coords[i + 1];
@@ -102,6 +115,18 @@ export function pointAtKm(index, km) {
  * a fixed number of samples along it cannot, and costs two binary searches.
  * Returns [] for an empty or inverted range.
  *
+ * **The interior points are the route's own coordinate arrays, not copies** —
+ * `stretchCoords(index, …)[1] === index.coords[k]` for every vertex it passes
+ * through, and `index.coords` is the loaded route's own array. Only the two
+ * interpolated endpoints are fresh. Nothing mutates them today (map.js maps
+ * straight to new latlngs); a caller that wants to must `.slice()` first, or the
+ * route itself changes shape under every other reader.
+ *
+ * Throws on a non-finite bound, via pointAtKm. Worth stating because the
+ * "inverted range" rule would otherwise seem to cover it and does not: `to <= from`
+ * is false when either is NaN, so this used to run on and return a list of
+ * [NaN, NaN] pairs.
+ *
  * @param {ReturnType<typeof createRouteIndex>} index
  * @param {number} startKm
  * @param {number} endKm
@@ -109,6 +134,10 @@ export function pointAtKm(index, km) {
  */
 export function stretchCoords(index, startKm, endKm) {
   const { coords, cumKm, totalKm } = index;
+  // Both bounds clamp before they are compared, and that IS load-bearing: two
+  // negative bounds are an empty range after clamping (both 0) and an ascending
+  // one before it, so an unclamped compare would let them through and return two
+  // copies of the first vertex.
   const from = Math.min(Math.max(startKm, 0), totalKm);
   const to = Math.min(Math.max(endKm, 0), totalKm);
   if (!coords.length || to <= from) return [];

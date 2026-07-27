@@ -290,6 +290,9 @@ describe('createPlansBar - actions', () => {
 
     expect(confirm.mock.calls[0][0]).toContain('Slow & scenic');
     expect(confirm.mock.calls[0][0]).toMatch(/day/i);
+    // Reset sits beside Delete, and Delete's confirm was the only one warning the
+    // damage is permanent — which made Reset read as the recoverable one.
+    expect(confirm.mock.calls[0][0]).toMatch(/can't be undone/i);
     expect(callbacks.onResetTrip).toHaveBeenCalledTimes(1);
   });
 
@@ -303,7 +306,9 @@ describe('createPlansBar - actions', () => {
     expect(callbacks.onResetTrip).not.toHaveBeenCalled();
   });
 
-  it('does not reset when the plan is deleted, or delete when it is reset', () => {
+  // The two destructive actions sit side by side and share a listener, so each
+  // must fire its own callback and only its own.
+  it('never lets one destructive action fire the other', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const bar = mount();
     bar.render({ plans: plans(), activePlanId: 'p2' });

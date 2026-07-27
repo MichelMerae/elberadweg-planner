@@ -60,10 +60,13 @@ export function createPlansBar({ el, callbacks = {} }) {
       if (callbacks.onDuplicatePlan) callbacks.onDuplicatePlan();
     } else if (action === 'reset') {
       // Empties the plan; Delete destroys it. Both ask first, and the confirm
-      // spells out which one this is — the two sit side by side.
+      // spells out which one this is — the two sit side by side. Both say the
+      // damage is permanent, too: "the plan itself stays" alone read as if the
+      // days were recoverable, and Delete's confirm having the only warning made
+      // Reset look like the safe one.
       if (
         window.confirm(
-          `Reset "${activePlanName()}"? Every day and break in this plan goes; the plan itself stays.`,
+          `Reset "${activePlanName()}"? Every day and break in this plan goes and this can't be undone; the plan itself stays.`,
         )
       ) {
         if (callbacks.onResetTrip) callbacks.onResetTrip();

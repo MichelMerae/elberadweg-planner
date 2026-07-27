@@ -662,6 +662,11 @@ async function boot() {
   // itself. Nothing to hydrate (the itinerary is already the new state), so this
   // is an ordinary mutation: persist, then render.
   function handleResetTrip() {
+    // Nothing to empty: return before persisting. A write here would bump
+    // updatedAt for no change, and updatedAt is what deletePlan picks the
+    // surviving plan by — so resetting an already-empty plan quietly changed
+    // which plan a later Delete would leave you in.
+    if (!itinerary.getDays().length && !itinerary.getBreaks().length) return;
     itinerary.reset();
     customStopDraft = null; // the day it was drafted on is gone
     persistPlan();

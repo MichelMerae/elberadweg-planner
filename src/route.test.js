@@ -114,6 +114,15 @@ describe('pointAtKm', () => {
     const index = createRouteIndex({ type: 'LineString', coordinates: [[0, 51]] });
     expect(pointAtKm(index, 10)).toEqual([0, 51]);
   });
+
+  // pointAtDistance refuses the same input. Quietly returning [NaN, NaN] surfaced
+  // as a Leaflet "Invalid LatLng" three call frames away, with nothing naming the
+  // km that caused it.
+  it('throws on a non-finite km rather than producing a NaN coordinate', () => {
+    const index = createRouteIndex(meridianLine);
+    expect(() => pointAtKm(index, NaN)).toThrow(/finite km/);
+    expect(() => pointAtKm(index, undefined)).toThrow(/finite km/);
+  });
 });
 
 describe('stretchCoords', () => {
@@ -155,6 +164,34 @@ describe('stretchCoords', () => {
     const index = createRouteIndex(meridianLine);
     expect(stretchCoords(index, 40, 40)).toEqual([]);
     expect(stretchCoords(index, 80, 30)).toEqual([]);
+  });
+
+  // Both bounds clamp BEFORE they are compared. Two negative bounds are an
+  // ascending range until they do, so an unclamped compare lets them through and
+  // returns two copies of the first vertex — a zero-length "stretch" at Hamburg
+  // for a day that is nowhere near it.
+  it('returns nothing for a range that is empty only after clamping', () => {
+    const index = createRouteIndex(meridianLine);
+    expect(stretchCoords(index, -20, -5)).toEqual([]);
+    expect(stretchCoords(index, index.totalKm + 5, index.totalKm + 20)).toEqual([]);
+  });
+
+  // The rule above it — [] for an inverted range — reads as if it covered NaN, and
+  // `to <= from` is false for NaN, so it did not: the whole list came back as
+  // [NaN, NaN] pairs.
+  it('throws on a non-finite bound instead of returning NaN pairs', () => {
+    const index = createRouteIndex(meridianLine);
+    expect(() => stretchCoords(index, NaN, 5)).toThrow(/finite km/);
+    expect(() => stretchCoords(index, 5, NaN)).toThrow(/finite km/);
+  });
+
+  // The interior points ARE the route's own arrays. Documented rather than copied,
+  // so this is the test that says so out loud — anything mutating them reshapes the
+  // route for every other reader.
+  it('hands back the route own vertices, not copies of them', () => {
+    const index = createRouteIndex(meridianLine);
+    const coords = stretchCoords(index, 30, 80);
+    expect(coords[1]).toBe(index.coords[2]);
   });
 });
 
