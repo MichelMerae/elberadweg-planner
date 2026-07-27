@@ -21,6 +21,7 @@ function mount() {
     onNewPlan: vi.fn(),
     onDuplicatePlan: vi.fn(),
     onDeletePlan: vi.fn(),
+    onResetTrip: vi.fn(),
   };
   return createPlansBar({ el, callbacks });
 }
@@ -184,6 +185,51 @@ describe('createPlansBar - actions', () => {
     expect(callbacks.onDeletePlan).not.toHaveBeenCalled();
   });
 
+  // Reset empties the plan you are working in; Delete destroys the plan itself.
+  // Two different jobs sitting next to each other, so the labels have to say
+  // which is which.
+  it('labels the two destructive actions apart', () => {
+    const bar = mount();
+    bar.render({ plans: PLANS, activePlanId: 'p2' });
+
+    expect(el.querySelector('[data-plan-action="reset"]').textContent).toBe('Reset trip');
+    expect(el.querySelector('[data-plan-action="delete"]').textContent).toBe('Delete plan');
+  });
+
+  it('asks before resetting the trip, naming the plan and what goes', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const bar = mount();
+    bar.render({ plans: PLANS, activePlanId: 'p2' });
+
+    clickAction('reset');
+
+    expect(confirm.mock.calls[0][0]).toContain('Slow & scenic');
+    expect(confirm.mock.calls[0][0]).toMatch(/day/i);
+    expect(callbacks.onResetTrip).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the days when the reset confirm is dismissed', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const bar = mount();
+    bar.render({ plans: PLANS, activePlanId: 'p2' });
+
+    clickAction('reset');
+
+    expect(callbacks.onResetTrip).not.toHaveBeenCalled();
+  });
+
+  it('does not reset when the plan is deleted, or delete when it is reset', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const bar = mount();
+    bar.render({ plans: PLANS, activePlanId: 'p2' });
+
+    clickAction('reset');
+    expect(callbacks.onDeletePlan).not.toHaveBeenCalled();
+
+    clickAction('delete');
+    expect(callbacks.onResetTrip).toHaveBeenCalledTimes(1);
+  });
+
   // Clicking the bar's own padding reaches the delegated listener with no button
   // under it. jsdom reports a listener that throws as a window `error` event
   // rather than rethrowing, so watch for it — otherwise a crash here would look
@@ -215,6 +261,7 @@ describe('createPlansBar - actions', () => {
     expect(() => {
       el.querySelector('[data-plan-action="new"]').click();
       el.querySelector('[data-plan-action="duplicate"]').click();
+      el.querySelector('[data-plan-action="reset"]').click();
       el.querySelector('[data-plan-action="delete"]').click();
       el.querySelector('[data-plan-select]').dispatchEvent(new window.Event('change', { bubbles: true }));
       const field = el.querySelector('[data-plan-name]');

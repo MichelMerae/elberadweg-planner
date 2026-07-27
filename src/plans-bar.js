@@ -1,6 +1,8 @@
 // The plans control: a dropdown of every plan, a rename field, and
-// New / Duplicate / Delete. Trip-level, so it lives in the app header rather
-// than in the day panel.
+// New / Duplicate / Reset trip / Delete plan. Trip-level, so it lives in the app
+// header rather than in the day panel — "Reset trip" among them because emptying
+// the plan you are in is a whole-trip act, and the day panel only ever addresses
+// one day.
 //
 // No Leaflet, no Turf, no data-module imports — main.js owns all the domain logic
 // and passes plain values/callbacks in.
@@ -15,10 +17,11 @@ import { esc } from './ui-util.js';
  * @param {(name: string) => void} opts.callbacks.onRenamePlan
  * @param {() => void} opts.callbacks.onNewPlan
  * @param {() => void} opts.callbacks.onDuplicatePlan
+ * @param {() => void} opts.callbacks.onResetTrip
  * @param {() => void} opts.callbacks.onDeletePlan
  */
 export function createPlansBar({ el, callbacks = {} }) {
-  // The bar (select + name input + New/Duplicate/Delete) is re-rendered
+  // The bar (select + name input + the four actions) is re-rendered
   // wholesale by render(); currentPlans/activePlanId track what's shown so
   // an empty rename can revert to the canonical name and Delete can label its
   // confirm with the active plan's name.
@@ -54,6 +57,16 @@ export function createPlansBar({ el, callbacks = {} }) {
       if (callbacks.onNewPlan) callbacks.onNewPlan();
     } else if (action === 'duplicate') {
       if (callbacks.onDuplicatePlan) callbacks.onDuplicatePlan();
+    } else if (action === 'reset') {
+      // Empties the plan; Delete destroys it. Both ask first, and the confirm
+      // spells out which one this is — the two sit side by side.
+      if (
+        window.confirm(
+          `Reset "${activePlanName()}"? Every day and break in this plan goes; the plan itself stays.`,
+        )
+      ) {
+        if (callbacks.onResetTrip) callbacks.onResetTrip();
+      }
     } else if (action === 'delete') {
       if (window.confirm(`Delete plan "${activePlanName()}"? This can't be undone.`)) {
         if (callbacks.onDeletePlan) callbacks.onDeletePlan();
@@ -62,7 +75,7 @@ export function createPlansBar({ el, callbacks = {} }) {
   });
 
   // Renders the plans bar: a dropdown of every plan (active one selected), a
-  // text field with the active plan's name, and New/Duplicate/Delete. Called on
+  // text field with the active plan's name, and the four actions. Called on
   // boot and after every plan operation so the dropdown and name field stay in
   // sync. All plan names are OSM-independent user text but still escaped, as the
   // rest of the render modules escape anything they interpolate.
@@ -84,7 +97,10 @@ export function createPlansBar({ el, callbacks = {} }) {
         <div class="plans__actions">
           <button type="button" class="btn btn--sm" data-plan-action="new">New</button>
           <button type="button" class="btn btn--sm" data-plan-action="duplicate">Duplicate</button>
-          <button type="button" class="btn btn--sm btn--danger" data-plan-action="delete">Delete</button>
+          <button type="button" class="btn btn--sm btn--danger" data-plan-action="reset"
+                  title="Remove every day and break, keeping the plan">Reset trip</button>
+          <button type="button" class="btn btn--sm btn--danger" data-plan-action="delete"
+                  title="Delete this plan and everything in it">Delete plan</button>
         </div>
       </div>`;
   }

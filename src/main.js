@@ -123,6 +123,7 @@ async function boot() {
       onRenamePlan: handleRenamePlan,
       onNewPlan: handleNewPlan,
       onDuplicatePlan: handleDuplicatePlan,
+      onResetTrip: handleResetTrip,
       onDeletePlan: handleDeletePlan,
     },
   });
@@ -608,6 +609,18 @@ async function boot() {
     activePlanId = plan.id;
     hydrateActivePlan();
     renderPlansBar();
+  }
+
+  // Empties the active plan — every day and every break — while the plan keeps
+  // its id, name and place in the dropdown. The trip-level counterpart to the day
+  // panel's Delete day, and the thing Delete plan is NOT: that takes the plan
+  // itself. Nothing to hydrate (the itinerary is already the new state), so this
+  // is an ordinary mutation: persist, then render.
+  function handleResetTrip() {
+    itinerary.reset();
+    customStopDraft = null; // the day it was drafted on is gone
+    persistPlan();
+    renderAll();
   }
 
   function handleDeletePlan() {
