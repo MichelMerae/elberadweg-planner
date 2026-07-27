@@ -7,8 +7,8 @@ import { ARRIVED_EPSILON_KM, MIN_DAY_KM } from './boundaries.js';
 import { createPlanStore } from './storage.js';
 import { createFavorites, favKey } from './favorites.js';
 import { createMap } from './map.js';
-import { createUI, townKey, poiKey } from './ui.js';
-import { round1 } from './ui-util.js';
+import { createUI } from './ui.js';
+import { round1, townKey, poiKey } from './ui-util.js';
 import { createStrip } from './strip.js';
 import { createDayPanel } from './day-panel.js';
 import { createPlaces } from './places.js';
@@ -74,9 +74,12 @@ async function boot() {
   // focused day. Not persisted.
   let customStopDraft = null;
 
+  // Clamped at both ends: three modules call handleFocusDay, and an index below 0
+  // would survive to focusedDay() as undefined — every panel would report "no day
+  // focused" while the plan plainly has days.
   function clampFocus() {
     const count = itinerary.getDays().length;
-    focusedDayIndex = count ? Math.min(focusedDayIndex ?? count - 1, count - 1) : null;
+    focusedDayIndex = count ? Math.max(0, Math.min(focusedDayIndex ?? count - 1, count - 1)) : null;
   }
 
   function focusedDay() {
@@ -371,6 +374,12 @@ async function boot() {
     }
     const key = `${day.index}:${round1(day.startKm)}:${round1(day.endKm)}`;
     if (lastFramedStretch === key) return;
+    // A zero-length day has no stretch to frame and focusRange declines it, so
+    // recording the key would book a move that never happened — and "⤢ this day"
+    // could then never recover that day, since it only clears the key and asks
+    // again. A day can reach zero length: a stored plan longer than a rebuilt,
+    // shorter route clamps its trailing days to totalKm.
+    if (!coords.length) return;
     lastFramedStretch = key;
     map.focusRange(coords, { animate: !prefersReducedMotion });
   }
