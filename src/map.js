@@ -79,8 +79,20 @@ const FOCUS_MAX_ZOOM = 13;
 // silent and permanent. The unambiguous user signals clear the deadline early
 // (dragend and the pan keys, below), so an idle map cannot sit on one.
 //
+// The second residual is the one these two deadlines do NOT close, and it is worth
+// being plain about: the settle window can still be outrun by the animation itself.
+// PROGRAMMATIC_START_MS covers the wait BEFORE the zoom begins; once it begins, the
+// old 1000ms is all there is. On a uniformly slow machine that is not enough —
+// measured at 1089ms from zoomstart to zoomend under 8x CPU throttling, and
+// reproduced independently by blocking the main thread mid-animation (zoomstart at
+// 62ms, thread held to 1362ms), which killed camera-follow permanently and stranded
+// the pins at the same off-screen coordinates as the bug above. So a slow enough
+// device still loses the camera the old way. Widening the settle window is not the
+// answer for the reason given above, which leaves only the real one:
+//
 // The honest fix is still a positive signal — counting the settle events a move is
-// expected to produce — and still needs more design than a pair of constants.
+// expected to produce — and still needs more design than a pair of constants. Both
+// residuals above are its case; neither deadline can be tuned into covering them.
 const PROGRAMMATIC_SETTLE_MS = 1000;
 const PROGRAMMATIC_START_MS = 3000;
 

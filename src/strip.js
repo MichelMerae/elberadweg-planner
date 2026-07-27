@@ -1,6 +1,8 @@
 // The bottom timeline strip: the whole trip drawn to scale in kilometres. Owns
-// its own DOM and interaction; emits intent through callbacks. No Leaflet, no
-// data modules — main.js passes plain days/breaks in (same contract as ui.js).
+// its own DOM and interaction; emits intent through callbacks. No Leaflet and no
+// data of its own — main.js passes plain days/breaks in. The one model import is
+// boundaries.js's boundary math: pure functions, no store and no storage, the same
+// trade places.js makes for the favorites key builder.
 
 import { round1 } from './ui-util.js';
 import { boundaryWindow } from './boundaries.js';
