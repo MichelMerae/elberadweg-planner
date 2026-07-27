@@ -26,6 +26,12 @@ function isValidTargetKm(targetKm) {
  * Stable identity for a plan-level break: its name at a route distance.
  * Module-level (main.js imports it) so callers can match a place against
  * getBreaks() without re-deriving the composition.
+ *
+ * Character-identical to ui-util.js's `poiKey`/`townKey`, and staying that way:
+ * the render helpers import no data module and this model imports no render
+ * helper, so neither side can import the other without inverting a layer. The
+ * cross-module key contract test in itinerary.test.js is what holds the two
+ * together — if this format changes, that test is the thing that will say so.
  */
 export function breakKey(b) {
   return `${b.name}@${b.routeDistanceKm}`;

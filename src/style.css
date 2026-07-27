@@ -461,7 +461,7 @@ input[type="number"]:disabled {
   font-variant-numeric: tabular-nums;
 }
 
-/* --- POIs (food + sights along the pending stretch) --------------------- */
+/* --- POIs (food + sights along the focused day's stretch) --------------- */
 /* Two collapsible sections; each summary carries a legend dot in its kind's
    colour (orange food / teal sight) and a chevron that flips when open. */
 .pois {
@@ -629,7 +629,7 @@ input[type="number"]:disabled {
 
 /* --- Row actions: ☕ add-break + ⭐ favorite (towns/POIs/favorites) -------- */
 /* Both action buttons share a flex cell in the right column of a row grid; the
-   × remove (row-remove) is used on day-card legs and pending-break rows. */
+   × remove (row-remove) is used on the day panel's break legs. */
 .row-actions {
   grid-column: 3;
   align-self: center;

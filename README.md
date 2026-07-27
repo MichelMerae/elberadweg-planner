@@ -7,8 +7,10 @@ line between two blocks is where you sleep. You shape the trip by dragging those
 lines, and the planner measures every distance *along the official route*, so it
 can tell you which towns sit near the end of a day.
 
-- **Add a day, then drag its boundary.** `+ add a day` appends 80 km; dragging the
-  handle at a day's end — or its numbered pin on the map — moves where that day
+- **Add a day, then drag its boundary.** `+ add a day` appends another day as long
+  as your last one — 80 km only when there is no last one to copy — and clicking
+  the dashed remainder appends a day ending exactly where you clicked. Dragging the
+  handle at a day's end, or its numbered pin on the map, moves where that day
   finishes. The strip always shows the whole route, so the trip can never scroll
   out of sight.
 - **Editing one day resizes its neighbour, never the whole trip.** Give day 3 an
@@ -83,9 +85,10 @@ Four regions, and each answers one question:
   remainder dashed out to Dresden, and a handle at every boundary. It is the only
   view of the whole route, and it is always visible.
 - The **map** (centre) is where the trip actually is: OpenStreetMap tiles with the
-  Elberadweg as a thin grey dashed line, the focused day's stretch drawn thick and
-  blue over it, a green **H** at Hamburg, red numbered pins at each day's end
-  (drag them), ☕ and 📌 pins for breaks, and gold ⭐ pins for favorites.
+  whole Elberadweg as a thin dashed line in light blue, and the focused day's
+  stretch drawn over it heavy and in a deeper blue — so the day you are working on
+  reads as the day at any zoom. Plus a green **H** at Hamburg, red numbered pins at
+  each day's end (drag them), ☕ and 📌 pins for breaks, and gold ⭐ for favorites.
 - The **right panel** is the focused day: its distance, its overnight town, its
   legs, and Split / Delete. The plans bar sits above it in the app header.
 - The **left panel** is what you can choose from along that day: your favorites,

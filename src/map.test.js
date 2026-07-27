@@ -3,9 +3,18 @@
 // map.js against a real Leaflet, in jsdom. These cover the guards whose failure
 // symptoms are QUIET — a drag that dies mid-stroke, a camera that stops
 // following, a marker whose row never renders — rather than anything that throws.
-// Promoted from the probe suite Task 13's review ran; the probes that reached into
-// Leaflet internals (`_moved`, `_panAnim`) were deliberately left behind, because
-// they would break on a Leaflet bump without a real regression behind it.
+// Promoted from the probe suite Task 13's review ran. The probes that EXISTED to
+// characterise Leaflet's internals were deliberately left behind — they asserted on
+// `_panAnim` and friends, so a Leaflet bump would fail them with no regression
+// behind it.
+//
+// Not a clean line, and worth saying: the recovery block below does reach into
+// Draggable internals (`beginRealDrag` sets `_moved`/`_moving`/`_startPos`/
+// `_newPos`), because staging a half-finished drag is the one thing jsdom cannot
+// produce for us. The difference is what they are for — those are SETUP, and every
+// assertion around them is on the app's own behaviour instead. The single exception
+// is `L.Draggable._dragging`, asserted because that static IS the symptom: while it
+// stays set, Leaflet blocks map panning and every later drag.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import L from 'leaflet';
 import { createMap } from './map.js';

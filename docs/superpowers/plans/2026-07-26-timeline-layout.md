@@ -3834,12 +3834,12 @@ EOF
 > - ~~Residual: a latched `draggingPinIndex` means a dead map~~ **RECORDED IN CODE** `c7e9290`, in the recovery function, together with the note not to "simplify" its three redundant insurance lines.
 >
 > ### Ledger — Task 10's review (day-panel.js)
-> - ~~Lift `glyphFor` into `ui-util.js`~~ **DONE** `9e43d10`. The panel's `|| '☕'` also reached `Object.prototype` for a hand-edited `kind: "toString"`.
+> - ~~Lift `glyphFor` into `ui-util.js`~~ **DONE** across two commits: the helper landed in `ui-util.js` with the strip split (`9e43d10`), and the day panel adopted it in `4de9e56`. The panel's `|| '☕'` also reached `Object.prototype` for a hand-edited `kind: "toString"`.
 > - ~~`dayCount` has no default~~ **DONE** `4de9e56` (`= 0`, fails safe, tested).
 > - ~~Break exactly at the day's end duplicates a "0 km" leg~~ **DONE** `4de9e56`: reads "at the day end". Verified in the browser by ☕-ing the overnight town, which is the easy way to reach it.
 > - ~~The `done`-guard comment names a blur that never fires~~ **DONE** `4de9e56`: the comment now says what it really guards (Esc's own refocus), states the mid-edit discard, and says why it differs from the custom-stop prompt. Pinning test added — and it is the test that later caught finding 2.
 > - ~~Test consolidation: a `renderDay(overrides)` helper; `DAY`'s unread `targetKm`~~ **DECIDED AGAINST**: the repeated arguments are the state each test asserts against, a helper moves it out of view, and rewriting 18 call sites at the end of the project risks changing what they pin for no behaviour gain. The `targetKm` is kept deliberately — it is the shape main.js really passes.
-> - ~~`poiKey` / `breakKey` duplication~~ **DECIDED AGAINST** `374fe4d`, with both sides now saying why: `ui-util.js` imports no data module and the model imports no render helper, so neither can import the other without inverting a layer. The cross-module contract test is the mechanism that keeps them identical; its comment was itself stale (named `ui.js`) and is fixed.
+> - ~~`poiKey` / `breakKey` duplication~~ **DECIDED AGAINST**, and the reason is now written in all three places it has to be findable from: `ui-util.js`'s `poiKey` and the contract test in `itinerary.test.js` (`374fe4d`), and `itinerary.js`'s `breakKey` (added in the docs-fix pass below — the ledger audit caught that the model side was still silent while this entry already claimed "both sides"). The rule: the render helpers import no data module and the model imports no render helper, so neither can import the other without inverting a layer, and the contract test is the mechanism that keeps the two formats identical. That test's own comment was stale too (it named `ui.js`, which now only re-exports) and is fixed.
 > - ~~Two unpinned focus properties~~ **DONE** `4de9e56`: both tests written, both mutants verified failing (the twin fallback landing on **Delete day**, and the `Math.min` clamp).
 > - ~~Inline note editor drops focus to `<body>`~~ **DONE** `4de9e56` — and see finding 2, which this fix caused and which is now fixed and tested.
 > - ~~Cosmetic: two test titles lost apostrophes; `restoreFocus`'s unreachable guard~~ **DONE** `4de9e56`.
@@ -3852,7 +3852,7 @@ EOF
 > - **Pin drags still walk the whole route per pointermove** — **LEFT AS IS, deliberately.** The item says "fix if pin drags feel heavy". They do not: dragged in Chromium, the pin tracks the cursor and the commit lands where it sits. Windowing the search around the previous km is a real optimisation, but it is a new index-adjacent code path added on feel rather than measurement, in a cleanup task. **Open for the user** if it feels heavy on slower hardware.
 > - ~~`route.js`: the dead `segKm > 0` guard, and the untested `startKm` clamp~~ **DONE** `70e0898`: the clamp has its test (two negative bounds are an ascending range until they clamp); the guard stays, marked as deliberate — duplicate consecutive vertices are ordinary in OSM data and a zero-length segment there divides by zero.
 > - ~~`stretchCoords` returns aliased arrays~~ **DOCUMENTED and pinned** `70e0898`.
-> - ~~`map.setTownHighlight` is newly dead~~ **DELETED** `c7e9290`, API + `TOWN_ICON` + the `.town-icon__dot` rule. Not wired: the day pin already marks the day's end, the panel names the town, and the strip labels it — a fourth marker would be new behaviour added in a cleanup task. It can come back deliberately.
+> - ~~`map.setTownHighlight` is newly dead~~ **DELETED** across two commits: the API and `TOWN_ICON` in `c7e9290`, the orphaned `.town-icon__dot` rule with the rest of the dead CSS in `42ae2d5`. Not wired: the day pin already marks the day's end, the panel names the town, and the strip labels it — a fourth marker would be new behaviour added in a cleanup task. It can come back deliberately.
 > - ~~`.map-btn` z-index comment overstates 900~~ **DONE** `42ae2d5`: raised to 1001, which clears Leaflet's corner containers by construction rather than by the top-right corner happening to be empty.
 > - ~~Residual: `setPoiMarkers` strands `tempPoiMarker`~~ **FIXED** `c7e9290` (a shared `clearPoiHighlight`), with a test. Cheaper than leaving a known leak unproven.
 > - ~~Cosmetic: `.places__scope`'s raw `#1d1a14`; `.day-panel--empty` unstyled~~ **DONE** `42ae2d5`: `--surface-sunk` replaces four copies, and the empty state has a rule now that it holds a button.
@@ -3880,6 +3880,21 @@ EOF
 > - ~~Design spec §8 contradicts the shipped plans bar~~ **DONE** `374fe4d`: §8 records the amendment, why Reset trip belongs in the bar rather than the day panel, and why "Remove last day" was deliberately not restored.
 > - ~~`main.js` comment naming `renderPlans`~~ **DONE** `374fe4d`.
 > - ~~`.plans__*` comment claims the fields shrink~~ **DONE** `42ae2d5`: they cannot (`#plans` is `flex: 0 0 auto`), and the comment now says what happens below ~1100 px instead.
+>
+> ### Ledger audit (2026-07-27, after the fact)
+>
+> Every code claim above was re-verified against the tree, four mutation spot-checks were re-run, and six **documentation** discrepancies came back. All six are fixed in one docs commit; none of them was a code defect:
+>
+> - `README.md` still described the context route as "a thin grey dashed line" — the wording `02a297b` was supposed to replace, left behind by the very commit that argued against grey in `map.js`.
+> - `README.md` said "`+ add a day` appends 80 km" unconditionally. It appends the **last day's** length; 80 km is only the empty-plan fallback (`main.js`'s `fallback` local). Corrected, and the remainder-click path named alongside it.
+> - `style.css`'s `.row-actions` comment still cited "pending-break rows", deleted in `42ae2d5` — the same commit that left the comment pointing at them.
+> - `itinerary.js`'s `breakKey` was silent about the deliberate duplication (see the entry above).
+> - Two SHA misattributions in this ledger: `setTownHighlight`'s CSS half and `glyphFor`'s day-panel adoption each landed in a different commit from the one credited. Both now say "across two commits" with the right pair. Verified with `git log -S` per file rather than from memory.
+> - `map.test.js`'s header claimed the Leaflet-internals probes were left behind while naming `_moved` — which `beginRealDrag` sets four lines of setup at a time. The header now discloses that, and draws the line where it actually is: internals as **setup** for a gesture jsdom cannot produce, with the assertions on the app's own behaviour, and one deliberate exception (`L.Draggable._dragging`, because that static is the symptom).
+>
+> A seventh of the same species turned up while grepping for others like it, and is fixed with them: `style.css`'s POI section header still said "along the **pending** stretch", vocabulary from the mode Task 10 deleted. It is the focused day's stretch.
+>
+> The lesson worth keeping: six of the seven were **stale prose left behind by a commit that changed the thing the prose described** — the code was right every time. Grep for the old wording whenever a visual, a name or a mode goes away; the sweep that found the seventh took one command.
 >
 > ### Still open for the user
 > - **The `PROGRAMMATIC_SETTLE_MS` follow-up.** Re-measured here: `zoomend` arrived with 497–997 ms of the 1000 ms window left, and a pan's `moveend` landed 700 ms in. No run was observed losing the `zoomend` race, but ~500 ms of margin under a busy main thread is thin, and thinner on slower hardware. The constant is left alone deliberately — widening it trades this failure for a real user zoom that never hands the camera over. The fix is the recorded one: count the settle events a move is expected to produce.
