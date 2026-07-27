@@ -9,9 +9,34 @@ const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
-// Thin, dashed and muted: the whole route is context for the focused day's
-// stretch (drawn thick over it by setRouteHighlight), not a competitor for it.
-const ROUTE_STYLE = { color: '#2563eb', weight: 3, opacity: 0.5, dashArray: '7 6' };
+// The focused day's stretch, drawn over the context line by setRouteHighlight.
+const HIGHLIGHT_COLOR = '#2563eb';
+const HIGHLIGHT_STYLE = {
+  color: HIGHLIGHT_COLOR,
+  weight: 7,
+  opacity: 0.95,
+  lineCap: 'round',
+};
+
+// The whole route is context for the focused stretch, not a competitor for it:
+// thin, dashed, and a DIFFERENT hue. It used to be the same blue at half the
+// weight, which reads clearly at day zoom — where the highlight is heavy and the
+// context is hairline — and badly at whole-route zoom, where both are thin and
+// only the weight told them apart. Grey against the highlight's blue survives
+// both zooms.
+const ROUTE_STYLE = { color: '#8b93a3', weight: 3, opacity: 0.7, dashArray: '7 6' };
+
+// How much viewport to leave around a framed stretch, in px. The focused day gets
+// more than the whole route does: its endpoints carry the pins and the handles a
+// user is about to aim at, while the whole route just has to fit.
+const FOCUS_PADDING_PX = [48, 48];
+const WHOLE_ROUTE_PADDING_PX = [28, 28];
+
+// How far in a fit is allowed to go. A product decision, not a measurement: a
+// 5 km day would otherwise fill the window at street level, where the route is
+// all one blue line and there is nothing to place it against. Stopping at 13
+// keeps a town or two in frame.
+const FOCUS_MAX_ZOOM = 13;
 
 // How long after a camera move of our own a zoomend still counts as ours.
 // Leaflet's pan/zoom animations run 250ms with a late-scheduled 250ms fallback
@@ -48,13 +73,6 @@ function numberedPinIcon(text, variant) {
   });
 }
 
-const TOWN_ICON = L.divIcon({
-  className: 'town-icon',
-  html: '<span class="town-icon__dot"></span>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
-
 // Small dot for a POI. `kind` is 'food' (orange) or 'sight' (teal); the colour
 // itself is set in style.css off the kind class.
 function poiIcon(kind) {
@@ -88,15 +106,24 @@ const FAV_ICON = L.divIcon({
   iconAnchor: [8, 8],
 });
 
-// The map only ever shows the nearest-to-route POIs of a kind; dense city
-// stretches can hold hundreds of food POIs and the panel list stays complete.
+// A dense city stretch can hold hundreds of food POIs, so the map shows the first
+// POI_MAP_CAP of a kind in ROUTE ORDER — the order they arrive in.
+//
+// The criterion matters more than the number, and it has to be the same one
+// places.js's ROW_CAP uses (also 40, also route order). It used to keep the 40
+// NEAREST by offsetKm instead, which on a dense stretch is a different set from
+// the panel's first 40: hovering a marker then highlighted nothing, because that
+// POI's row was never rendered. Route order makes the two sets identical by
+// construction, so every marker has a row to light up — and it is the order the
+// panel reads in, which is what makes "the first 40 along this stretch" an
+// explicable cap rather than an arbitrary subset.
+//
+// The constants are deliberately not shared: map.js imports nothing but Leaflet
+// (see poiMarkerKey below for the same trade). Change one, change the other.
 const POI_MAP_CAP = 40;
 
 function cappedByKind(pois, kind) {
-  const ofKind = pois.filter((p) => p.kind === kind);
-  if (ofKind.length <= POI_MAP_CAP) return ofKind;
-  // Copy before sorting so the caller's array order is never disturbed.
-  return [...ofKind].sort((a, b) => a.offsetKm - b.offsetKm).slice(0, POI_MAP_CAP);
+  return pois.filter((p) => p.kind === kind).slice(0, POI_MAP_CAP);
 }
 
 /**
@@ -121,7 +148,6 @@ function cappedByKind(pois, kind) {
  *     opts?: {draggable?: boolean,
  *             onDragBoundary?: (index: number, lngLat: [number, number], commit: boolean) => void},
  *   ) => void,
- *   setTownHighlight: (lngLat: [number, number]|null) => void,
  *   setPoiMarkers: (pois: Array<object>) => void,
  *   setPoiHighlight: (poi: object|null) => void,
  *   setBreakMarkers: (breaks: Array<object>) => void,
@@ -194,15 +220,35 @@ export function createMap({
     if (typeof onUserMove === 'function') onUserMove();
   });
 
-  // moveend is deliberately NOT a user-move signal, and the obvious reason to add
-  // it later — keyboard panning, which fires no dragend — would break the camera.
-  // autoPan re-schedules itself every frame while a dragged pin sits near the
-  // viewport edge, each pass firing movestart/move/moveend, and the guard above
-  // holds moveProgrammatically off for the whole drag, so the window is never
-  // re-armed: all ~60 moveend/s would read as the user taking over and switch
-  // camera-follow off mid-drag, which is exactly what the guard exists to prevent.
-  // invalidateSize and drag inertia emit moveend of their own as well. Keyboard
-  // panning needs a narrower signal — Leaflet's own keyboard handler.
+  // moveend catches the one user gesture nothing else does: KEYBOARD panning. The
+  // arrow keys go through Leaflet's own panBy, which fires no dragend and no
+  // zoomend, so without this a keyboard user's pan was the only pan the app did
+  // not hand the camera over for — and the next focus change pulled the view back
+  // out from under them, where a mouse pan would have been respected.
+  //
+  // It needs BOTH guards, and the second is why this listener could not exist
+  // before the recovery work:
+  //
+  //   the window       every camera move of ours ends in a moveend, and moveend is
+  //                    far more frequent than zoomend (every panTo, every fit,
+  //                    every invalidateSize). Same bet PROGRAMMATIC_SETTLE_MS
+  //                    already makes for zoomend, with the same failure mode: a
+  //                    settle later than the window reads as the user's.
+  //   the pin guard    autoPan re-schedules itself every frame while a dragged pin
+  //                    sits near the viewport edge, each pass firing
+  //                    movestart/move/moveend — and moveProgrammatically returns
+  //                    early for the whole drag, so the window is never re-armed.
+  //                    All ~60 moveend/s would otherwise read as the user taking
+  //                    over and switch camera-follow off mid-drag, which is
+  //                    precisely what that guard exists to prevent.
+  //
+  // Drag inertia's own moveend arrives after dragend has already reported the
+  // gesture; onUserMove is idempotent, so the repeat costs nothing.
+  map.on('moveend', () => {
+    if (draggingPinIndex !== null) return;
+    if (performance.now() < programmaticUntil) return;
+    if (typeof onUserMove === 'function') onUserMove();
+  });
 
   // The focused day's stretch, drawn thick over the muted full route so the
   // rest of the trip stays as context rather than competing with it.
@@ -213,13 +259,13 @@ export function createMap({
       map.removeLayer(highlightLayer);
       highlightLayer = null;
     }
+    // A one-coordinate polyline draws nothing, so there is no line to show for a
+    // zero-length stretch — unlike focusRange, which can legitimately frame a
+    // single point (see below).
     if (!coords || coords.length < 2) return;
     highlightLayer = L.polyline(coords.map(toLatLng), {
       renderer,
-      color: '#2563eb',
-      weight: 7,
-      opacity: 0.95,
-      lineCap: 'round',
+      ...HIGHLIGHT_STYLE,
       // Decorative: keeping it out of the canvas hit-test list spares every
       // mousemove over the focused stretch a second path test.
       interactive: false,
@@ -228,17 +274,23 @@ export function createMap({
 
   // Frames a stretch. `animate` is false while a boundary is being dragged and
   // when the user prefers reduced motion.
+  //
+  // A single coordinate is accepted and frames a zero-area bounds — which lands
+  // centred on the point at FOCUS_MAX_ZOOM. That asymmetry with setRouteHighlight
+  // (which needs two) is deliberate: "put this place in the middle of the window"
+  // is a sensible thing to ask for, and "draw a line through this one point" is
+  // not. Only an empty list is refused.
   function focusRange(coords, { animate = true } = {}) {
     if (!coords || !coords.length) return false;
     const bounds = L.latLngBounds(coords.map(toLatLng));
     return moveProgrammatically(() => {
-      map.fitBounds(bounds, { padding: [48, 48], animate, maxZoom: 13 });
+      map.fitBounds(bounds, { padding: FOCUS_PADDING_PX, animate, maxZoom: FOCUS_MAX_ZOOM });
     });
   }
 
   function fitWholeRoute({ animate = true } = {}) {
     return moveProgrammatically(() => {
-      map.fitBounds(routeLayer.getBounds(), { padding: [28, 28], animate });
+      map.fitBounds(routeLayer.getBounds(), { padding: WHOLE_ROUTE_PADDING_PX, animate });
     });
   }
 
@@ -266,7 +318,6 @@ export function createMap({
   const poiLayer = L.layerGroup().addTo(map);
   const breakLayer = L.layerGroup().addTo(map);
   const favLayer = L.layerGroup().addTo(map);
-  let townMarker = null;
 
   // Leaflet ends a marker drag on a document-level mouseup/touchend, and its
   // mousemove never asks whether the button is still down. A pointer that comes
@@ -278,6 +329,12 @@ export function createMap({
   // still believe it is means exactly that, which is how the strip watches its
   // own drags too. Not window blur: focus can leave and come back with the button
   // still down, and that drag is still the user's to finish.
+  //
+  // Unlike the strip this cannot filter by pointerId — Leaflet's marker dragstart
+  // carries no event and no pointer — so on a hybrid touch+mouse device, nudging
+  // the mouse during a touch pin-drag ends the drag early. Benign: it commits at
+  // the pin's real position, which is the same thing the release would have done.
+  // Window-level pointerdown snooping to learn the id is not worth that.
   function onAbandonPointerMove(e) {
     if (e.buttons === 0) recoverAbandonedPinDrag();
   }
@@ -296,6 +353,14 @@ export function createMap({
   // Committing beats clearing: the previews have already moved the model, so
   // dropping the commit would leave storage disagreeing with the screen rather
   // than undoing anything — the same call the strip makes on a cancelled gesture.
+  //
+  // Three lines here and in endPinDrag are deliberately redundant with Leaflet's
+  // own idempotent finishDrag — the latch fallback below, the deferred
+  // pointercancel above, and removing the listeners — so their mutants survive.
+  // Do NOT "simplify" them away on that evidence: each one is the invariant that
+  // makes this function safe to call at any time, from any of three paths, and the
+  // symptom of getting it wrong is a map that has gone quietly dead (pins frozen,
+  // camera stuck, every later drag blocked by Leaflet's Draggable._dragging).
   function recoverAbandonedPinDrag() {
     if (draggingPinIndex === null) return;
     const draggable = draggingPinMarker?.dragging?._draggable;
@@ -399,20 +464,6 @@ export function createMap({
     });
   }
 
-  function setTownHighlight(lngLat) {
-    if (townMarker) {
-      map.removeLayer(townMarker);
-      townMarker = null;
-    }
-    if (!lngLat) return;
-    townMarker = L.marker(toLatLng(lngLat), {
-      icon: TOWN_ICON,
-      interactive: false,
-      keyboard: false,
-      zIndexOffset: 550,
-    }).addTo(map);
-  }
-
   // Same name@km identity convention as ui.js's poiKey/itinerary's breakKey —
   // kept local so map.js stays import-free besides Leaflet.
   function poiMarkerKey(poi) {
@@ -421,13 +472,33 @@ export function createMap({
 
   let poiMarkerIndex = new Map(); // poiMarkerKey -> marker, for panel-row hover
   let highlightedPoiMarker = null;
+  // A POI dropped by the density cap has no permanent marker, so setPoiHighlight
+  // shows one for the duration of the hover. It is added to the map, not to
+  // poiLayer, so clearing that layer does NOT take it with it.
+  let tempPoiMarker = null;
+
+  // Drops whatever setPoiHighlight is currently emphasizing. Both of its owners
+  // have to go together: the temporary marker outlives a layer rebuild, so
+  // forgetting it there stranded a highlighted dot and an open tooltip on the map
+  // until the next hover happened to clear it.
+  function clearPoiHighlight() {
+    if (highlightedPoiMarker) {
+      highlightedPoiMarker.getElement()?.classList.remove('poi-marker--active');
+      highlightedPoiMarker.closeTooltip();
+      highlightedPoiMarker = null;
+    }
+    if (tempPoiMarker) {
+      map.removeLayer(tempPoiMarker);
+      tempPoiMarker = null;
+    }
+  }
 
   // POIs arrive as records carrying named lat/lng (not [lng, lat] tuples), so
   // the coordinate order still resolves to Leaflet's [lat, lng] right here.
   function setPoiMarkers(pois) {
+    clearPoiHighlight();
     poiLayer.clearLayers();
     poiMarkerIndex = new Map();
-    highlightedPoiMarker = null;
     const list = pois || [];
     const shown = [...cappedByKind(list, 'food'), ...cappedByKind(list, 'sight')];
     shown.forEach((poi) => {
@@ -453,17 +524,8 @@ export function createMap({
   // Emphasizes the marker for `poi` (from a panel-row hover); null clears. A POI
   // dropped by the density cap has no permanent marker, so a temporary one is
   // shown for the duration of the hover — every row can be located on the map.
-  let tempPoiMarker = null;
   function setPoiHighlight(poi) {
-    if (highlightedPoiMarker) {
-      highlightedPoiMarker.getElement()?.classList.remove('poi-marker--active');
-      highlightedPoiMarker.closeTooltip();
-      highlightedPoiMarker = null;
-    }
-    if (tempPoiMarker) {
-      map.removeLayer(tempPoiMarker);
-      tempPoiMarker = null;
-    }
+    clearPoiHighlight();
     if (!poi) return;
     let marker = poiMarkerIndex.get(poiMarkerKey(poi));
     if (!marker) {
@@ -508,7 +570,6 @@ export function createMap({
     setDayPins,
     setBreakMarkers,
     setFavoriteMarkers,
-    setTownHighlight,
     setPoiMarkers,
     setPoiHighlight,
     focusRange,

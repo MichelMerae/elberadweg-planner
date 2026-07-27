@@ -5,9 +5,15 @@
 
 import { esc, round1, townKey, poiKey, FAV_GLYPH } from './ui-util.js';
 
-// Presentation-only stopgap: a dense stretch can hold 450+ food POIs, and a
-// panel that scrolls 50,000 px is unusable. Ranking/grouping is a separate
-// project — until then, show the nearest 40 and say how many there are.
+// Presentation-only stopgap: a dense stretch can hold 450+ food POIs, and a panel
+// that scrolls 50,000 px is unusable. Ranking/grouping is a separate project —
+// until then, show the first 40 along the stretch and say how many there are.
+//
+// Route order, not nearest-by-detour, and map.js's POI_MAP_CAP must agree on both
+// the number and the criterion: the map draws that same set, and marker-hover
+// highlights a row by key, so a marker whose row was never rendered highlights
+// nothing. (map.js imports nothing but Leaflet, which is why the constant is
+// duplicated rather than shared.)
 const ROW_CAP = 40;
 
 // Day-relative wording (spec §4): distance from the day's reference point (the
@@ -76,7 +82,7 @@ export function createPlaces({ el, callbacks = {} }) {
       : `<p class="pois__empty">${esc(emptyText)}</p>`;
     const more =
       items.length > capped.length
-        ? `<p class="places__more">showing ${capped.length} nearest of ${items.length} ·
+        ? `<p class="places__more">showing the first ${capped.length} of ${items.length} ·
              <button type="button" data-action="show-all" data-section="${name}">show all</button></p>`
         : '';
     return `

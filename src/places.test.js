@@ -231,7 +231,7 @@ describe('createPlaces - the 40-row cap', () => {
     places.render(renderArgs({ food: MANY }));
 
     expect(el.querySelectorAll('[data-place-section="food"]')).toHaveLength(40);
-    expect(el.querySelector('.places__more').textContent).toContain('showing 40 nearest of 451');
+    expect(el.querySelector('.places__more').textContent).toContain('showing the first 40 of 451');
   });
 
   it('counts the whole section in the summary, not the rendered rows', () => {
