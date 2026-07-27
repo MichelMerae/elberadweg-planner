@@ -56,6 +56,23 @@ const FOCUS_MAX_ZOOM = 13;
 // move is expected to produce — which needs more design than a constant (Task 14).
 const PROGRAMMATIC_SETTLE_MS = 1000;
 
+// The keys Leaflet's keyboard handler pans and zooms the map with. Pressing one
+// with the map focused is the user taking the camera, exactly as a drag is.
+const PAN_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'PageUp',
+  'PageDown',
+  'Home',
+  'End',
+  '+',
+  '-',
+  '=',
+  '_',
+]);
+
 // [lng, lat] (GeoJSON) -> [lat, lng] (Leaflet LatLng).
 function toLatLng([lng, lat]) {
   return [lat, lng];
@@ -226,33 +243,26 @@ export function createMap({
     if (typeof onUserMove === 'function') onUserMove();
   });
 
-  // moveend catches the one user gesture nothing else does: KEYBOARD panning. The
-  // arrow keys go through Leaflet's own panBy, which fires no dragend and no
-  // zoomend, so without this a keyboard user's pan was the only pan the app did
-  // not hand the camera over for — and the next focus change pulled the view back
-  // out from under them, where a mouse pan would have been respected.
+  // moveend is deliberately NOT a user-move signal, and the obvious reason to add
+  // it — keyboard panning, which fires no dragend — is served by the listener below
+  // instead. Gating it on the settle window looks like it would be enough and is
+  // not: measured here in Chromium, a plain animated pan's moveend landed 700ms
+  // after the move began, leaving 300ms of a 1000ms window. Every camera move of
+  // ours ends in a moveend, so that thin race would be run on every fit, and losing
+  // it once switches camera-follow off silently for the rest of the session — the
+  // failure the whole programmatic-window mechanism exists to prevent. autoPan
+  // makes it worse: while a dragged pin sits near the viewport edge it re-schedules
+  // itself every frame, firing ~60 moveend/s with the window never re-armed.
+  // invalidateSize and drag inertia emit moveend of their own as well.
   //
-  // It needs BOTH guards, and the second is why this listener could not exist
-  // before the recovery work:
-  //
-  //   the window       every camera move of ours ends in a moveend, and moveend is
-  //                    far more frequent than zoomend (every panTo, every fit,
-  //                    every invalidateSize). Same bet PROGRAMMATIC_SETTLE_MS
-  //                    already makes for zoomend, with the same failure mode: a
-  //                    settle later than the window reads as the user's.
-  //   the pin guard    autoPan re-schedules itself every frame while a dragged pin
-  //                    sits near the viewport edge, each pass firing
-  //                    movestart/move/moveend — and moveProgrammatically returns
-  //                    early for the whole drag, so the window is never re-armed.
-  //                    All ~60 moveend/s would otherwise read as the user taking
-  //                    over and switch camera-follow off mid-drag, which is
-  //                    precisely what that guard exists to prevent.
-  //
-  // Drag inertia's own moveend arrives after dragend has already reported the
-  // gesture; onUserMove is idempotent, so the repeat costs nothing.
-  map.on('moveend', () => {
-    if (draggingPinIndex !== null) return;
-    if (performance.now() < programmaticUntil) return;
+  // So: detect the GESTURE, not its aftermath. Arrow keys reach Leaflet's own
+  // keyboard handler on the map container, which is what pans, and a keydown there
+  // is unambiguous — nothing the app does synthesises one, so there is no window to
+  // race. Without this a keyboard user's pan was the only pan the app did not hand
+  // the camera over for, and the next focus change pulled the view back out from
+  // under them where a mouse pan would have been respected.
+  map.getContainer().addEventListener('keydown', (e) => {
+    if (!PAN_KEYS.has(e.key)) return;
     if (typeof onUserMove === 'function') onUserMove();
   });
 

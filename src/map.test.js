@@ -201,42 +201,49 @@ describe('createMap - who moved the camera', () => {
     expect(onUserMove).not.toHaveBeenCalled();
   });
 
-  // Arrow keys go through Leaflet's panBy: no dragend, no zoomend. Without moveend
-  // this was the one pan the app did not hand the camera over for, so the next
-  // focus change pulled the view back out from under a keyboard user.
+  // Arrow keys reach Leaflet's own keyboard handler on the container, and fire
+  // neither dragend nor zoomend — so without this, a keyboard user's pan was the
+  // one pan the app did not hand the camera over for, and the next focus change
+  // pulled the view back out from under them.
   it('hands the camera over for a keyboard pan', () => {
     const onUserMove = vi.fn();
     createMap({ routeFeature: ROUTE, onUserMove });
-    const base = performance.now();
-    vi.spyOn(performance, 'now').mockReturnValue(base + WELL_PAST_WINDOW);
 
-    capturedMap.panBy([120, 0], { animate: false });
+    capturedMap
+      .getContainer()
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
 
-    expect(onUserMove).toHaveBeenCalled();
+    expect(onUserMove).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps a moveend of its own to itself', () => {
+  it('ignores a key that pans nothing', () => {
     const onUserMove = vi.fn();
-    const api = createMap({ routeFeature: ROUTE, onUserMove });
+    createMap({ routeFeature: ROUTE, onUserMove });
 
-    api.focusRange(HAMBURG_END); // a real fit, and a real moveend with it
+    capturedMap
+      .getContainer()
+      .dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
 
     expect(onUserMove).not.toHaveBeenCalled();
   });
 
-  // autoPan re-schedules itself every frame while a dragged pin sits near the
-  // viewport edge, and moveProgrammatically is held off for the whole drag — so
-  // the settle window is never re-armed and all ~60 moveend/s would otherwise read
-  // as the user taking over, switching camera-follow off mid-drag.
-  it('ignores the moveend storm autoPan makes during a pin drag', () => {
+  // The deliberate exclusion, pinned: moveend must NOT be read as the user taking
+  // over. Gating it on the settle window is the tempting version and loses a race
+  // it runs on every single fit — a pan's moveend was measured landing 700ms into a
+  // 1000ms window — and losing it once kills camera-follow for the session. autoPan
+  // fires ~60 moveend/s during a pin drag with the window never re-armed, which is
+  // the same failure at sixty times the rate.
+  it('never mistakes a moveend for the user, however late it lands', () => {
     const onUserMove = vi.fn();
     const api = createMap({ routeFeature: ROUTE, onUserMove });
     api.setDayPins(PINS, { draggable: true, onDragBoundary: () => {} });
     const base = performance.now();
     vi.spyOn(performance, 'now').mockReturnValue(base + WELL_PAST_WINDOW);
 
+    api.focusRange(HAMBURG_END); // a real fit, and a real moveend with it
+    capturedMap.fire('moveend'); // and one arriving long after any window
     dayPins()[1].fire('dragstart');
-    capturedMap.panBy([40, 0], { animate: false });
+    capturedMap.panBy([40, 0], { animate: false }); // autoPan's storm, in miniature
     capturedMap.panBy([40, 0], { animate: false });
 
     expect(onUserMove).not.toHaveBeenCalled();
