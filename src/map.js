@@ -19,12 +19,18 @@ const HIGHLIGHT_STYLE = {
 };
 
 // The whole route is context for the focused stretch, not a competitor for it:
-// thin, dashed, and a DIFFERENT hue. It used to be the same blue at half the
-// weight, which reads clearly at day zoom — where the highlight is heavy and the
-// context is hairline — and badly at whole-route zoom, where both are thin and
-// only the weight told them apart. Grey against the highlight's blue survives
-// both zooms.
-const ROUTE_STYLE = { color: '#8b93a3', weight: 3, opacity: 0.7, dashArray: '7 6' };
+// thin, dashed, and a LIGHTER blue than the highlight rather than the same one at
+// half opacity — so the two are told apart by lightness as well as by weight,
+// which is what was missing at whole-route zoom (at day zoom the heavy highlight
+// against a hairline was never ambiguous).
+//
+// Not grey, which is the obvious way to make the highlight pop and was tried and
+// measured at 1512x900: OSM's own tiles draw state and district boundaries as grey
+// dashed lines, so a grey dashed route reads as map furniture — the 570 unplanned
+// km from Boizenburg to Dresden disappeared into the boundary between
+// Niedersachsen and Brandenburg. Blue is the one hue these tiles reserve for water,
+// and water is drawn as filled area, never as a dashed line.
+const ROUTE_STYLE = { color: '#5b93ff', weight: 3, opacity: 0.75, dashArray: '7 6' };
 
 // How much viewport to leave around a framed stretch, in px. The focused day gets
 // more than the whole route does: its endpoints carry the pins and the handles a
