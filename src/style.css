@@ -6,7 +6,7 @@
      river blue  -> the route + planning progress
      amber       -> towns / overnight waypoints
      red         -> committed day boundaries (mirrors the numbered map pins)
-     green       -> the Hamburg start + the Dresden finish
+     green       -> the route's start + its reached-destination marker
    Type: Fraunces (display serif) for headings/day numbers, Archivo for UI/data.
    ========================================================================== */
 
@@ -35,7 +35,7 @@
   --river-deep: #2563eb;
   --town: #f6a723;       /* town dots on the map are #f59e0b                 */
   --day: #f0705f;        /* numbered day pins on the map are #b91c1c         */
-  --done: #4ec97e;       /* start ("H") + reached-Dresden green              */
+  --done: #4ec97e;       /* start pin + reached-destination green            */
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
   --pad: 20px;
@@ -1151,9 +1151,9 @@ input[type="number"]:disabled {
   color: var(--text-faint);
 }
 
-/* Sits in the scale line, replacing "km 650 · Dresden". On the axis at right: 0
-   it collided with the last block and the last handle, which is what a finished
-   plan always leaves it doing. */
+/* Sits in the scale line, replacing the plain "km <total> · <destination>". On the
+   axis at right: 0 it collided with the last block and the last handle, which is
+   what a finished plan always leaves it doing. */
 .strip__finish {
   color: var(--done);
 }

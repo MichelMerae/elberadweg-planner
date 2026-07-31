@@ -1,11 +1,12 @@
 # Elberadweg Day Planner
 
-A small, personal trip-planning tool for riding the **Elberadweg** (Elbe Cycle
-Route) from **Hamburg to Dresden**. The whole trip is one timeline strip along the
-bottom of the window, drawn to scale in kilometres: each day is a block, and the
-line between two blocks is where you sleep. You shape the trip by dragging those
-lines, and the planner measures every distance *along the official route*, so it
-can tell you which towns sit near the end of a day.
+A trip-planning tool for riding the **Elberadweg** (Elbe Cycle Route) over several
+days. The road runs **Cuxhaven to Prague**, ~1027 km, and your trip is however much
+of it you plan. The whole thing is one timeline strip along the bottom of the
+window, drawn to scale in kilometres: each day is a block, and the line between two
+blocks is where you sleep. You shape the trip by dragging those lines, and the
+planner measures every distance *along the official route*, so it can tell you
+which towns sit near the end of a day.
 
 - **Add a day, then drag its boundary.** `+ add a day` appends another day as long
   as your last one — 80 km only when there is no last one to copy — and clicking
@@ -82,12 +83,12 @@ npm test           # run the unit tests (Vitest)
 Four regions, and each answers one question:
 
 - The **strip** along the bottom is the trip: every day to scale, the unplanned
-  remainder dashed out to Dresden, and a handle at every boundary. It is the only
+  remainder dashed out to the destination, and a handle at every boundary. It is the only
   view of the whole route, and it is always visible.
 - The **map** (centre) is where the trip actually is: OpenStreetMap tiles with the
   whole Elberadweg as a thin dashed line in light blue, and the focused day's
   stretch drawn over it heavy and in a deeper blue — so the day you are working on
-  reads as the day at any zoom. Plus a green **H** at Hamburg, red numbered pins at
+  reads as the day at any zoom. Plus a green start pin at km 0, red numbered pins at
   each day's end (drag them), ☕ and 📌 pins for breaks, and gold ⭐ for favorites.
 - The **right panel** is the focused day: its distance, its overnight town, its
   legs, and Split / Delete. The plans bar sits above it in the app header.
@@ -100,11 +101,27 @@ stretch; the map frames it. Clicking a different block moves all of that at once
 
 The route and towns are **generated from OpenStreetMap**, not hand-drawn:
 
-- The route follows the **right bank** (_rechtselbisch_) of the Elberadweg — the
-  OSM superroute is split into consecutive stage relations, and the build script
-  stitches the relevant Hamburg→Dresden stages into one ordered line, trims it to
-  the Hamburg and Dresden anchors, simplifies, and validates it (length +
-  north→south monotonicity). The stitched route measures **~650 km**.
+- The route is assembled from **three OSM sources**, because none of them spans the
+  corridor: the Elberadweg **left bank** (_linkselbisch_) for Cuxhaven → Finkenwerder
+  (Cuxhaven is a left-bank town; the right bank terminates at Brunsbüttel), the
+  **right bank** (_rechtselbisch_) onward to the Czech border, and **EuroVelo 7**'s
+  Czech part for the border → Prague, which carries the Elbe and the Vltava in one
+  relation so there is no junction to invent at Mělník.
+
+  Each source is stitched from its stage relations, trimmed, simplified and rounded
+  on its own, then the three are joined across two **declared ferry bridges** —
+  Finkenwerder–Teufelsbrück (2.25 km) and Schmilka–Hřensko (3.26 km). Those are real
+  water, and naming them means an unexpected distance fails the build instead of
+  hiding among warnings. The interior trim points are *derived* from where the lines
+  actually come closest, not from guessed coordinates.
+
+  The build validates length, nine strictly-increasing monotonicity checkpoints,
+  anchor snap offsets, bridge lengths, the straight-line bridging that survives
+  inside segments, and how much of the route doubles back on itself. It measures
+  **1026.5 km** — Hamburg at km 149, Dresden at km 798, Prague at the end. The
+  Hamburg→Dresden stretch comes out at 648.3 km against the previous build's 650.24
+  for the same two points, so re-assembling from three sources left the middle
+  alone.
 - Towns are OSM `place=city|town|village` nodes within ~5 km of the route, each
   annotated with its distance *along* the route so the app can window them to the
   stretch you're planning.
