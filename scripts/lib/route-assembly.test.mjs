@@ -3,7 +3,6 @@ import * as turf from '@turf/turf';
 import {
   haversineM,
   cumulativeAlongM,
-  anchorSnap,
   findJunction,
   joinSegments,
   doublingBackReport,
@@ -60,37 +59,23 @@ describe('cumulativeAlongM', () => {
   });
 });
 
-describe('anchorSnap', () => {
-  it('returns the location along the line for a point on it', () => {
-    const snap = anchorSnap(line, [0, 0.5], { name: 'mid' });
-    expect(snap.locationKm).toBeCloseTo(55.6, 0);
-    expect(snap.offsetKm).toBeCloseTo(0, 3);
-  });
-
-  it('accepts a point just off the line and reports the offset', () => {
-    const snap = anchorSnap(line, [0.01, 0.5], { name: 'near', maxOffsetKm: 2 });
-    expect(snap.offsetKm).toBeGreaterThan(0.5);
-    expect(snap.offsetKm).toBeLessThan(1.5);
-  });
-
-  it('throws when the anchor is further away than maxOffsetKm, naming it', () => {
-    expect(() => anchorSnap(line, [1, 0.5], { name: 'FINKENWERDER', maxOffsetKm: 2 })).toThrow(
-      /FINKENWERDER/,
-    );
-  });
-
-  it('reports the measured distance so a wrong coordinate is diagnosable', () => {
-    expect(() => anchorSnap(line, [1, 0.5], { name: 'x', maxOffsetKm: 2 })).toThrow(/\d+\.\d{2} km/);
-  });
-
-  it('hands back a snapped point usable by turf.lineSlice', () => {
-    const snap = anchorSnap(line, [0, 0.25], { name: 'quarter' });
-    const sliced = turf.lineSlice(snap.point, turf.point([0, 1]), line);
-    expect(turf.length(sliced, { units: 'kilometers' })).toBeCloseTo(83.4, 0);
-  });
-});
-
 describe('findJunction', () => {
+  it('locates a single anchor point against a line, which is how outer trims work', () => {
+    const j = findJunction(line.geometry.coordinates, [[0.01, 0.5]], {
+      maxGapKm: 2,
+      name: 'CUXHAVEN',
+    });
+    expect(j.indexA).toBe(1);
+    expect(j.gapM / 1000).toBeGreaterThan(0.5);
+    expect(j.gapM / 1000).toBeLessThan(1.5);
+  });
+
+  it('throws when an anchor lies beyond its ceiling, naming it', () => {
+    expect(() =>
+      findJunction(line.geometry.coordinates, [[1, 0.5]], { maxGapKm: 2, name: 'FINKENWERDER' }),
+    ).toThrow(/FINKENWERDER/);
+  });
+
   // Two parallel meridians 0.02 degrees of longitude apart — 2.226 km at these
   // latitudes. b spans a shorter stretch centred on a's midpoint, so the closest
   // pair is unambiguous: a[1] to b[1], straight across.

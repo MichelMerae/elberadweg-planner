@@ -1,6 +1,6 @@
 node_modules/
 dist/
-src/data/route.raw.osm.json
+src/data/route.raw.*.json
 .superpowers/
 # Playwright MCP scratch output (snapshots/console logs from browser verification)
 .playwright-mcp/

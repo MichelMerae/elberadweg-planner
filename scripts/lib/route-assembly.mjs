@@ -34,29 +34,6 @@ export function cumulativeAlongM(coords) {
 }
 
 /**
- * Snap an anchor point onto a line.
- *
- * Throws when the anchor lands further than `maxOffsetKm` away. Without that
- * check a mistyped coordinate — or a relation set that does not cover the place
- * at all — silently trims the route somewhere else entirely, and the only symptom
- * is a length that still looks plausible. This guard earned itself immediately:
- * the first Cuxhaven anchor was 2.3 km out in longitude.
- *
- * @returns {{point: object, offsetKm: number, locationKm: number}}
- */
-export function anchorSnap(line, anchor, { name = 'anchor', maxOffsetKm = 2 } = {}) {
-  const snap = turf.nearestPointOnLine(line, turf.point(anchor), { units: 'kilometers' });
-  const offsetKm = snap.properties.dist;
-  if (offsetKm > maxOffsetKm) {
-    throw new Error(
-      `${name} anchor [${anchor.join(', ')}] lies ${offsetKm.toFixed(2)} km from the line ` +
-        `(max ${maxOffsetKm} km) — wrong coordinate, or the relations do not cover it`,
-    );
-  }
-  return { point: snap, offsetKm, locationKm: snap.properties.location };
-}
-
-/**
  * The closest approach between two lines: where one segment should hand over to
  * the next.
  *
