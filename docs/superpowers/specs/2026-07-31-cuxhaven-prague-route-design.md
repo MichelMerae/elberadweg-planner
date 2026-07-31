@@ -4,11 +4,15 @@
 **Status:** approved in brainstorming, not yet planned
 **First of three specs.** This one replaces the route data. Then: *selectable start and destination* (the trip becomes a window on the road, storage v3). Then: *elevation profile in the strip*.
 
+## Product context
+
+The app's goal is to be **the best planner for anyone riding the Elberadweg over several days** — not a planner for one particular Hamburg → Dresden trip. Every decision below is weighed that way: arbitrary start and finish, honest distances, and a road longer than any single trip. The plan currently in local storage is throwaway test data and is not a constraint.
+
 ## Problem
 
 `route.json` is Hamburg → Dresden, 650.24 km, right bank only. Two things follow from that:
 
-- **The road stops short at both ends.** The trip is being planned onward to Prague, and the app has no data past Dresden. Nothing north of Hamburg exists either, so a start point can never be anywhere but km 0.
+- **The road stops short at both ends.** Users aiming past Dresden — Bad Schandau, Děčín, Prague — have no data at all, and nothing exists north of Hamburg either, so a start point can never be anywhere but km 0.
 - **Both endpoints are hardcoded as strings.** `index.html:27`, `map.js:397`, `main.js:284`, `strip-markup.js:129`/`172`/`191`/`192` and `itinerary.js:66` all name Hamburg or Dresden directly. Any change of endpoint is a change in six files.
 
 The follow-up feature — picking where the trip starts and ends — needs a road that is longer than the trip. This spec builds that road.
@@ -23,9 +27,16 @@ The follow-up feature — picking where the trip starts and ends — needs a roa
 | Czech source | **One relation** — EV7 Czech (`2775754`), Elbe *and* Vltava in one line |
 | Route assembly | **Three separately trimmed segments** joined by declared bridges |
 | Towns / POIs | **Corridor query** (`around:` on a subsampled route), not one giant bbox |
-| Stored plans | **Archived and reset**, not migrated — km values re-base, so nothing survives |
+| Southern end | **Prague**, via the Vltava spur — not the Elbe's own course to the source |
+| Stored plans | **Archived and reset**, not migrated — the saved plan is test data |
 | Endpoint names | Read from `route.meta.json`, never literals |
-| Km inflation | Add a **doubling-back diagnostic** to the validation report; report only |
+| Km inflation | Measured 2026-07-31: **not a problem** (1.3%). Diagnostic kept as a build guard |
+
+### Why Prague and not the source
+
+The Elberadweg's own southern terminus is Špindlerův Mlýn, reached along the Labe from Mělník through Hradec Králové. Prague leaves the Elbe at Mělník and runs up the Vltava. Prague wins here because it is where multi-day riders actually aim — rail links home are far better — and because EV7 delivers it as one continuous relation.
+
+The honest product answer is **both**: the Elbe course as the main line with Prague as a named spur. That needs `route.json` to hold more than one LineString and route km to stop being a single scalar, which is the same machinery left-bank/right-bank variants need. One route-variants spec should cover both; neither is attempted here.
 
 ### Why plans are reset rather than migrated
 
@@ -108,9 +119,9 @@ Mělník precedes Prague because the Vltava leg runs upstream — the two are 50
 
 Length bounds re-based: hard **850–1350 km**, nominal **1000–1150 km**. The nominal range is set from an OSM-measured estimate, not the signposted figures — see below for why those differ.
 
-**Doubling-back diagnostic (new, report-only).** Hamburg → Dresden measures 650 km here against roughly 500 km signposted. The script's existing comment proves that is not a simplification artefact, but it does not rule out the likely cause: variant members producing out-and-back spurs. One stage already needed its `alternative` members excluded for exactly this reason.
+**Doubling-back guard (new).** The report gains: total km of the line whose vertices lie within **30 m** of a non-adjacent part of the same line (non-adjacent meaning more than **1 km** apart measured along the route), plus the five largest such clusters with their route positions. Implemented with a ~0.0005° lat/lng grid so it stays linear. **The build fails above 5%.**
 
-So the report gains: total km of the line whose vertices lie within **30 m** of a non-adjacent part of the same line (non-adjacent meaning more than **1 km** apart measured along the route), plus the five largest such clusters with their route positions. Implemented with a ~0.0005° lat/lng grid so it stays linear. It changes nothing and fixes nothing — if it comes back large, that is a separate correctness bug, and it must be fixed before the elevation profile inherits inflated distances.
+This exists because a stage's `alternative` members once produced a spurious 8.6 km jump, and out-and-back spurs would silently inflate every distance the app quotes a user. It is a regression guard, not an investigation: the current route was measured on 2026-07-31 and is clean — **8.4 km of 650.2 km, 1.3%**, in ten clusters, the largest a 2 km loop at km 43–45. Milestone distances from Hamburg also run slightly *short* against signposted values (Bleckede −8%, Havelberg −7%, Magdeburg −2%, Torgau +1%, Meißen +1%), so the 650 km figure is sound. The 5% threshold is set to catch a new stitching fault, and the three added sources are what could introduce one.
 
 ### 6. `route.meta.json`
 
@@ -162,9 +173,9 @@ On load, a blob whose `routeId` is missing or different is **archived, not read*
 
 where `<oldRouteId>` is the blob's own routeId, or `v2` when it has none. **If that key is already occupied, a `-2`, `-3`, … counter is appended** — a second rebuild against the same old routeId must never overwrite the first backup.
 
-The app then starts with one fresh empty plan. This mirrors the v1 → v2 migration, which also kept the legacy key as a backup.
+The app then starts with one fresh empty plan. This mirrors the v1 → v2 migration, which also kept the legacy key as a backup. No notice UI: the only plan that exists is test data, and a banner explaining a wipe nobody will notice is not worth its code.
 
-A one-line dismissible notice says why: *"The route now runs Cuxhaven → Prague, so every distance moved. Your previous plan and favorites are backed up but no longer match the road."* Dismissal is remembered in `elberadweg-route-notice-dismissed`. Without it, a plan silently vanishing looks like data loss.
+**This is a pre-users answer, and it expires.** Once real people have plans, a route-data change has to *migrate* — shift every stored km by the origin's delta — rather than reset. That is only expressible once `days[0]` can start somewhere other than km 0, which is exactly what the next spec adds. The `routeId` written here is what that future migration branches on, so recording it now is the part that lasts.
 
 ### 9. Testing
 
@@ -183,11 +194,14 @@ The build's own validation report stays the acceptance gate for the data itself 
 
 ## Out of scope
 
-Selectable start and destination; Hamburg and Dresden as strip milestones; the elevation profile; the Brunsbüttel arm; left-bank stages south of Finkenwerder; GPX export; any *fix* for km inflation beyond measuring it.
+Selectable start and destination; Hamburg and Dresden as strip milestones; the elevation profile; the Brunsbüttel arm; left-bank stages south of Finkenwerder; GPX export.
+
+**Route variants** are the largest deferral: left bank versus right, and the Elbe's own course to the source versus the Prague spur. Both need `route.json` to hold multiple lines and route km to stop being one scalar. That is a spec of its own, and it is the biggest gap between this app and "the best Elberadweg planner" — a rider who wants the left bank cannot be served at all until it lands.
+
+Two more product gaps this spec does not touch, recorded so they aren't forgotten: **mobile layout**, since people plan trips on phones, and **lazy-loading the POI data** rather than bundling it.
 
 ## Open risks
 
 - **EV7 completeness through Prague.** The urban Vltava routing is the least predictable part of the corridor. The build reports every gap; a hard gap inside the Czech segment means falling back to `181093` plus a Vltava relation.
-- **Km inflation may be real.** If the diagnostic reports a large figure, the 650 km Hamburg → Dresden number the whole plan rests on is wrong, and that becomes the next thing to fix — before elevation.
 - **`around:` with ~520 coordinates may be slow or rejected.** Banded bboxes are the fallback; the decision point is the first successful town fetch.
-- **`pois.json` at ~1.7 MB** is bundled, not lazy-loaded. Acceptable for a local app, worth watching if it grows again.
+- **`pois.json` at ~1.7 MB** is bundled, not lazy-loaded — it is shipped to every user on first load, which is the cost that grows worst as the corridor grows.
