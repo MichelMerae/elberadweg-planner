@@ -25,6 +25,18 @@ Recorded here rather than silently applied.
 7. **A feature branch, not a worktree.** Nothing else is running against this checkout, and a worktree would need its own `npm install` before the data build could run. Branch: `route-cuxhaven-prague`.
 8. **Task 0 is a throwaway spike.** The single largest unknown is whether EV7 stitches cleanly through Prague. Discovering that after writing four tested helpers wastes the effort; the spike answers it in one script that is never committed.
 
+9. **Junctions are DERIVED, not anchored — decided after the spike ran.** Fixed junction anchors were wrong in both places, and not by a little: my Finkenwerder–Landungsbrücken pair measured **8.55 km** against a "~1.3 km" estimate I never checked, and the border pair measured **3.26 km** against "~0.2 km". Guessing a coordinate for a place where two lines meet is guessing an answer the data already holds.
+
+   So a new helper `findJunction(lineA, lineB)` returns the closest approach between consecutive segments, and each interior trim point comes from it. Only the two *outer* ends stay anchored — Cuxhaven and Prague — because there is no second line to derive them from.
+
+   Measured junctions: **left↔right 2,251 m** at the left bank's end `[9.8418, 53.5295]` and right-bank km 11.4 `[9.8501, 53.5492]` — the Finkenwerder↔Teufelsbrück ferry. **right↔cz 3,264 m**, Schmilka `[14.2342, 50.8878]` to Hřensko `[14.2224, 50.8594]`, verified irreducible: no right-bank vertex anywhere gets closer to the Czech start. Bridge ceilings become **3 km** and **4 km**.
+
+   Consequence worth stating: the right bank is now trimmed to *start* at km 11.4 rather than at Landungsbrücken. Hamburg centre stays on the route, 8.4 km after the junction, at roughly **km 148** — not the ~185 km I estimated in the spec, which assumed a longer northern leg.
+
+10. **`CUXHAVEN` is corrected to `[8.6839, 53.8917]`.** The spec's `[8.7166, 53.8917]` was wrong in longitude by 2.3 km — the Kugelbake is at ~8.684 — and would have failed its own 2 km snap guard.
+
+11. **Two known hard gaps are trimmed away, not fixed.** Right-bank stage 2599033 reaches the border at km 726.9 and then jumps 11.68 km *backwards* to Wehlen, where its misordered final way sits; EV7 has a 128 km jump south of Prague. Both lie outside the trimmed range, so both vanish. The build must still assert that zero hard gaps survive *inside* each trimmed segment — a gap that gets trimmed is luck, not correctness.
+
 ---
 
 ## File Structure
@@ -1950,4 +1962,33 @@ Append an addendum to the spec: measured total length, segment and bridge figure
 
 ## Ledger
 
-Filled in during execution — measured numbers, surprises, and anything decided at the keyboard rather than here.
+### Task 0 — spike, 2026-07-31
+
+Ran against live Overpass; raw responses cached in the scratchpad. Two runs: an assembly pass, then a diagnostic pass after the first one surfaced problems.
+
+**Per source, stitched and untrimmed:**
+
+| Source | Ways | Points | Raw km | Gaps | Start | End |
+| --- | --- | --- | --- | --- | --- | --- |
+| left | 390 | 3,698 | 137.1 | **0 soft, 0 hard** | `[8.6818, 53.8916]` | `[9.8419, 53.5295]` |
+| right | 2,705 | 21,792 | 738.7 | 10 soft, 6 hard | `[9.7018, 53.5692]` | `[14.0759, 50.9207]` |
+| cz | 1,516 | 13,222 | 601.6 | 7 soft, 3 hard | `[14.2224, 50.8594]` | `[14.4232, 49.7576]` |
+
+**Hard gaps, and whether they survive trimming:**
+
+| Where | Gap | Stage | Survives? |
+| --- | --- | --- | --- |
+| right km 19.8 / 20.8 / 23.8 | 971 m / 958 m / 1,800 m | 2599011 | **Yes** — the tangled Hamburg harbour passage, present in the shipped data too, and part of its 1.3% doubling-back |
+| right km 63.5 | 1,016 m | 2599013 | Yes |
+| right km 363.8 | 1,036 m | 2599024 | Yes |
+| right km 726.9 | 11,680 m | 2599033 | No — a misordered final way sitting back at Wehlen, past the border trim |
+| cz km 454.1 | 127,918 m | 2775754 | No — south of Prague |
+| cz km 596.7 / 599.5 | 1,074 m / 1,286 m | 2775754 | No — south of Prague |
+
+**Anchor snaps as originally specified:** Cuxhaven 2.15 km ✗ (over the 2 km guard), Finkenwerder 2.41 km ✗, Hamburg 0.04 km ✓, Schöna 1.96 km / 1.59 km (marginal), **Prague 0.21 km ✓**.
+
+**Junctions (see deviation 9):** left↔right 2,251 m; right↔cz 3,264 m, irreducible.
+
+**Verdict: proceed.** The one assumption that could have sunk the plan — EV7's continuity through Prague — holds: 171.6 km trimmed, no surviving hard gaps, Prague anchor 0.21 km off. Expected total after the derived junctions: **~1,030 km** (137.1 + 2.25 + 715.5 + 3.26 + 171.6), inside the 1,000–1,150 nominal band.
+
+Spike files deleted, not committed.
