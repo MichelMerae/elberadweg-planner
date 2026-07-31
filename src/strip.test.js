@@ -603,7 +603,7 @@ describe('createStrip - summary', () => {
 
     const summary = el.querySelector('.strip__summary').textContent;
     expect(summary).toContain('320 / 650 km planned');
-    expect(summary).toContain('330 km to Dresden');
+    expect(summary).toContain('330 km to finish');
     expect(summary).toContain('4 days');
     expect(summary).toContain('80 km/day');
   });
@@ -813,7 +813,7 @@ describe('createStrip - focus and add', () => {
     expect(callbacks.onAddDay).toHaveBeenCalledWith(280);
   });
 
-  it('hides the remainder once the plan reaches Dresden', () => {
+  it('hides the remainder once the plan reaches the destination', () => {
     const strip = mount();
     strip.render({ days: days(TOTAL_KM), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
 
@@ -822,7 +822,7 @@ describe('createStrip - focus and add', () => {
   });
 
   // At right: 0 on the axis the finish marker landed on top of the last block and
-  // underneath the last handle. The scale line already says where Dresden is, so
+  // underneath the last handle. The scale line already names the destination, so
   // it says "reached" there instead and collides with nothing.
   it('puts the finish marker in the scale line, not on the axis', () => {
     const strip = mount();
@@ -839,7 +839,78 @@ describe('createStrip - focus and add', () => {
     strip.render({ days: days(80), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
 
     expect(el.querySelector('.strip__finish')).toBeNull();
-    expect(el.querySelector('.strip__scale').textContent).toContain('km 650 · Dresden');
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 650 · finish');
+  });
+});
+
+// The corridor outgrew Hamburg -> Dresden, so the endpoints are data now. The
+// strip must never hold a place name of its own: it is mounted standalone in these
+// tests and would otherwise render a destination the route does not have.
+describe('createStrip - endpoint names', () => {
+  const named = { originName: 'Cuxhaven', destinationName: 'Prague' };
+
+  it('counts down to the destination it was given', () => {
+    const strip = mount();
+    strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
+
+    expect(el.querySelector('.strip__summary').textContent).toContain('300 km to Prague');
+  });
+
+  it('names both endpoints on the scale line', () => {
+    const strip = mount();
+    strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
+
+    const scale = el.querySelector('.strip__scale').textContent;
+    expect(scale).toContain('km 0 · Cuxhaven');
+    expect(scale).toContain('km 400 · Prague');
+  });
+
+  it('flags the destination on the remainder', () => {
+    const strip = mount();
+    strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
+
+    expect(el.querySelector('.strip__flag').textContent).toContain('Prague');
+  });
+
+  it('says the destination is reached once the plan arrives', () => {
+    const strip = mount();
+    strip.render({ days: days(400), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
+
+    expect(el.querySelector('.strip__finish').textContent).toContain('Prague reached');
+  });
+
+  it('falls back to neutral words when no names are given', () => {
+    const strip = mount();
+    strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [] });
+
+    expect(el.textContent).toContain('km to finish');
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · start');
+  });
+
+  // render() is called with no argument on a width change (main.js drives that from
+  // a ResizeObserver). Rebuilding from a bare state would drop the names and the
+  // strip would silently start calling Prague "finish" after any resize.
+  it('keeps the names through an argument-less re-render', () => {
+    const strip = mount();
+    strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
+    strip.render();
+
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · Cuxhaven');
+    expect(el.querySelector('.strip__summary').textContent).toContain('to Prague');
+  });
+
+  it('escapes a name rather than injecting it as markup', () => {
+    const strip = mount();
+    strip.render({
+      days: days(100),
+      totalKm: 400,
+      focusedIndex: 0,
+      breaks: [],
+      destinationName: '<img src=x onerror=alert(1)>',
+    });
+
+    expect(el.querySelector('.strip__summary img')).toBeNull();
+    expect(el.querySelector('.strip__summary').textContent).toContain('<img');
   });
 });
 

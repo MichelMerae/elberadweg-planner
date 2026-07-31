@@ -32,6 +32,8 @@ const KEY_STEP_SHIFT_KM = 5;
  * @param {() => number} [opts.measureWidth] - axis width in px; injectable for tests.
  */
 export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
+  // originName/destinationName are undefined until main.js supplies them from
+  // route.meta.json; strip-markup.js substitutes neutral words meanwhile.
   let state = { days: [], totalKm: 0, focusedIndex: null, breaks: [] };
 
   // Interaction state lives HERE and never in the DOM. render() rebuilds the
@@ -103,6 +105,12 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
       totalKm: next.totalKm || 0,
       focusedIndex: next.focusedIndex ?? null,
       breaks: next.breaks || [],
+      // Fall back to what state already holds, not to a default: render() is
+      // called with NO argument on a width change (main.js drives that from a
+      // ResizeObserver), and rebuilding from a bare state would drop the names —
+      // the strip would silently start calling Prague "finish" after any resize.
+      originName: next.originName ?? state.originName,
+      destinationName: next.destinationName ?? state.destinationName,
     };
     const axis = axisOpts();
     const layout = stripLayout(state.days, axis);

@@ -117,16 +117,24 @@ function handleMarkup(days, index, axis, activeIndex) {
               aria-label="${esc(label)}" title="${esc(label)}"></button>`;
 }
 
+// Neutral stand-ins for the endpoint names. The corridor is data — it grew from
+// Hamburg → Dresden to Cuxhaven → Prague and will change again — so no place name
+// belongs in this module. These are what it says when mounted without names, which
+// the tests do and which must not read as "undefined".
+const ORIGIN_FALLBACK = 'start';
+const DESTINATION_FALLBACK = 'finish';
+
 /** The line above the axis: how far the plan reaches, and the average day. */
-export function summaryMarkup({ days, totalKm }) {
+export function summaryMarkup({ days, totalKm, destinationName }) {
   const planned = days.length ? days[days.length - 1].endKm : 0;
   const remaining = Math.max(0, totalKm - planned);
   const avg = days.length ? round1(planned / days.length) : 0;
   const right = days.length
     ? `${days.length} ${days.length === 1 ? 'day' : 'days'} · ⌀ ${avg} km/day`
     : 'no days yet';
+  const destination = esc(destinationName ?? DESTINATION_FALLBACK);
   return `
-      <span><b>${round1(planned)} / ${round1(totalKm)} km planned</b> · ${round1(remaining)} km to Dresden</span>
+      <span><b>${round1(planned)} / ${round1(totalKm)} km planned</b> · ${round1(remaining)} km to ${destination}</span>
       <span>${right}</span>`;
 }
 
@@ -169,7 +177,7 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
     box.width > 0
       ? `<div class="strip__remainder" style="left:${box.left}px;width:${box.width}px">
              <button type="button" class="strip__add" data-action="add-day">+ add a day</button>
-             <span class="strip__flag">⚑ Dresden</span>
+             <span class="strip__flag">⚑ ${esc(state.destinationName ?? DESTINATION_FALLBACK)}</span>
            </div>`
       : '';
 
@@ -181,14 +189,17 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
  *
  * The finish marker lives here rather than on the axis: at right: 0 over a
  * collapsed remainder it sat on top of the last block and underneath the last
- * handle. The scale line already names Dresden, so it says "reached" instead.
+ * handle. The scale line already names the destination, so it says "reached"
+ * instead.
  */
 export function scaleMarkup(state, layout) {
   const arrived = state.days.length > 0 && tailBox(layout).width <= 0;
+  const origin = esc(state.originName ?? ORIGIN_FALLBACK);
+  const destination = esc(state.destinationName ?? DESTINATION_FALLBACK);
   return (
-    `<span>km 0 · Hamburg</span>` +
+    `<span>km 0 · ${origin}</span>` +
     (arrived
-      ? `<span class="strip__finish">⚑ km ${round1(state.totalKm)} · Dresden reached</span>`
-      : `<span>km ${round1(state.totalKm)} · Dresden</span>`)
+      ? `<span class="strip__finish">⚑ km ${round1(state.totalKm)} · ${destination} reached</span>`
+      : `<span>km ${round1(state.totalKm)} · ${destination}</span>`)
   );
 }
