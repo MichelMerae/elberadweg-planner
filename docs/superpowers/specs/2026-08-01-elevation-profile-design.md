@@ -23,8 +23,10 @@ Second honesty problem: **cumulative ascent is an artefact of sampling interval 
 | Decision | Choice | Why |
 | --- | --- | --- |
 | Data source | **Open-Meteo elevation API** | No API key, Copernicus DEM GLO-90, 10k requests/day. Verified: Hamburg 5 m, Dresden 115 m, Prague 184 m, Bad Schandau 176 m — all plausible. |
-| Sampling | **every 100 m**, 10,265 points | Matches the DEM's own ~90 m resolution. Finer sampling would interpolate the same cells and invent ascent. |
-| Batch size | **100 coordinates per request**, 103 requests | Measured, not assumed: 101 returns `must not exceed 100 coordinates`. |
+| Sampling | **every 250 m**, 4,106 points | Set by the provider's quota, not by taste — see below. 100 m would match the DEM's ~90 m resolution, but costs an entire day's allowance. |
+| Batch size | **100 coordinates per request**, 42 requests | Measured, not assumed: 101 returns `must not exceed 100 coordinates`. |
+| Pacing | **12 s between requests** | Open-Meteo weights its allowance by *number of locations*, not requests. Six consecutive 100-location batches returned HTTP 429 — ~600 locations, exactly their per-minute ceiling. |
+| Optional-data loading | **`import.meta.glob`**, not a bare dynamic import | A `try/catch` around `await import('./data/elevation.json')` only *looks* like it degrades: Vite resolves the specifier at transform time, so a missing file is a build error before any catch runs. |
 | When it runs | **A separate `scripts/build-elevation.mjs`** | Different upstream from Overpass, and a towns refresh should not re-fetch 103 elevation requests. |
 | Colour | **A new muted `--terrain` token, not red** | Red is already the day-boundary colour (`--day`, mirroring the map's numbered pins). A red profile would read as a boundary. |
 | Layer position | **Over the day blocks, under the handles, `pointer-events: none`** | Blocks are opaque (`background: var(--surface)`), so a profile behind them would only show in the gaps. This is the same axis-level layer pattern the break glyphs already use. |
@@ -38,15 +40,18 @@ Second honesty problem: **cumulative ascent is an artefact of sampling interval 
 ```json
 {
   "routeId": "cuxhaven-prague-ev7-v1",
-  "spacingM": 100,
-  "count": 10266,
+  "spacingM": 250,
+  "count": 4106,
   "minM": -1,
   "maxM": 205,
+  "source": "Open-Meteo elevation API (Copernicus DEM GLO-90)",
   "elevationsM": [3, 3, 4, 4, 5, "…"]
 }
 ```
 
-A flat array of integers, index `i` ↔ km `i × 0.1`. Integers because the DEM's vertical accuracy does not support decimals, and because 10k integers is ~45 KB of JSON where floats would be triple that.
+A flat array of integers, index `i` ↔ km `i × 0.25`. Integers because the DEM's vertical accuracy does not support decimals, and because floats would triple the file for no information.
+
+**The cost of 250 m, stated plainly:** a climb shorter than 250 m gets averaged away. On this corridor that is acceptable — the Czech-section climbs that matter are kilometre-scale, and the 5 m ascent threshold already discards features of that size — but it is a real loss, forced by the quota rather than chosen. A self-hosted DEM would lift it.
 
 `routeId` is the safety catch: elevation sampled from a different corridor is meaningless. The app checks it and degrades rather than drawing a profile that belongs to another road.
 
