@@ -107,7 +107,12 @@ export function createItinerary({ trip } = {}) {
   // caller that forgot it would not get the old whole-road behaviour — it would get
   // NaN days, and persist them. Fail at construction rather than at the first
   // addDay, the same posture boundaries.js takes with its own missing totalKm.
-  if (!trip || typeof trip.advance !== 'function') {
+  //
+  // Both halves of the arithmetic are checked because both are load-bearing: advance
+  // chains the days, tripKm measures every length and boundary window. A stub with
+  // only one of them would construct cleanly and NaN at the first edit, which is the
+  // failure this guard exists to pull forward.
+  if (!trip || typeof trip.advance !== 'function' || typeof trip.tripKm !== 'function') {
     throw new Error('createItinerary needs a trip (see createTrip in src/trip.js)');
   }
 
@@ -187,12 +192,30 @@ export function createItinerary({ trip } = {}) {
       throw new Error(`endKm must be a finite number, got: ${endKm}`);
     }
     const day = days[index];
-    // boundaries.js still does its arithmetic in ascending absolute km, so it is
-    // handed the trip's far end as its totalKm — on a forward trip from km 0 that is
-    // literally the old value, and it is the argument that becomes `{ trip }` when
-    // boundary maths turns signed (plan Task 3). Until then a boundary DRAG on a
-    // downstream trip is not yet right; day CHAINING, which is this task, is.
-    const target = clampBoundaryKm(days, index, endKm, { totalKm: trip.destinationKm });
+    // The boundary window is asked for in RIDER km, and the answer converted back.
+    // boundaries.js measures its MIN_DAY_KM floor from a HARDCODED km-0 origin
+    // (`prevEnd = index === 0 ? 0 : …`), which in rider km is exactly right — the
+    // rider's start IS km 0 there, trip.lengthKm is the real far end, and every
+    // comparison in that file is ascending as it expects.
+    //
+    // Handing it absolute km instead is not a merely inaccurate drag: it puts the
+    // floor 149.3 km behind an offset rider and on the far side of the destination on
+    // a downstream one, so the clamped position lands BEHIND the day's own start and
+    // the length derived from it comes out negative. hydrate rejects a non-positive
+    // targetKm by dropping every day, so that is a corrupted plan on the next reload,
+    // reachable from moveBoundary, editDay and setTownChoice alike.
+    //
+    // This conversion is what plan Task 3 lifts INTO boundaries.js. It cannot just
+    // live here: boundaryWindow and boundaryBounds are still ascending-only and
+    // strip.js calls them directly for its drag preview and its slider bounds, so the
+    // same translation is owed there too — and it belongs in one place.
+    const rider = days.map((d) => ({
+      startKm: trip.tripKm(d.startKm),
+      endKm: trip.tripKm(d.endKm),
+    }));
+    const target = trip.absoluteKm(
+      clampBoundaryKm(rider, index, trip.tripKm(endKm), { totalKm: trip.lengthKm }),
+    );
     // Position unchanged AND the stored length already matches it: nothing to do.
     // The second term matters — a day clamped at the destination stores a length
     // longer than its span, and skipping on delta alone would leave that stale value
@@ -231,7 +254,14 @@ export function createItinerary({ trip } = {}) {
     // a stored inverted day, so it stays an assertion about what is about to be
     // written. Callers deciding whether to ask at all (strip.js's proposeKm) use
     // the shared predicate instead.
-    if (next && nextLength < MIN_DAY_KM) {
+    //
+    // The edited day's OWN length gets the same treatment, and zero counts as
+    // inverted: isValidTargetKm wants a POSITIVE number, so a day of exactly 0 km is
+    // as fatal to the next reload as a negative one. The rider-km window above should
+    // already make both unreachable — its lower bound is the day's own start plus
+    // MIN_DAY_KM — which is exactly why this stays an assertion rather than a
+    // calculation anything relies on.
+    if (length <= 0 || (next && nextLength < MIN_DAY_KM)) {
       return toPublicDay(day, index);
     }
     day.targetKm = length;

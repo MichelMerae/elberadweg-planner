@@ -35,6 +35,15 @@ describe('createItinerary - construction', () => {
     expect(() => createItinerary()).toThrow(/trip/);
     expect(() => createItinerary({})).toThrow(/trip/);
   });
+
+  // Both halves of the trip's arithmetic are load-bearing here: advance chains the
+  // days, tripKm measures every length and boundary. Something with only one of them
+  // would construct cleanly and then produce NaN km at the first edit — the failure
+  // this guard exists to move to construction time.
+  it('throws on a trip-shaped object missing the arithmetic it uses', () => {
+    expect(() => createItinerary({ trip: { startKm: 0, advance: () => 0 } })).toThrow(/trip/);
+    expect(() => createItinerary({ trip: { startKm: 0, tripKm: () => 0 } })).toThrow(/trip/);
+  });
 });
 
 describe('createItinerary - chaining', () => {
@@ -60,7 +69,7 @@ describe('createItinerary - chaining', () => {
 });
 
 describe('createItinerary - clamping', () => {
-  it('clamps endKm to totalKm when a day overshoots Dresden', () => {
+  it('clamps endKm to the destination when a day overshoots Dresden', () => {
     const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(300);
     const day = itinerary.addDay(200); // 300 + 200 = 500, clamp to 380
@@ -173,6 +182,137 @@ describe('createItinerary - oriented trips', () => {
   });
 });
 
+// The three public boundary-editing entry points — moveBoundary, editDay and
+// setTownChoice, which all funnel through moveBoundary — on trips that do not begin
+// at km 0. boundaries.js measures a boundary window from a HARDCODED km-0 origin, so
+// handing it absolute km puts its MIN_DAY_KM floor 149.3 km behind an offset rider
+// and on the wrong side of a downstream one entirely. What comes back then is not
+// merely a wrong position: the length derived from it is NEGATIVE, hydrate rejects a
+// non-positive targetKm, and the next reload drops every day in the plan. So these
+// cases are about a stored plan surviving, not about pixel-accurate drags.
+describe('createItinerary - boundary edits on an offset or downstream trip', () => {
+  const DOWN = createTrip({ startKm: 300, destinationKm: 100 }); // 200 km downstream
+  const UP = createTrip({ startKm: 149.3, destinationKm: 797.6 }); // offset forward
+
+  function twoDays(trip) {
+    const itinerary = createItinerary({ trip });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+    return itinerary;
+  }
+
+  it('moves the last boundary downstream instead of storing a negative length', () => {
+    const itinerary = twoDays(DOWN); // (300, 220], (220, 140]
+
+    itinerary.moveBoundary(1, 120); // 20 km further along, so day 1 becomes 100 km
+
+    expect(itinerary.getDays()[1]).toMatchObject({ startKm: 220, endKm: 120, targetKm: 100 });
+  });
+
+  it('sets a downstream day length by typed distance', () => {
+    const itinerary = twoDays(DOWN);
+
+    itinerary.editDay(1, 100);
+
+    expect(itinerary.getDays()[1]).toMatchObject({ startKm: 220, endKm: 120, targetKm: 100 });
+  });
+
+  it('snaps a downstream boundary to a chosen town', () => {
+    const itinerary = twoDays(DOWN);
+
+    itinerary.setTownChoice(1, { name: 'Lauenburg', routeDistanceKm: 150 });
+
+    expect(itinerary.getDays()[1]).toMatchObject({ startKm: 220, endKm: 150, targetKm: 70 });
+  });
+
+  it('keeps the MIN_DAY_KM floor a floor on an offset trip', () => {
+    const itinerary = twoDays(UP); // (149.3, 229.3], (229.3, 309.3]
+
+    // Measured from a km-0 origin this 0.5 km day sits 148.8 km ABOVE the floor, so
+    // it sails through; measured from the rider's own start it is what the floor is
+    // there to refuse.
+    itinerary.editDay(0, 0.5);
+
+    expect(itinerary.getDays()[0].targetKm).toBe(MIN_DAY_KM);
+    expect(itinerary.getDays()[0].endKm).toBeCloseTo(149.3 + MIN_DAY_KM, 6);
+  });
+
+  it('clamps a boundary dragged behind an offset trip start', () => {
+    const itinerary = twoDays(UP);
+
+    itinerary.moveBoundary(0, 100); // km 100 is 49.3 km BEHIND the rider's start
+
+    const days = itinerary.getDays();
+    expect(days[0].targetKm).toBeGreaterThan(0); // was -49.3
+    expect(days[0].targetKm).toBe(MIN_DAY_KM);
+    expect(days[0].endKm).toBeCloseTo(149.3 + MIN_DAY_KM, 6);
+  });
+
+  it('stores a positive length even on a zero-length trip', () => {
+    const nowhere = createTrip({ startKm: 300, destinationKm: 300 });
+    const itinerary = createItinerary({ trip: nowhere });
+    itinerary.addDay(80); // nowhere to go, so the day spans 0 km at km 300
+
+    itinerary.moveBoundary(0, 305);
+
+    // A zero targetKm is as fatal to hydrate as a negative one: isValidTargetKm wants
+    // a POSITIVE number, and one bad day drops the whole plan.
+    expect(itinerary.getDays()[0]).toMatchObject({
+      startKm: 300,
+      endKm: 300,
+      targetKm: MIN_DAY_KM,
+    });
+  });
+
+  // The property, rather than the cases we happen to have thought of: whatever the
+  // public API is asked to do, no day may be left with a length hydrate would reject.
+  // The same shape as 'every emitted plan survives a reload' below, run on trips that
+  // do not start at km 0.
+  describe('no sequence of edits can store a day hydrate would reject', () => {
+    function expectLoadable(itinerary, trip, label) {
+      const days = itinerary.getDays();
+      for (const day of days) {
+        expect(day.targetKm, `${label}: targetKm must stay positive`).toBeGreaterThan(0);
+      }
+      const fresh = createItinerary({ trip });
+      fresh.hydrate(days.map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice })));
+      expect(fresh.getDays().length, `${label}: plan must survive a reload`).toBe(days.length);
+    }
+
+    for (const [name, trip] of [
+      ['downstream', DOWN],
+      ['offset forward', UP],
+    ]) {
+      it(`holds across a battery of edits, ${name}`, () => {
+        const itinerary = createItinerary({ trip });
+        [80, 80, 80].forEach((km) => itinerary.addDay(km));
+        expectLoadable(itinerary, trip, `${name}: addDay`);
+
+        // Each of these asks for something the trip cannot give, which is where an
+        // unconverted boundary window produces its inverted days.
+        itinerary.moveBoundary(0, trip.absoluteKm(-50)); // 50 km behind the start
+        expectLoadable(itinerary, trip, `${name}: moveBoundary behind the start`);
+
+        itinerary.editDay(1, 0.5); // under the minimum
+        expectLoadable(itinerary, trip, `${name}: editDay under the minimum`);
+
+        itinerary.setTownChoice(0, { name: 'Too Early', routeDistanceKm: trip.absoluteKm(1) });
+        expectLoadable(itinerary, trip, `${name}: setTownChoice before the floor`);
+
+        itinerary.splitDay(2);
+        expectLoadable(itinerary, trip, `${name}: splitDay`);
+
+        itinerary.deleteDay(0);
+        expectLoadable(itinerary, trip, `${name}: deleteDay`);
+
+        const last = itinerary.getDays().length - 1;
+        itinerary.moveBoundary(last, trip.absoluteKm(trip.lengthKm + 100)); // past the end
+        expectLoadable(itinerary, trip, `${name}: moveBoundary past the destination`);
+      });
+    }
+  });
+});
+
 describe('createItinerary - moveBoundary', () => {
   it('moves one boundary and lets the next day absorb the delta', () => {
     const itinerary = createItinerary({ trip: WHOLE });
@@ -236,7 +376,7 @@ describe('createItinerary - moveBoundary', () => {
     expect(itinerary.totalPlannedKm()).toBe(120);
   });
 
-  it('clamps the last boundary to totalKm', () => {
+  it('clamps the last boundary to the destination', () => {
     const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
 
@@ -551,7 +691,7 @@ describe('createItinerary - totalPlannedKm', () => {
     expect(itinerary.totalPlannedKm()).toBe(0);
   });
 
-  it('is the last day endKm', () => {
+  it('is the distance ridden across all days', () => {
     const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
@@ -612,7 +752,7 @@ describe('createItinerary - hydrate', () => {
     expect(days[1]).toMatchObject({ startKm: 80, endKm: 160, townChoice: null });
   });
 
-  it('replays clamp against the current totalKm', () => {
+  it('replays clamp against the current destination', () => {
     const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.hydrate([
