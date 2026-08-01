@@ -39,9 +39,10 @@ const STRIP_HEIGHT_KEY = 'elberadweg-strip-height';
 
 // The floor, and the height the strip has had until now: .strip__axis's height in
 // style.css and strip.js's FALLBACK_HEIGHT. It is a floor and not just a default
-// because the boundary handles are 10 px buttons inset 3 px top and bottom — take
-// the axis below this and the thing you grab to move a day stops being grabbable,
-// which would leave a user with no way to drag the strip back open.
+// because the boundary handles are 10 px buttons that span the axis and overhang
+// it by 3 px top and bottom: their grab target shrinks with the axis, and a strip
+// too short to aim a boundary drag at leaves a user no way to drag it back open
+// (spec §6b puts the floor here for that reason).
 const MIN_HEIGHT_PX = 46;
 
 // Above ~45% of the viewport the map stops being useful (spec §6b), and the map is
@@ -306,6 +307,11 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
      */
     remeasure: () => {
       if (setHeight(height)) persist();
+      // Unconditionally, and not only on setHeight's changed path: what moved is
+      // the CEILING — that is the reason anyone calls this — and a height that
+      // still fits returns early, leaving the handle announcing a maximum the
+      // viewport no longer offers.
+      syncAria();
     },
   };
 }

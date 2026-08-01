@@ -299,6 +299,22 @@ describe('createStripResize - bounds', () => {
     expect(mounted.lastReported()).toBe(MIN_HEIGHT);
   });
 
+  it('falls back to an 800 px viewport when the measurement is unusable', () => {
+    // A 0 from a frame before layout has settled would otherwise put the ceiling
+    // at the floor and freeze the gesture at 46 px until the next reload.
+    const FALLBACK_MAX = 360; // 45% of the module's 800 px fallback
+
+    for (const unusable of [0, NaN, -1]) {
+      const mounted = mount({ stored: '100', viewport: unusable });
+
+      expect(mounted.handle.getAttribute('aria-valuemax')).toBe(String(FALLBACK_MAX));
+
+      drag(mounted, 500, 0);
+
+      expect(mounted.lastReported()).toBe(FALLBACK_MAX);
+    }
+  });
+
   it('falls back to the window when no viewport seam is injected', () => {
     // jsdom's window.innerHeight is 768, so the maximum is 346.
     const el = document.createElement('div');
@@ -568,6 +584,20 @@ describe('createStripResize - remeasure', () => {
 
     expect(mounted.lastReported()).toBe(180);
     expect(mounted.stored()).toBe('180');
+  });
+
+  it('refreshes the announced range even when the height still fits', () => {
+    // The ceiling is what a remeasure is about. A screen reader left holding the
+    // old maximum would offer 360 px of range on a window that now allows 180.
+    const mounted = mount({ stored: '100' });
+    mounted.onResize.mockClear();
+    mounted.setViewport(400); // ceiling 180, which 100 px still fits under
+
+    mounted.resize.remeasure();
+
+    expect(mounted.onResize).not.toHaveBeenCalled();
+    expect(mounted.handle.getAttribute('aria-valuemax')).toBe('180');
+    expect(mounted.handle.getAttribute('aria-valuenow')).toBe('100');
   });
 
   it('does nothing when the height still fits', () => {
