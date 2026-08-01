@@ -75,17 +75,15 @@ async function boot() {
     totalKm,
   });
   const initial = store.load();
-  const bootPlan = store.getActivePlan();
   // The window belongs to the PLAN, so switching plans switches windows. These two
-  // bindings are rebuilt together, and only in hydrateActivePlan: createItinerary
-  // takes its trip once, at construction — which is what lets every day chain off
-  // the window without re-passing it — so a new window means a new model. Nothing
-  // outside boot() holds either object; every use below goes through these names.
-  let trip = tripFor(bootPlan);
-  let itinerary = createItinerary({ trip });
-  // Object form restores days AND breaks; a stored plan may predate breaks, so
-  // default the field. Using the array form here would leave breaks untouched.
-  itinerary.hydrate({ days: bootPlan.days, breaks: bootPlan.breaks ?? [] });
+  // bindings are rebuilt as a PAIR, by loadPlanIntoModel and nowhere else:
+  // createItinerary takes its trip once, at construction — which is what lets every day
+  // chain off the window without re-passing it — so a new window means a new model, and
+  // reassigning only `trip` would leave the model measuring against the old one.
+  // Nothing outside boot() holds either object; every use below goes through these names.
+  let trip;
+  let itinerary;
+  loadPlanIntoModel(store.getActivePlan());
 
   // Favorites are a single global list, persisted independently of plans (its
   // key already holds any pins migrated from the v1 schema in sub-project 1).
@@ -254,17 +252,22 @@ async function boot() {
     }
   });
 
-  // The window a plan rides, as a trip. Storage guarantees both ends are finite (it
-  // repairs a ruined one to the whole road end by end), so this cannot throw; totalKm
-  // rides along so createTrip can pull a window recorded against a longer road onto
-  // this one. A missing plan — which load() makes impossible — reads as the whole
-  // road rather than as a reason to fail booting.
-  function tripFor(plan) {
-    return createTrip({
-      startKm: plan?.startKm,
-      destinationKm: plan?.destinationKm,
-      totalKm,
-    });
+  // Makes `plan` the one the app is editing: its window becomes the trip, the trip
+  // becomes a fresh itinerary, and the plan's days and breaks are replayed into it.
+  // Three steps that are only ever right together — boot and every plan switch both
+  // come through here rather than each spelling them out.
+  //
+  // Storage guarantees both window ends are finite (it repairs a ruined one to the whole
+  // road, end by end), so createTrip cannot throw here; totalKm rides along so a window
+  // recorded against a longer road gets pulled onto this one. A missing plan — which
+  // load() makes impossible — reads as the whole road with no days, rather than as a
+  // reason to fail booting.
+  function loadPlanIntoModel(plan) {
+    trip = createTrip({ startKm: plan?.startKm, destinationKm: plan?.destinationKm, totalKm });
+    itinerary = createItinerary({ trip });
+    // Object form restores days AND breaks; a stored plan may predate breaks, so default
+    // the field. The array form would leave the previous plan's breaks in place.
+    itinerary.hydrate({ days: plan?.days ?? [], breaks: plan?.breaks ?? [] });
   }
 
   // Persist the active plan's committed state. Called ONLY after user
@@ -279,6 +282,13 @@ async function boot() {
       // means to save a plan is to save the days AND the trip they were measured
       // along, and a save site that says only half of that leaves the two to be kept
       // in step by luck.
+      //
+      // Because every save from the app names it, storage's preserve-on-omit path is
+      // unreachable from here — it exists for a future save site that forgets. One
+      // consequence worth knowing: after a rebuild that SHORTENS the road, createTrip
+      // pulls the stored window onto the new length, and the first save after boot
+      // commits that clamp. The old destination is gone from storage at that point, so
+      // a later rebuild restoring the length does not restore the window.
       startKm: trip.startKm,
       destinationKm: trip.destinationKm,
     });
@@ -290,16 +300,10 @@ async function boot() {
   // Loads the active plan into the itinerary. Used on every plan switch —
   // hydrate + render only, no persist.
   function hydrateActivePlan() {
-    const active = store.getActivePlan();
-    // A plan switch is a window switch: the incoming plan's days are lengths measured
-    // along ITS trip, so the trip has to be the new one before they are replayed. The
-    // itinerary is rebuilt with it (it holds the trip it was constructed on), which
-    // also means the new model starts with no days and no breaks of its own.
-    trip = tripFor(active);
-    itinerary = createItinerary({ trip });
-    // Object form so the new plan's breaks replace the previous plan's — the
-    // array form would leak breaks across a plan switch.
-    itinerary.hydrate({ days: active?.days ?? [], breaks: active?.breaks ?? [] });
+    // A plan switch is a window switch too: the incoming plan's days are lengths
+    // measured along ITS trip, so the trip has to be the new one before they are
+    // replayed. Same three steps as boot, same helper.
+    loadPlanIntoModel(store.getActivePlan());
     // A different set of days is loaded, so any boundary gesture still in flight
     // belongs to the plan that just left (handleMoveBoundary).
     planGeneration += 1;
@@ -345,27 +349,6 @@ async function boot() {
     return itinerary.getDays()[index - 1].townChoice?.name ?? 'your last stop';
   }
 
-  // A day's own breaks, by km range, so editing a day re-buckets them
-  // automatically. Constraint: a break exactly on the rider's start line must own a
-  // leg somewhere — the (start, end] rule hands a shared km to the previous day and
-  // day 1 has none, so it would belong to no day and have no × to remove it with.
-  // `includeFrom` is itinerary's name for that, keyed on the day's INDEX: day 1 starts
-  // wherever the trip does, which is only km 0 on a whole-road plan.
-  function breaksForDay(day) {
-    return itinerary.breaksInRange(day.startKm, day.endKm, { includeFrom: day.index === 0 });
-  }
-
-  // Whether an absolute route km falls on `day`'s leg, under the same rule
-  // breaksForDay buckets by: half-open `(start, end]`, with day 1 also owning its own
-  // start. Compared in RIDER km so the two ends keep meaning "behind" and "ahead"
-  // whichever way the trip runs — the absolute-km form this replaced reads backwards
-  // on a downstream trip, accepting exactly the km it should refuse.
-  function dayOwnsKm(day, km) {
-    const from = trip.tripKm(day.startKm);
-    const at = trip.tripKm(km);
-    return (day.index === 0 ? at >= from : at > from) && at <= trip.tripKm(day.endKm);
-  }
-
   function renderStrip(focusedIndex) {
     strip.render({
       days: itinerary.getDays(),
@@ -382,7 +365,10 @@ async function boot() {
     dayPanel.render({
       day,
       dayCount: itinerary.getDays().length,
-      breaks: day ? breaksForDay(day) : [],
+      // Which breaks are on this day's leg is the model's question, not a render
+      // decision: the half-open bucketing rule and day 0's start-line exception both
+      // live in itinerary.breaksForDay (see dayOwnsKm there).
+      breaks: day ? itinerary.breaksForDay(day.index) : [],
       fromName: day ? fromNameFor(day.index) : ORIGIN_NAME,
       customStopDraft,
       climb: day && elevation ? ascentBetween(elevation, day.startKm, day.endKm) : null,
@@ -590,9 +576,13 @@ async function boot() {
 
   function handleEditDay(index, target) {
     itinerary.editDay(index, target);
-    // A resized day can strand the draft outside the day's stretch — drop it.
+    // A resized day can strand the draft outside the day's stretch — drop it. Same
+    // ownership question the day's legs are bucketed by, so a draft that survives is
+    // one the day panel will actually list.
     const day = focusedDay();
-    if (customStopDraft && day && !dayOwnsKm(day, customStopDraft.km)) customStopDraft = null;
+    if (customStopDraft && day && !itinerary.dayOwnsKm(day.index, customStopDraft.km)) {
+      customStopDraft = null;
+    }
     persistPlan();
     renderAll();
   }
@@ -689,9 +679,9 @@ async function boot() {
     if (!day) return;
     const { distanceKm } = snap(route, lngLat);
     const km = round1(distanceKm);
-    // Same rule the break bucketing uses, so a confirmed draft lands on the day it was
+    // The model owns which day a km is on, so a confirmed draft lands on the day it was
     // drafted on rather than on none — a stop the day panel would never list.
-    if (!dayOwnsKm(day, km)) return;
+    if (!itinerary.dayOwnsKm(day.index, km)) return;
     const [lng, lat] = pointAtKm(routeIndex, km);
     customStopDraft = { km, lat, lng };
     renderAll();
@@ -751,6 +741,10 @@ async function boot() {
   // panel's Delete day, and the thing Delete plan is NOT: that takes the plan
   // itself. Nothing to hydrate (the itinerary is already the new state), so this
   // is an ordinary mutation: persist, then render.
+  //
+  // The WINDOW deliberately survives: "reset" empties the plan you made for a trip, it
+  // does not undo the trip. Which is why this is not a loadPlanIntoModel path — the
+  // model keeps the trip it has, and persistPlan writes that same window back.
   function handleResetTrip() {
     // Nothing to empty: return before persisting. A write here would bump
     // updatedAt for no change, and updatedAt is what deletePlan picks the

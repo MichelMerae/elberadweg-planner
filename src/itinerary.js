@@ -74,9 +74,11 @@ function toPublicDay(day, index) {
  * pure trip math; persistence lives in src/storage.js and feeds days back in via
  * hydrate().
  *
- * Plan-level breaks (committed waypoints like a lunch stop) live here too,
- * sorted by routeDistanceKm; each day derives its own breaks by km range via
- * breaksInRange, so editing day distances re-buckets breaks automatically.
+ * Plan-level breaks (committed waypoints like a lunch stop) live here too, sorted by
+ * routeDistanceKm; each day derives its own from the day's km via breaksForDay, so
+ * editing day distances re-buckets breaks automatically. dayOwnsKm is the predicate
+ * underneath it, and the answer to "does this km belong to that day" for callers
+ * holding a single km rather than a list.
  *
  * @param {Object} opts
  * @param {object} opts.trip - the oriented window this plan rides, from
@@ -97,7 +99,9 @@ function toPublicDay(day, index) {
  *   removeBreak: (key: string) => void,
  *   updateBreak: (key: string, patch: {name?: string, note?: string}) => string|null,
  *   getBreaks: () => Array<object>,
- *   breaksInRange: (startKm: number, endKm: number, opts?: {includeFrom?: boolean}) => Array<object>,
+ *   dayOwnsKm: (index: number, km: number) => boolean,
+ *   breaksForDay: (index: number) => Array<object>,
+ *   breaksInRange: (startKm: number, endKm: number) => Array<object>,
  *   hydrate: (input: Array<{targetKm: number, townChoice?: any}> | {days: Array<object>, breaks?: Array<object>}) => void,
  * }}
  */
@@ -415,51 +419,94 @@ export function createItinerary({ trip } = {}) {
     return breaks.map((b) => ({ ...b }));
   }
 
-  /**
-   * Breaks belonging to a day span (startKm, endKm], in absolute route km: a break
-   * exactly at the day's start belongs to the previous day, one exactly at the end
-   * belongs to this day.
-   *
-   * That half-open rule exists so two ADJACENT days cannot both claim the km they
-   * share, so it has to keep pointing the same way in TRIP order — the km a day
-   * starts on goes to the day before, the km it ends on to the day itself. Hence the
-   * comparison in rider km, where a day's start is the lower number whichever way the
-   * trip runs. A min/max in absolute km would keep the (lo, hi] shape and hand the
-   * shared km to the wrong neighbour on a downstream trip.
-   *
-   * The span arrives in trip order, so downstream `startKm` is the greater absolute
-   * number; a span handed over the other way round is normalised here rather than at
-   * each of the call sites. The list is small, so a linear filter is fine.
-   *
-   * Returned in the order the rider MEETS them, which is the plan-level sort order
-   * only on a forward trip: `breaks` is kept sorted by absolute km, and downstream
-   * that is exactly backwards. Re-sorted here so no display site has to know.
-   *
-   * `includeFrom` closes the half-open rule's one hole: day 0's start has no previous
-   * day to hand the shared km to, so a break dropped exactly on the rider's start line
-   * would belong to no day at all — listed on no day card, and therefore with no × to
-   * remove it with. The caller passing it is saying "this span starts the trip"; main.js
-   * passes it for index 0 and nothing else. It widens by the endpoint itself rather than
-   * by a km of slack, so nothing BEHIND the rider is ever swept in — and being a
-   * comparison in rider km it means the same thing whichever way the trip runs, unlike
-   * a widened absolute km, which downstream reaches the wrong way down the road.
-   *
-   * @param {number} startKm - absolute km, trip-ordered with endKm
-   * @param {number} endKm - absolute km
-   * @param {{includeFrom?: boolean}} [opts] - `includeFrom: true` makes the span own a
-   *   break exactly at `startKm` too, i.e. `[start, end]` instead of `(start, end]`.
-   */
-  function breaksInRange(startKm, endKm, { includeFrom = false } = {}) {
-    const from = trip.tripKm(startKm);
-    const to = trip.tripKm(endKm);
+  // The order the rider MEETS the breaks, which is the plan-level sort order only on a
+  // forward trip: `breaks` is kept sorted by absolute km, and downstream that is exactly
+  // backwards. Applied by every list this file hands out, so no display site has to know.
+  const byTripOrder = (a, b) => trip.tripKm(a.routeDistanceKm) - trip.tripKm(b.routeDistanceKm);
+
+  // THE day-bucketing comparison, in RIDER km: a span owns the km it ends on and not the
+  // km it starts on, so two ADJACENT days cannot both claim the km they share. Rider km
+  // is what keeps that rule pointing the same way in TRIP order — a span's start is the
+  // lower number whichever way the trip runs, while a min/max in absolute km would keep
+  // the (lo, hi] shape and hand the shared km to the wrong neighbour downstream.
+  //
+  // The span is normalised here rather than at each call site, so a caller may hand it
+  // over either way round. `includeStart` opens the lower end for the one span that has
+  // no previous day to give the shared km to; see dayOwnsKm.
+  function spanOwnsRiderKm(from, to, at, includeStart) {
     const lo = Math.min(from, to);
     const hi = Math.max(from, to);
+    return (includeStart ? at >= lo : at > lo) && at <= hi;
+  }
+
+  /**
+   * Whether day `index` owns the absolute route km `km` — the one owner of that
+   * question, because it used to be spelled once here and twice more in main.js, in
+   * absolute km, where every comparison reads backwards on a downstream trip.
+   *
+   * Half-open `(startKm, endKm]`, and day 0 also owns its own start line. That
+   * exception exists because day 0's start is the only boundary with no previous day to
+   * hand the shared km to: a stop dropped exactly on the rider's start line would
+   * otherwise be on no day's leg, listed on no day card, with no × to remove it with.
+   * It opens the near end only — the far end is never widened, and nothing BEHIND the
+   * rider is ever swept in.
+   *
+   * Throws on an index the plan does not have, like every other index-taking method
+   * here: a caller asking about a day that is gone has a bug, and answering `false`
+   * would let it read as "that km is simply elsewhere".
+   */
+  function dayOwnsKm(index, km) {
+    assertValidIndex(index);
+    const day = days[index];
+    return spanOwnsRiderKm(
+      trip.tripKm(day.startKm),
+      trip.tripKm(day.endKm),
+      trip.tripKm(km),
+      index === 0,
+    );
+  }
+
+  /**
+   * The breaks on day `index`'s leg, in the order the rider meets them.
+   *
+   * Filtered through `dayOwnsKm` rather than by its own km comparison, so the legs a
+   * day card lists and the stop a rider just dropped on the map can never disagree
+   * about whose day it is on. That also carries day 0's start-line exception here for
+   * free — including for a ZERO-LENGTH day 0, which `breaksInRange` would read as a
+   * span owning nothing.
+   *
+   * Re-derived on every call rather than stored per day, which is what makes a boundary
+   * edit re-bucket the breaks automatically.
+   */
+  function breaksForDay(index) {
+    assertValidIndex(index);
     return getBreaks()
-      .filter((b) => {
-        const km = trip.tripKm(b.routeDistanceKm);
-        return (includeFrom ? km >= lo : km > lo) && km <= hi;
-      })
-      .sort((a, b) => trip.tripKm(a.routeDistanceKm) - trip.tripKm(b.routeDistanceKm));
+      .filter((b) => dayOwnsKm(index, b.routeDistanceKm))
+      .sort(byTripOrder);
+  }
+
+  /**
+   * Breaks belonging to a span (startKm, endKm] of absolute route km: one exactly at
+   * the span's start belongs to whatever precedes it, one exactly at the end belongs to
+   * this span.
+   *
+   * The span form of the same rule `dayOwnsKm` applies to a single km — for a caller
+   * holding two km rather than a day index. `breaksForDay` is the day-keyed form and is
+   * what main.js uses; this one keeps no notion of day 0, so it has no start-line
+   * exception.
+   *
+   * The span arrives in trip order, so downstream `startKm` is the greater absolute
+   * number; either order works. The list is small, so a linear filter is fine.
+   *
+   * @param {number} startKm - absolute km
+   * @param {number} endKm - absolute km
+   */
+  function breaksInRange(startKm, endKm) {
+    const from = trip.tripKm(startKm);
+    const to = trip.tripKm(endKm);
+    return getBreaks()
+      .filter((b) => spanOwnsRiderKm(from, to, trip.tripKm(b.routeDistanceKm), false))
+      .sort(byTripOrder);
   }
 
   // Replaces the plan by replaying persisted state. Accepts two forms:
@@ -520,6 +567,8 @@ export function createItinerary({ trip } = {}) {
     removeBreak,
     updateBreak,
     getBreaks,
+    dayOwnsKm,
+    breaksForDay,
     breaksInRange,
     hydrate,
   };
