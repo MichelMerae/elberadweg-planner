@@ -5,7 +5,8 @@
 // trade places.js makes for the favorites key builder.
 
 import { round1 } from './ui-util.js';
-import { boundaryWindow } from './boundaries.js';
+import { boundaryWindow, clampBoundaryKm } from './boundaries.js';
+import { createTrip } from './trip.js';
 import { stripLayout, xToKm, hitTestHandle } from './strip-geometry.js';
 import { summaryMarkup, axisMarkup, scaleMarkup } from './strip-markup.js';
 import { profilePoints } from './elevation.js';
@@ -117,6 +118,15 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
     };
   }
 
+  // The trip the boundary math is asked about. STOPGAP: the strip's state carries a
+  // road length and not a trip yet, so this is the whole road ridden forwards — which
+  // is exactly what the strip has always drawn. Every conversion inside boundaries.js
+  // is an identity on it, so the numbers are unchanged. Plan Task 8 threads the real
+  // trip through the axis state and this helper goes away with it.
+  function stopgapTrip() {
+    return createTrip({ startKm: 0, destinationKm: state.totalKm });
+  }
+
   // A role="slider" that is destroyed and recreated on every change never
   // announces its own aria-valuenow, so the value is spoken from a live region
   // that sits outside the axis and survives the rebuild.
@@ -205,9 +215,14 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
    * distinction (the model refuses the same moves for the same reason).
    */
   function proposeKm(index, km) {
-    const window = boundaryWindow(state.days, index, { totalKm: state.totalKm });
-    if (!window) return null;
-    return round1(Math.min(Math.max(km, window.min), window.max));
+    const trip = stopgapTrip();
+    if (!boundaryWindow(state.days, index, { trip })) return null;
+    // Clamped by boundaries.js rather than here: its bounds come back in TRIP order,
+    // so a numeric Math.min/Math.max would pull the km towards the road's origin
+    // instead of the rider's once the strip draws a downstream window. Same value as
+    // the window's own bounds — a non-null window is never inverted — so this is one
+    // answer, asked for in the direction-safe way.
+    return round1(clampBoundaryKm(state.days, index, km, { trip }));
   }
 
   // `commit` travels in the same `{ commit }` shape it is emitted in, so the

@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createStrip } from './strip.js';
 import { MIN_DAY_KM, clampBoundaryKm } from './boundaries.js';
+import { createTrip } from './trip.js';
 import { round1 } from './ui-util.js';
 
 const TOTAL_KM = 650;
@@ -62,7 +63,10 @@ function mountLive(ends, { totalKm = TOTAL_KM, width = WIDTH, focusedIndex = 0, 
 
   callbacks.onMoveBoundary.mockImplementation((index, endKm, opts = {}) => {
     moves.push({ index, endKm, commit: !!opts.commit });
-    const target = clampBoundaryKm(days(...plan), index, endKm, { totalKm });
+    // The whole road ridden forwards, matching the trip the strip builds for itself
+    // until plan Task 8 hands it a real one.
+    const trip = createTrip({ startKm: 0, destinationKm: totalKm });
+    const target = clampBoundaryKm(days(...plan), index, endKm, { trip });
     const nextEnd = index + 1 < plan.length ? plan[index + 1] : null;
     if (nextEnd === null || round1(nextEnd - target) >= MIN_DAY_KM) plan[index] = target;
     render();

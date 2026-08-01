@@ -36,13 +36,19 @@ describe('createItinerary - construction', () => {
     expect(() => createItinerary({})).toThrow(/trip/);
   });
 
-  // Both halves of the trip's arithmetic are load-bearing here: advance chains the
-  // days, tripKm measures every length and boundary. Something with only one of them
-  // would construct cleanly and then produce NaN km at the first edit — the failure
-  // this guard exists to move to construction time.
+  // All three pieces of the trip's arithmetic are load-bearing here: advance chains
+  // the days, tripKm measures every length, absoluteKm turns a length back into a
+  // position (and boundaries.js converts every window with it). Something missing any
+  // one of them would construct cleanly and then produce NaN km at the first edit —
+  // the failure this guard exists to move to construction time.
   it('throws on a trip-shaped object missing the arithmetic it uses', () => {
     expect(() => createItinerary({ trip: { startKm: 0, advance: () => 0 } })).toThrow(/trip/);
     expect(() => createItinerary({ trip: { startKm: 0, tripKm: () => 0 } })).toThrow(/trip/);
+    expect(() => createItinerary({ trip: { startKm: 0, absoluteKm: () => 0 } })).toThrow(/trip/);
+    // Two of the three is still a stub that NaNs at the first edit.
+    expect(
+      () => createItinerary({ trip: { startKm: 0, advance: () => 0, tripKm: () => 0 } }),
+    ).toThrow(/trip/);
   });
 });
 

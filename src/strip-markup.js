@@ -9,6 +9,7 @@
 
 import { esc, round1, glyphFor } from './ui-util.js';
 import { boundaryBounds } from './boundaries.js';
+import { createTrip } from './trip.js';
 import { kmToX } from './strip-geometry.js';
 
 /**
@@ -126,7 +127,18 @@ function blockLabelMarkup(block, day) {
  */
 function handleMarkup(days, index, axis, activeIndex) {
   const day = days[index];
-  const bounds = boundaryBounds(days, index, { totalKm: axis.totalKm });
+  // STOPGAP trip: the whole road ridden forwards, which is what the axis still
+  // draws — every conversion inside boundaries.js is an identity on it. Plan Task 8
+  // threads the real trip through the axis and this becomes `axis.trip`.
+  const bounds = boundaryBounds(days, index, {
+    trip: createTrip({ startKm: 0, destinationKm: axis.totalKm }),
+  });
+  // boundaryBounds answers in TRIP order — on a downstream trip its `min` is the
+  // numerically LARGER km — so the pair is sorted before it becomes a range. An
+  // inverted aria-valuemin/valuemax is undefined behaviour for a screen reader, the
+  // same reason the widening below exists. No-op while the trip runs forwards.
+  const lo = Math.min(bounds.min, bounds.max);
+  const hi = Math.max(bounds.min, bounds.max);
   // A slider's value has to lie inside the range it reports, and on squeezed
   // stored data it did not: hand-edited days of 10 and 2 km put boundary 0 at
   // km 10 with a legal window of [5, 7]. Widening the reported range to contain
@@ -134,8 +146,8 @@ function handleMarkup(days, index, axis, activeIndex) {
   // undefined behaviour for a screen reader), and it is a no-op for every
   // well-formed plan — MIN_DAY_KM on both neighbours puts endKm inside [min, max]
   // by construction. The model still refuses the moves it always refused.
-  const min = Math.min(bounds.min, day.endKm);
-  const max = Math.max(bounds.max, day.endKm);
+  const min = Math.min(lo, day.endKm);
+  const max = Math.max(hi, day.endKm);
   const x = kmToX(day.endKm, axis);
   const town = day.townChoice ? ` (${day.townChoice.name})` : '';
   const label = `Day ${index + 1} end, km ${round1(day.endKm)}${town}, arrow keys adjust`;
