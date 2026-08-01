@@ -415,6 +415,9 @@ export function summaryMarkup(state) {
   const { days, trip } = state;
   const planned = days.length ? trip.tripKm(days[days.length - 1].endKm) : 0;
   const left = trip.lengthKm - planned;
+  // This `Math.abs` is symmetry with stripLayout's rather than a guard — the `Math.max`
+  // beside it makes both forms equivalent, so no test pins it. stripLayout's IS
+  // load-bearing and pinned twice; do not generalise from this one to that one.
   const remaining = Math.abs(left) <= ARRIVED_EPSILON_KM ? 0 : Math.max(0, left);
   const avg = days.length ? round1(planned / days.length) : 0;
   const right = days.length
