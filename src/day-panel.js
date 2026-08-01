@@ -2,11 +2,24 @@
 // legs, and the two operations that change the shape of the plan around it
 // (split, delete). Bounded content by construction — one day — so this panel can
 // never outgrow the window the way the old scrolling itinerary did.
+//
+// The day and its breaks arrive in ABSOLUTE route km; every km this panel prints is
+// counted from the rider's own start, through the `trip` render() is given. There is
+// deliberately no fallback for a missing trip: a display module that quietly counts
+// from the road's origin instead is the one bug this feature can produce, and it
+// produces it silently — every number still looks like a number.
 
 import { esc, round1, poiKey, glyphFor } from './ui-util.js';
 import { MIN_DAY_KM } from './boundaries.js';
 
 const SNAP_EPSILON_KM = 0.05;
+
+// Distance ridden from one absolute km to another, counted the rider's way: positive
+// along the trip whichever direction it runs. tripKm is linear, so the difference of
+// two conversions IS the ride.
+function rideKm(trip, fromKm, toKm) {
+  return trip.tripKm(toKm) - trip.tripKm(fromKm);
+}
 
 const STEPPER_TWIN = {
   '[data-action="focus-prev"]': '[data-action="focus-next"]',
@@ -92,13 +105,15 @@ function startBreakEdit(btn, callbacks) {
 // (‹ ›, a strip click) while the draft is still open. Shown on the wrong day it
 // reads "(-65 km into the day)" and confirming it would add the stop to the day
 // the user left. main.js clears a stranded draft as well; this keeps the panel
-// honest whatever it is handed. The lower bound is exclusive because a day's
-// start km is the previous day's end — except at km 0, which belongs to the
-// first day (the same widening breaksForDay uses).
-function draftForDay(draft, day) {
-  if (!draft || !day) return null;
-  const lower = day.startKm === 0 ? -1 : day.startKm;
-  return draft.km > lower && draft.km <= day.endKm ? draft : null;
+// honest whatever it is handed.
+//
+// WHICH day owns a km is the model's question, not this panel's: `ownedByDay` is
+// itinerary.dayOwnsKm's answer, handed down by main.js. Re-deciding it here meant a
+// second copy of the half-open rule and of day 1's start-line exception — spelled in
+// absolute km against a hardcoded km 0, so on an offset trip it fired for no day at
+// all, and on a downstream trip every comparison read backwards.
+function draftForDay(draft, day, ownedByDay) {
+  return draft && day && ownedByDay ? draft : null;
 }
 
 // The "New stop at km K" prompt shown while a route click is pending a label,
@@ -130,25 +145,27 @@ function climbMarkup(climb) {
           </div>`;
 }
 
-function renderCustomStopPrompt(draft, day, callbacks, promptEl) {
+function renderCustomStopPrompt(draft, day, trip, callbacks, promptEl) {
   if (!draft || !day) {
     promptEl.hidden = true;
     promptEl.innerHTML = '';
     delete promptEl.dataset.km;
     return;
   }
+  // Keyed on the ABSOLUTE km, which is the click's identity — two different trips
+  // could otherwise agree on a rider km and inherit each other's half-typed label.
   if (promptEl.dataset.km === String(draft.km)) {
     // Same click target; only the day's start may have shifted (an earlier
     // boundary moving drags it) — refresh the title, keep typed text.
     promptEl.querySelector('.custom-stop__title').textContent =
-      `New stop at km ${round1(draft.km)} (${round1(draft.km - day.startKm)} km into the day)`;
+      `New stop at km ${round1(trip.tripKm(draft.km))} (${round1(rideKm(trip, day.startKm, draft.km))} km into the day)`;
     return;
   }
   promptEl.dataset.km = String(draft.km);
   promptEl.innerHTML = `
     <div class="custom-stop">
-      <div class="custom-stop__title">New stop at km ${round1(draft.km)}
-        (${round1(draft.km - day.startKm)} km into the day)</div>
+      <div class="custom-stop__title">New stop at km ${round1(trip.tripKm(draft.km))}
+        (${round1(rideKm(trip, day.startKm, draft.km))} km into the day)</div>
       <input type="text" class="custom-stop__input" id="custom-stop-label" maxlength="120"
              placeholder="e.g. lunch, 2h at the top" aria-label="Stop label" />
       <div class="custom-stop__actions">
@@ -247,12 +264,15 @@ export function createDayPanel({ el, callbacks = {} }) {
     inLegs[Math.min(target.at, inLegs.length - 1)]?.focus({ preventScroll: true });
   }
 
-  function legs(day, breaks) {
+  // Each leg is a distance RIDDEN from the last stop, so the arithmetic runs in rider
+  // km: absolute differences come out negative on a downstream trip, which turned
+  // every leg into the "at the start" case below.
+  function legs(day, breaks, trip) {
     const lines = [];
     let prevKm = day.startKm;
     for (const b of breaks) {
       const glyph = glyphFor(b);
-      const legKm = round1(b.routeDistanceKm - prevKm);
+      const legKm = round1(rideKm(trip, prevKm, b.routeDistanceKm));
       // A break sitting exactly at the day's start has no leg to speak of; a
       // bare "0 km →" reads as a bug, so say where it is instead.
       const dist =
@@ -271,7 +291,7 @@ export function createDayPanel({ el, callbacks = {} }) {
         </li>`);
       prevKm = b.routeDistanceKm;
     }
-    const finalKm = round1(day.endKm - prevKm);
+    const finalKm = round1(rideKm(trip, prevKm, day.endKm));
     const endName = day.townChoice ? esc(day.townChoice.name) : 'day end';
     // The twin of the `at the start` guard above: ☕-ing the overnight town itself
     // puts a break exactly at the day's end, and the ride from there is a bare
@@ -287,7 +307,7 @@ export function createDayPanel({ el, callbacks = {} }) {
     return `<ol class="day-card__legs">${lines.join('')}</ol>`;
   }
 
-  function overnight(day) {
+  function overnight(day, trip) {
     if (!day.townChoice) {
       return `<span class="day-panel__overnight-name day-panel__overnight-name--none">none chosen</span>
               <span class="day-panel__hint">pick one from the left, or drag the pin on the map</span>`;
@@ -296,17 +316,21 @@ export function createDayPanel({ el, callbacks = {} }) {
     const offset =
       typeof town.offsetKm === 'number' ? ` · ${round1(town.offsetKm)} km off route` : '';
     return `<span class="day-panel__overnight-name">🛏 ${esc(town.name)}</span>
-            <span class="day-panel__hint">km ${round1(day.endKm)}${offset}</span>`;
+            <span class="day-panel__hint">km ${round1(trip.tripKm(day.endKm))}${offset}</span>`;
   }
 
   // The boundary clamps at MIN_DAY_KM from its neighbour, so a town very close
   // to the next overnight can't be reached exactly. Say so rather than showing a
   // day length that silently disagrees with the town's position.
-  function snapNote(day) {
+  //
+  // The gap is measured with Math.abs on absolute km — a tolerance, not a number on
+  // screen, and it is the same size whichever way the trip runs. Only the two km it
+  // names are converted.
+  function snapNote(day, trip) {
     const km = day.townChoice?.routeDistanceKm;
     if (typeof km !== 'number' || Math.abs(km - day.endKm) <= SNAP_EPSILON_KM) return '';
-    return `<p class="day-panel__snap-note">${esc(day.townChoice.name)} sits at km ${round1(km)};
-      this day ends at km ${round1(day.endKm)}.</p>`;
+    return `<p class="day-panel__snap-note">${esc(day.townChoice.name)} sits at km ${round1(trip.tripKm(km))};
+      this day ends at km ${round1(trip.tripKm(day.endKm))}.</p>`;
   }
 
   // dayCount defaults to 0 rather than being required: without it a caller that
@@ -315,10 +339,14 @@ export function createDayPanel({ el, callbacks = {} }) {
   // disabled) and is visibly wrong rather than quietly wrong.
   function render({
     day,
+    trip,
     dayCount = 0,
     breaks = [],
     fromName = 'your last stop',
     customStopDraft = null,
+    // Whether the focused day owns the draft's km — itinerary.dayOwnsKm's answer, from
+    // main.js. See draftForDay.
+    draftOnDay = false,
     climb = null,
   }) {
     current = { day, dayCount };
@@ -340,10 +368,14 @@ export function createDayPanel({ el, callbacks = {} }) {
         </div>`;
       // A draft stop needs a day to belong to, so an empty plan discards it
       // rather than parking typed text where it can never be added.
-      renderCustomStopPrompt(null, null, callbacks, promptEl);
+      renderCustomStopPrompt(null, null, trip, callbacks, promptEl);
       return;
     }
-    const length = round1(day.endKm - day.startKm);
+    // The distance RIDDEN, which is what the Distance field edits (editDay takes a
+    // length) and what the split threshold compares. `endKm - startKm` is its negation
+    // on a downstream trip: a "-105" the number input refuses, and a split button
+    // disabled on every day of the plan.
+    const length = round1(rideKm(trip, day.startKm, day.endKm));
     const canSplit = length >= 2 * MIN_DAY_KM;
     el.innerHTML = `
       <div class="day-panel">
@@ -357,7 +389,7 @@ export function createDayPanel({ el, callbacks = {} }) {
                     ${day.index >= dayCount - 1 ? 'disabled' : ''}>›</button>
           </div>
         </div>
-        <div class="day-panel__from">from ${esc(fromName)} · km ${round1(day.startKm)} → ${round1(day.endKm)}</div>
+        <div class="day-panel__from">from ${esc(fromName)} · km ${round1(trip.tripKm(day.startKm))} → ${round1(trip.tripKm(day.endKm))}</div>
         ${climbMarkup(climb)}
 
         <label class="day-panel__field">
@@ -368,12 +400,12 @@ export function createDayPanel({ el, callbacks = {} }) {
 
         <div class="day-panel__field day-panel__overnight">
           <span>Overnight</span>
-          ${overnight(day)}
+          ${overnight(day, trip)}
         </div>
-        ${snapNote(day)}
+        ${snapNote(day, trip)}
 
         <h3 class="day-panel__section">Legs <span class="pois__count">${length} km total</span></h3>
-        ${legs(day, breaks)}
+        ${legs(day, breaks, trip)}
 
         <div data-custom-stop-slot></div>
         <p class="day-panel__hint">Click the route on the map to add a stop to this day.</p>
@@ -389,7 +421,7 @@ export function createDayPanel({ el, callbacks = {} }) {
     // and so its input is focusable — it is in the document by now. After
     // restoreFocus, too: a draft the user has just opened is a request for the
     // prompt, and focusing its input outranks putting focus back where it was.
-    renderCustomStopPrompt(draftForDay(customStopDraft, day), day, callbacks, promptEl);
+    renderCustomStopPrompt(draftForDay(customStopDraft, day, draftOnDay), day, trip, callbacks, promptEl);
   }
 
   el.addEventListener('change', (e) => {

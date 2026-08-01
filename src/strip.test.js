@@ -1118,3 +1118,118 @@ describe('createStrip - re-layout on a width change', () => {
     expect(el.querySelector('.strip__block').style.width).toBe('350px'); // half of 700
   });
 });
+
+// --- Oriented trips --------------------------------------------------------
+//
+// Every km on screen is counted from the rider's own start; the km in the days, the
+// breaks and the callbacks stay absolute. The AXIS still maps the whole road (plan
+// Tasks 7/8 rescale it), which is why the downstream cases below read a block's title
+// and its handle's aria values rather than its label: a descending day comes out of
+// stripLayout with a negative width, which clamps to zero px and carries no label tier
+// until the axis maps the window.
+describe('createStrip - oriented trips', () => {
+  const ROAD_KM = 1026.5;
+  const UP = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: ROAD_KM });
+  const DOWN = createTrip({ startKm: 797.6, destinationKm: 149.3, totalKm: ROAD_KM });
+
+  // Days as itinerary.js chains them: lengths ridden from the trip's own start, in the
+  // trip's direction — so a downstream day's endKm is BELOW its startKm.
+  function tripDays(trip, ...lengths) {
+    let prev = trip.startKm;
+    return lengths.map((lengthKm, index) => {
+      const endKm = trip.absoluteKm(trip.tripKm(prev) + lengthKm);
+      const day = { index, startKm: prev, endKm, targetKm: lengthKm, townChoice: null };
+      prev = endKm;
+      return day;
+    });
+  }
+
+  function renderTrip(trip, dayList, extra = {}) {
+    const strip = mount();
+    strip.render({ days: dayList, totalKm: ROAD_KM, focusedIndex: 0, breaks: [], trip, ...extra });
+    return strip;
+  }
+
+  it('labels a block with km from the rider’s start, not absolute route km', () => {
+    renderTrip(UP, tripDays(UP, 80));
+
+    const block = el.querySelector('.strip__block');
+    expect(block.textContent).toContain('80 km');
+    expect(block.getAttribute('title')).toContain('km 0 → 80');
+    const axisHtml = el.querySelector('[data-strip-axis]').innerHTML;
+    expect(axisHtml).not.toContain('229.3');
+    expect(axisHtml).not.toContain('149.3');
+  });
+
+  it('reports a downstream day as a positive distance ridden', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80));
+
+    // 717.6 − 797.6 is −80, so an absolute difference labels this day "-80 km".
+    const title = el.querySelector('.strip__block').getAttribute('title');
+    expect(title).toContain('80 km');
+    expect(title).not.toContain('-80');
+    expect(title).toContain('km 0 → 80');
+  });
+
+  it('keeps a downstream handle’s aria range ascending', () => {
+    // What replaces handleMarkup's numeric sort: boundaryBounds answers in TRIP order
+    // (downstream its `min` is the numerically LARGER absolute km), and converting the
+    // pair to rider km puts it in ascending order by construction.
+    renderTrip(DOWN, tripDays(DOWN, 80, 100));
+
+    for (const handle of el.querySelectorAll('.strip__handle')) {
+      const [now, min, max] = ['aria-valuenow', 'aria-valuemin', 'aria-valuemax'].map((name) =>
+        Number(handle.getAttribute(name)),
+      );
+      expect(min).toBeLessThanOrEqual(max);
+      expect(now).toBeGreaterThanOrEqual(min);
+      expect(now).toBeLessThanOrEqual(max);
+    }
+    const first = el.querySelector('.strip__handle');
+    expect(first.getAttribute('aria-valuenow')).toBe('80');
+    expect(first.getAttribute('aria-label')).toContain('km 80');
+  });
+
+  it('counts the summary down to the rider’s own destination', () => {
+    renderTrip(UP, tripDays(UP, 80, 100));
+
+    const summary = el.querySelector('.strip__summary').textContent;
+    expect(summary).toContain('180 / 648.3 km planned');
+    expect(summary).toContain('468.3 km to finish');
+    expect(summary).toContain('⌀ 90 km/day');
+  });
+
+  it('ends the scale line at the trip’s length, not the road’s', () => {
+    renderTrip(UP, tripDays(UP, 80));
+
+    const scale = el.querySelector('.strip__scale').textContent;
+    expect(scale).toContain('km 0 ·');
+    expect(scale).toContain('km 648.3 ·');
+    expect(scale).not.toContain('1026.5');
+  });
+
+  it('names a break sitting exactly on the rider’s start line', () => {
+    // The km-0 widening this replaces keyed on the ROAD's origin, so on a trip starting
+    // at km 149.3 a stop dropped on the start line was named on no day at all — the
+    // same start-line exception itinerary.dayOwnsKm makes for day 1, and nowhere else.
+    renderTrip(UP, tripDays(UP, 80), {
+      breaks: [{ name: 'Kiosk', kind: 'food', routeDistanceKm: 149.3 }],
+    });
+
+    expect(el.querySelector('.strip__block').getAttribute('title')).toContain('☕ Kiosk');
+  });
+
+  it('names each downstream day’s own breaks', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80, 100), {
+      breaks: [
+        { name: 'Café', kind: 'food', routeDistanceKm: 750 }, // 47.6 km ridden: day 1
+        { name: 'Schloss', kind: 'sight', routeDistanceKm: 700 }, // 97.6 km ridden: day 2
+      ],
+    });
+
+    const titles = [...el.querySelectorAll('.strip__block')].map((b) => b.getAttribute('title'));
+    expect(titles[0]).toContain('☕ Café');
+    expect(titles[0]).not.toContain('Schloss');
+    expect(titles[1]).toContain('📷 Schloss');
+  });
+});

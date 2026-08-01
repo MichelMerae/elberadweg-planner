@@ -2,6 +2,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createPlaces } from './places.js';
 import { favKey } from './favorites.js';
+import { createTrip } from './trip.js';
+
+// The whole road ridden forwards: tripKm is the identity on it, so every km below is
+// the number it always was. The oriented cases live in their own describe at the end.
+const WHOLE_ROAD = createTrip({ startKm: 0, destinationKm: 650 });
 
 let el;
 let callbacks;
@@ -35,6 +40,7 @@ const STRETCH = { dayNumber: 3, startKm: 160.44, endKm: 265, fromName: 'Lenzen' 
 // exercises. Sets are rebuilt per call so no test can leak state into the next.
 function renderArgs(overrides = {}) {
   return {
+    trip: WHOLE_ROAD,
     ...STRETCH,
     towns: [],
     food: [],
@@ -42,6 +48,9 @@ function renderArgs(overrides = {}) {
     favorites: [],
     breakKeys: new Set(),
     favoriteKeys: new Set(),
+    // Which day owns a km is itinerary.dayOwnsKm's answer, handed down by main.js. The
+    // default says "no day": tests about the tag name their own answers.
+    dayNumberForKm: () => null,
     ...overrides,
   };
 }
@@ -358,7 +367,7 @@ describe('createPlaces - favorites', () => {
     const places = mount();
     places.render(renderArgs({
       favorites: [poi('Grenzturm', 213, 'sight'), poi('Far Away', 600, 'sight')],
-      days: [{ index: 0, startKm: 0, endKm: 265 }],
+      dayNumberForKm: (km) => (km <= 265 ? 1 : null),
     }));
 
     const rows = [...el.querySelectorAll('[data-place-section="fav"]')];
@@ -377,7 +386,7 @@ describe('createPlaces - favorites', () => {
     const places = mount();
     places.render(renderArgs({
       favorites: [poi('Grenzturm', 213.06, 'sight')],
-      days: [{ index: 0, startKm: 0, endKm: 265 }],
+      dayNumberForKm: () => 1,
     }));
 
     expect(el.querySelector('[data-place-section="fav"] .poi__meta').textContent).toContain('km 213.1');
@@ -406,19 +415,15 @@ describe('createPlaces - favorites', () => {
   });
 });
 
-// Day ownership is (startKm, endKm], widened at km 0 so day 1 owns the start —
-// the same convention main.js uses for breaks.
+// Which day owns a km is the model's rule — half-open (start, end] in RIDER km, plus
+// day 1's start line — and it is pinned once, in itinerary.test.js (dayOwnsKm). This
+// panel is handed the answer and words it; what follows is the wording.
 describe('createPlaces - favorite day tags', () => {
-  const DAYS = [
-    { index: 0, startKm: 0, endKm: 265 },
-    { index: 1, startKm: 265, endKm: 320 },
-  ];
-
-  it('gives a favorite on a boundary to the day that ends there', () => {
+  it('names the day the model gives a favorite to', () => {
     const places = mount();
     places.render(renderArgs({
       favorites: [poi('Boundary', 265, 'sight'), poi('Just past', 265.1, 'sight')],
-      days: DAYS,
+      dayNumberForKm: (km) => (km <= 265 ? 1 : 2),
     }));
 
     const rows = [...el.querySelectorAll('[data-place-section="fav"]')];
@@ -426,16 +431,9 @@ describe('createPlaces - favorite day tags', () => {
     expect(rows[1].querySelector('.fav-day').textContent).toBe('Day 2');
   });
 
-  it('gives a favorite at km 0 to day 1', () => {
-    const places = mount();
-    places.render(renderArgs({ favorites: [poi('Hamburg dock', 0, 'sight')], days: DAYS }));
-
-    expect(el.querySelector('[data-place-section="fav"] .fav-day').textContent).toBe('Day 1');
-  });
-
   it('marks a favorite no day covers', () => {
     const places = mount();
-    places.render(renderArgs({ favorites: [poi('Far Away', 600, 'sight')], days: DAYS }));
+    places.render(renderArgs({ favorites: [poi('Far Away', 600, 'sight')], dayNumberForKm: () => null }));
 
     const tag = el.querySelector('[data-place-section="fav"] .fav-day');
     expect(tag.textContent).toBe('beyond plan');
@@ -710,5 +708,111 @@ describe('createPlaces - marker hover highlight', () => {
     places.render(renderArgs({ food: [] }));
 
     expect(el.querySelector('.poi--hover')).toBeNull();
+  });
+});
+
+// --- Oriented trips --------------------------------------------------------
+//
+// The records and the stretch arrive in ABSOLUTE route km; every km on a row is
+// counted from the rider's own start.
+describe('createPlaces - oriented trips', () => {
+  const UP = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: 1026.5 });
+  const DOWN = createTrip({ startKm: 797.6, destinationKm: 149.3, totalKm: 1026.5 });
+  // Day 2 of each trip: 80 km ridden, then 105 more.
+  const UP_STRETCH = { dayNumber: 2, startKm: 229.3, endKm: 334.3, fromName: 'Lenzen' };
+  const DOWN_STRETCH = { dayNumber: 2, startKm: 717.6, endKm: 612.6, fromName: 'Lenzen' };
+
+  it('scopes the panel to the stretch in rider km', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: UP, ...UP_STRETCH }));
+
+    expect(el.querySelector('.places__scope-range').textContent).toContain('km 80 → 185');
+    expect(el.innerHTML).not.toContain('229.3');
+  });
+
+  it('scopes a downstream stretch the same way round', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH }));
+
+    expect(el.querySelector('.places__scope-range').textContent).toContain('km 80 → 185');
+  });
+
+  it('measures a town from the day’s start and names its rider km', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: UP, ...UP_STRETCH, towns: [town('Rosenhof', 269.3)] }));
+
+    const meta = el.querySelector('.town__meta').textContent;
+    expect(meta).toContain('40 km from Lenzen');
+    expect(meta).toContain('km 120');
+  });
+
+  it('measures a town on a downstream day as a positive distance ridden', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, towns: [town('Rosenhof', 677.6)] }));
+
+    // 677.6 − 717.6 is −40: an absolute difference reads "-40 km from Lenzen".
+    const meta = el.querySelector('.town__meta').textContent;
+    expect(meta).toContain('40 km from Lenzen');
+    expect(meta).not.toContain('-40');
+    expect(meta).toContain('km 120');
+  });
+
+  it('measures a POI on a downstream day too', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, food: [poi('Café', 677.6)] }));
+
+    const meta = el.querySelector('.poi__meta').textContent;
+    expect(meta).toContain('40 km from Lenzen');
+    expect(meta).toContain('(km 120)');
+  });
+
+  it('shows a favorite at its rider km', () => {
+    const places = mount();
+    places.render(renderArgs({
+      trip: UP,
+      ...UP_STRETCH,
+      favorites: [poi('Grenzturm', 349.3, 'sight')],
+      dayNumberForKm: () => 3,
+    }));
+
+    const meta = el.querySelector('[data-place-section="fav"] .poi__meta').textContent;
+    expect(meta).toContain('km 200');
+    expect(meta).toContain('Day 3');
+  });
+
+  // tripKm is signed and unclamped by design (see trip.js): a place BEHIND the rider's
+  // start is genuinely at a negative km on their trip. The signed number is what we
+  // show — "km -3.2" is odd to read but it is true, and the alternatives are worse: 0
+  // would put an off-trip favorite on the start line, and prose ("3.2 km behind you")
+  // is a copy decision the spec does not make. The row already says "beyond plan".
+  it('shows a favorite behind the rider’s start as a negative km', () => {
+    const places = mount();
+    places.render(renderArgs({
+      trip: UP,
+      ...UP_STRETCH,
+      favorites: [poi('Hamburg dock', 146.1, 'sight')],
+      dayNumberForKm: () => null,
+    }));
+
+    const row = el.querySelector('[data-place-section="fav"]');
+    expect(row.querySelector('.poi__meta').textContent).toContain('km -3.2');
+    expect(row.querySelector('.fav-day').textContent).toBe('beyond plan');
+  });
+
+  it('falls back to the rider’s own start when no day is focused', () => {
+    const places = mount();
+    places.render({
+      trip: UP,
+      dayNumber: null,
+      towns: [],
+      food: [],
+      sights: [],
+      favorites: [],
+      breakKeys: new Set(),
+      favoriteKeys: new Set(),
+      dayNumberForKm: () => null,
+    });
+
+    expect(el.querySelector('.places__scope-range').textContent).toBe('no day focused');
   });
 });

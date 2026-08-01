@@ -92,6 +92,21 @@ describe('poisInRange', () => {
     expect(poisInRange([], 0, 100)).toEqual([]);
   });
 
+  // A day's stretch arrives in TRIP order, so on a downstream trip (Dresden ->
+  // Hamburg) startKm is the greater number. Before the span was normalised here that
+  // returned nothing at all: every day of such a trip showed an empty Food and Sights
+  // section while the POIs sat right on the stretch.
+  test('reads a descending span as the same stretch', () => {
+    const ascending = poisInRange(POIS, 20, 50);
+    expect(poisInRange(POIS, 50, 20)).toEqual(ascending);
+    expect(ascending).not.toEqual([]);
+  });
+
+  test('filters a descending span by kind too', () => {
+    const names = poisInRange(POIS, 50, 20, { kind: 'food' }).map((p) => p.name);
+    expect(names).toEqual(['Village Bakery', 'Quiet Ice Cream']);
+  });
+
   test('does not mutate the input array or its POI objects', () => {
     const snapshot = JSON.stringify(POIS);
     const result = poisInRange(POIS, 20, 50, { kind: 'food' });

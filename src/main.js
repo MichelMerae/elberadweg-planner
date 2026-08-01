@@ -349,10 +349,14 @@ async function boot() {
     return itinerary.getDays()[index - 1].townChoice?.name ?? 'your last stop';
   }
 
+  // Every renderer below is handed the trip, and every km it puts on screen is counted
+  // from the rider's start. The km in the records stay absolute — that is the whole of
+  // the invariant, and the reason the conversion lives at the templates rather than here.
   function renderStrip(focusedIndex) {
     strip.render({
       days: itinerary.getDays(),
       totalKm,
+      trip,
       focusedIndex,
       breaks: itinerary.getBreaks(),
       originName: ORIGIN_NAME,
@@ -364,6 +368,7 @@ async function boot() {
   function renderDayPanel(day) {
     dayPanel.render({
       day,
+      trip,
       dayCount: itinerary.getDays().length,
       // Which breaks are on this day's leg is the model's question, not a render
       // decision: the half-open bucketing rule and day 0's start-line exception both
@@ -371,6 +376,10 @@ async function boot() {
       breaks: day ? itinerary.breaksForDay(day.index) : [],
       fromName: day ? fromNameFor(day.index) : ORIGIN_NAME,
       customStopDraft,
+      // Same question, same owner: the panel is told whether this day owns the draft
+      // rather than deciding it from the day's km, where the rule was spelled a second
+      // time and read backwards on a downstream trip.
+      draftOnDay: !!(day && customStopDraft && itinerary.dayOwnsKm(day.index, customStopDraft.km)),
       climb: day && elevation ? ascentBetween(elevation, day.startKm, day.endKm) : null,
     });
   }
@@ -383,14 +392,29 @@ async function boot() {
     // Kind-prefixed (favKey: `${kind}:${name}@${km}`), unlike breakKeys — places
     // names the kind for each section and calls the same favKey to look a row up.
     const favoriteKeys = new Set(favs.map(favKey));
-    const startKm = day ? day.startKm : 0;
-    const endKm = day ? day.endKm : 0;
+    // Absolute km, and the rider's own start when no day is focused: km 0 as they count
+    // it. The road's origin would be a place BEHIND an offset rider, and the panel
+    // measures its rows from this.
+    const startKm = day ? day.startKm : trip.startKm;
+    const endKm = day ? day.endKm : trip.startKm;
+    // The span is in TRIP order, so it descends on a downstream trip; poisInRange
+    // normalises it (it used to answer [] — an empty Food and Sights section for every
+    // day of such a trip).
     const food = day && !poisMissing ? poisInRange(poiData, startKm, endKm, { kind: 'food' }) : [];
     const sights = day && !poisMissing ? poisInRange(poiData, startKm, endKm, { kind: 'sight' }) : [];
+    // Which day owns a favorite's km — the favorites list's "Day 3" / "beyond plan" tag.
+    // Asked of the model, once, rather than re-spelled in places.js; the day list is
+    // captured here so the lookup does not rebuild it per favorite.
+    const days = itinerary.getDays();
+    const dayNumberForKm = (km) => {
+      const owner = days.find((d) => itinerary.dayOwnsKm(d.index, km));
+      return owner ? owner.index + 1 : null;
+    };
 
     places.render({
       // 1-BASED here — the strip and the day panel both count days from 0.
       dayNumber: day ? day.index + 1 : null,
+      trip,
       startKm,
       endKm,
       fromName: day ? fromNameFor(day.index) : ORIGIN_NAME,
@@ -399,7 +423,7 @@ async function boot() {
       food,
       sights,
       favorites: favs,
-      days: itinerary.getDays(),
+      dayNumberForKm,
       breakKeys,
       favoriteKeys,
       poisMissing,

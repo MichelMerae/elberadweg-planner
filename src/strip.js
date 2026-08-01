@@ -44,7 +44,8 @@ const KEY_STEP_SHIFT_KM = 5;
  */
 export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } = {}) {
   // originName/destinationName are undefined until main.js supplies them from
-  // route.meta.json; strip-markup.js substitutes neutral words meanwhile.
+  // route.meta.json; strip-markup.js substitutes neutral words meanwhile. `trip` is
+  // undefined the same way until a render brings one — see tripFor.
   let state = { days: [], totalKm: 0, focusedIndex: null, breaks: [] };
 
   // Interaction state lives HERE and never in the DOM. render() rebuilds the
@@ -107,6 +108,10 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
     return points;
   }
 
+  // The axis, in ABSOLUTE route km — deliberately, and the last place in the strip that
+  // still is: it maps the whole road, so every px derived from it (blocks, handles,
+  // glyphs, the profile above) is whole-road geometry. Plan Tasks 7/8 rescale this to
+  // the trip's window; the numbers a user READS are already the rider's own.
   function axisOpts() {
     const width = axisWidth();
     const height = axisHeight();
@@ -118,13 +123,18 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
     };
   }
 
-  // The trip the boundary math is asked about. STOPGAP: the strip's state carries a
-  // road length and not a trip yet, so this is the whole road ridden forwards — which
-  // is exactly what the strip has always drawn. Every conversion inside boundaries.js
-  // is an identity on it, so the numbers are unchanged. Plan Task 8 threads the real
-  // trip through the axis state and this helper goes away with it.
-  function stopgapTrip() {
-    return createTrip({ startKm: 0, destinationKm: state.totalKm });
+  // The trip every km on screen is counted from, and the window the boundary math is
+  // asked about. main.js supplies it with the state; a caller that names only a road
+  // length (the tests, and no path in the app) gets the whole road ridden forwards,
+  // which is exactly what the strip drew before trips existed and an identity for
+  // every conversion in boundaries.js — so those numbers are unchanged.
+  //
+  // Resolved per call rather than stored, so the fallback always describes THIS
+  // render's road length instead of an earlier one's. STOPGAP either way: plan Task 8
+  // rescales the axis to the window, at which point a trip-less strip has nothing
+  // coherent left to draw and this goes away with the `createTrip` import.
+  function tripFor() {
+    return state.trip ?? createTrip({ startKm: 0, destinationKm: state.totalKm });
   }
 
   // A role="slider" that is destroyed and recreated on every change never
@@ -168,18 +178,25 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       destinationName: next.destinationName ?? state.destinationName,
       // Same argument-less-render reasoning as the names above.
       elevation: next.elevation ?? state.elevation,
+      // Ditto: a width change re-renders with no argument, and a strip that forgot its
+      // trip would start counting from the road's origin again — silently, since every
+      // number would still look like a number.
+      trip: next.trip ?? state.trip,
     };
     const axis = axisOpts();
     const layout = stripLayout(state.days, axis);
+    // One trip for all three regions, so the summary, the axis and the scale line can
+    // never announce the same plan against two different windows.
+    const view = { ...state, trip: tripFor() };
 
-    summaryEl.innerHTML = summaryMarkup(state);
+    summaryEl.innerHTML = summaryMarkup(view);
     const restore = focusedSelector();
-    axisEl.innerHTML = axisMarkup(state, layout, axis, dragging ? dragging.index : null);
+    axisEl.innerHTML = axisMarkup(view, layout, axis, dragging ? dragging.index : null);
     // preventScroll: the strip sits at the bottom of a height:100vh,
     // overflow:hidden body, and scrolling that to "reveal" the handle shoves the
     // whole app off screen.
     if (restore) axisEl.querySelector(restore)?.focus({ preventScroll: true });
-    scaleEl.innerHTML = scaleMarkup(state, layout);
+    scaleEl.innerHTML = scaleMarkup(view, layout);
   }
 
   // --- Interaction -------------------------------------------------------
@@ -215,7 +232,10 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
    * distinction (the model refuses the same moves for the same reason).
    */
   function proposeKm(index, km) {
-    const trip = stopgapTrip();
+    // The real window once main.js supplies one: a drag is bounded by the trip the
+    // plan was measured along, not by the road. (Identical while a trip spans the whole
+    // road, which is every plan until the picking UI lands.)
+    const trip = tripFor();
     if (!boundaryWindow(state.days, index, { trip })) return null;
     // Clamped by boundaries.js rather than here: its bounds come back in TRIP order,
     // so a numeric Math.min/Math.max would pull the km towards the road's origin

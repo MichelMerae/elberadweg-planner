@@ -2,6 +2,12 @@
 // stretch — favorites, overnight candidates, food, sights. One delegated
 // listener serves all four sections. No Leaflet and no data of its own: main.js
 // windows the lists and passes them in.
+//
+// The places, the stretch and the favorites all arrive in ABSOLUTE route km; every km
+// a row shows is counted from the rider's own start, through the `trip` render() is
+// given. There is deliberately no fallback for a missing trip: a display module that
+// quietly counts from the road's origin instead is the one bug this feature can
+// produce, and it produces it silently — every number still looks like a number.
 
 import { esc, round1, townKey, poiKey, favGlyphFor } from './ui-util.js';
 // The one model import, and only for the key builder — a pure function, no store
@@ -22,23 +28,32 @@ import { favKey } from './favorites.js';
 // duplicated rather than shared.)
 const ROW_CAP = 40;
 
+// Distance ridden from one absolute km to another, counted the rider's way: positive
+// along the trip whichever direction it runs. tripKm is linear, so the difference of
+// two conversions IS the ride — and an absolute difference is its negation downstream,
+// which read "-40 km from Lenzen" on every row of such a trip.
+function rideKm(trip, fromKm, toKm) {
+  return trip.tripKm(toKm) - trip.tripKm(fromKm);
+}
+
 // Day-relative wording (spec §4): distance from the day's reference point (the
-// last overnight stop), absolute route km shown small in a .meta__abs span.
+// last overnight stop), then the place's own km — counted from the rider's start,
+// like every km on screen — shown small in a .meta__abs span.
 // fromName is an OSM-derived town name, so escape it before innerHTML use.
 //
 // The detour is rounded like every other km on screen. It arrives with two
 // decimals, and printing it raw put "0.05 km off route" here and "0.1 km off
 // route" in the day panel for the same town at the same moment.
-function townMeta(town, dayStartKm, fromName) {
-  const rel = round1(town.routeDistanceKm - dayStartKm);
-  return `${rel} km from ${esc(fromName)} · ${round1(town.offsetKm)} km off route <span class="meta__abs">km ${round1(town.routeDistanceKm)}</span>`;
+function townMeta(town, dayStartKm, fromName, trip) {
+  const rel = round1(rideKm(trip, dayStartKm, town.routeDistanceKm));
+  return `${rel} km from ${esc(fromName)} · ${round1(town.offsetKm)} km off route <span class="meta__abs">km ${round1(trip.tripKm(town.routeDistanceKm))}</span>`;
 }
 
-// Same day-relative wording as towns, but the absolute km sits inline in
+// Same day-relative wording as towns, but the place's own km sits inline in
 // parentheses (spec §4) rather than in a trailing .meta__abs span.
-function poiMeta(poi, dayStartKm, fromName) {
-  const rel = round1(poi.routeDistanceKm - dayStartKm);
-  return `${rel} km from ${esc(fromName)} (km ${round1(poi.routeDistanceKm)}) · ${round1(poi.offsetKm)} km off route`;
+function poiMeta(poi, dayStartKm, fromName, trip) {
+  const rel = round1(rideKm(trip, dayStartKm, poi.routeDistanceKm));
+  return `${rel} km from ${esc(fromName)} (km ${round1(trip.tripKm(poi.routeDistanceKm))}) · ${round1(poi.offsetKm)} km off route`;
 }
 
 // The ☕ break + ⭐ favorite actions shared by every place row (towns, POIs,
@@ -58,13 +73,15 @@ function rowActions(name, isBreak, isFav) {
       </span>`;
 }
 
-function dayTagFor(fav, days) {
-  // Same (startKm, endKm] convention as breaks, including the km-0 widening
-  // main.js applies in breaksForDay: day 1 owns a place at exactly km 0.
-  const day = days.find(
-    (d) => fav.routeDistanceKm > (d.startKm === 0 ? -1 : d.startKm) && fav.routeDistanceKm <= d.endKm,
-  );
-  return day ? `Day ${day.index + 1}` : 'beyond plan';
+// Which day a favorite falls on is the model's question: `dayNumberForKm` is
+// itinerary.dayOwnsKm's answer (1-based, or null when no day owns the km), handed down
+// by main.js. This file only words it. Deciding it here meant a third copy of the
+// half-open rule and of day 1's start-line exception — spelled in absolute km against a
+// hardcoded km 0, so on an offset trip day 1 lost its start line and on a downstream
+// trip every favorite came back "beyond plan".
+function dayTagFor(fav, dayNumberForKm) {
+  const dayNumber = dayNumberForKm(fav.routeDistanceKm);
+  return dayNumber == null ? 'beyond plan' : `Day ${dayNumber}`;
 }
 
 export function createPlaces({ el, callbacks = {} }) {
@@ -102,7 +119,7 @@ export function createPlaces({ el, callbacks = {} }) {
       </details>`;
   }
 
-  function townRow(town, i, { startKm, fromName, selectedTownKey, breakKeys, favoriteKeys }) {
+  function townRow(town, i, { startKm, fromName, selectedTownKey, breakKeys, favoriteKeys, trip }) {
     const selected = townKey(town) === selectedTownKey ? ' town--selected' : '';
     const isBreak = breakKeys.has(townKey(town));
     // Favorites use the kind-prefixed key shape. A town candidate carries no kind
@@ -115,11 +132,11 @@ export function createPlaces({ el, callbacks = {} }) {
         <span class="town__name">${esc(town.name)}</span>
         <span class="town__place">${esc(town.place)}</span>
         ${rowActions(town.name, isBreak, isFav)}
-        <span class="town__meta">${townMeta(town, startKm, fromName)}</span>
+        <span class="town__meta">${townMeta(town, startKm, fromName, trip)}</span>
       </div>`;
   }
 
-  function poiRow(poi, i, kind, { startKm, fromName, breakKeys, favoriteKeys }) {
+  function poiRow(poi, i, kind, { startKm, fromName, breakKeys, favoriteKeys, trip }) {
     const hours = poi.openingHours ? `<span class="poi__hours">${esc(poi.openingHours)}</span>` : '';
     const isBreak = breakKeys.has(poiKey(poi));
     // The section's kind, not the record's: the two agree for every POI the data
@@ -131,15 +148,15 @@ export function createPlaces({ el, callbacks = {} }) {
         <span class="poi__name">${esc(poi.name)}</span>
         <span class="poi__cat">${esc(poi.category.replace(/_/g, ' '))}</span>
         ${rowActions(poi.name, isBreak, isFav)}
-        <span class="poi__meta">${poiMeta(poi, startKm, fromName)}</span>
+        <span class="poi__meta">${poiMeta(poi, startKm, fromName, trip)}</span>
         ${hours}
       </div>`;
   }
 
-  function favRow(fav, i, { days, breakKeys }) {
+  function favRow(fav, i, { dayNumberForKm, breakKeys, trip }) {
     const glyph = favGlyphFor(fav);
     const cat = fav.category ? `<span class="poi__cat">${esc(fav.category.replace(/_/g, ' '))}</span>` : '';
-    const tag = dayTagFor(fav, days);
+    const tag = dayTagFor(fav, dayNumberForKm);
     const beyond = tag === 'beyond plan' ? ' fav-day--beyond' : '';
     // ⭐ is always active here (every row IS a favorite); ☕ reflects whether the
     // place is currently a committed break, matched on the non-prefixed key.
@@ -149,7 +166,7 @@ export function createPlaces({ el, callbacks = {} }) {
         <span class="poi__name">${glyph} ${esc(fav.name)}</span>
         ${cat}
         ${rowActions(fav.name, breakKeys.has(poiKey(fav)), true)}
-        <span class="poi__meta">km ${round1(fav.routeDistanceKm)} <span class="fav-day${beyond}">${tag}</span></span>
+        <span class="poi__meta">km ${round1(trip.tripKm(fav.routeDistanceKm))} <span class="fav-day${beyond}">${tag}</span></span>
       </div>`;
   }
 
@@ -157,15 +174,20 @@ export function createPlaces({ el, callbacks = {} }) {
     lastArgs = { ...args };
     const {
       dayNumber = null,
-      startKm = 0,
-      endKm = 0,
+      trip,
+      // The focused day's stretch, in ABSOLUTE route km. With no day focused there is
+      // no stretch, and the rider's own start stands in for one: km 0 as they count it.
+      // Zero would be the ROAD's origin, which on an offset trip is behind them.
+      startKm = trip.startKm,
+      endKm = trip.startKm,
       fromName = 'your last stop',
       towns: townsIn,
       selectedTownKey = null,
       food: foodIn,
       sights: sightsIn,
       favorites: favoritesIn,
-      days: daysIn,
+      // itinerary.dayOwnsKm's answer for a km, 1-based, from main.js. See dayTagFor.
+      dayNumberForKm,
       breakKeys,
       favoriteKeys,
       poisMissing = false,
@@ -173,13 +195,14 @@ export function createPlaces({ el, callbacks = {} }) {
     // Not destructuring defaults: those fire only on `undefined`, so an explicit
     // null — a caller reading a list straight off a nullable field — threw here
     // where the ui.js this replaced tolerated it.
-    const [towns, food, sights, favorites, days] = [townsIn, foodIn, sightsIn, favoritesIn, daysIn].map(
-      (value) => (Array.isArray(value) ? value : []),
+    const [towns, food, sights, favorites] = [townsIn, foodIn, sightsIn, favoritesIn].map((value) =>
+      Array.isArray(value) ? value : [],
     );
     const breakSet = breakKeys instanceof Set ? breakKeys : new Set(breakKeys || []);
     const favSet = favoriteKeys instanceof Set ? favoriteKeys : new Set(favoriteKeys || []);
     // A different stretch is a different question — collapse expanded sections
-    // back to the cap so switching days never inherits a 451-row list.
+    // back to the cap so switching days never inherits a 451-row list. Keyed on the
+    // absolute km deliberately: an identity for the stretch, never rendered.
     const nextScope = `${startKm}:${endKm}`;
     if (nextScope !== scopeKey) {
       scopeKey = nextScope;
@@ -187,12 +210,12 @@ export function createPlaces({ el, callbacks = {} }) {
     }
     lists = { fav: favorites, town: towns, food, sight: sights };
 
-    const ctx = { startKm, fromName, selectedTownKey, breakKeys: breakSet, favoriteKeys: favSet };
+    const ctx = { startKm, fromName, selectedTownKey, breakKeys: breakSet, favoriteKeys: favSet, trip };
     // Day numbers here are 1-based, but they are 0-based nearly everywhere else
     // in the app — only an absent one means "no day focused", never a zero.
     const scope = dayNumber != null
       ? `<span><b>On the way</b> · Day ${dayNumber}</span>
-         <span class="places__scope-range">km ${round1(startKm)} → ${round1(endKm)}</span>`
+         <span class="places__scope-range">km ${round1(trip.tripKm(startKm))} → ${round1(trip.tripKm(endKm))}</span>`
       : '<span><b>On the way</b></span><span class="places__scope-range">no day focused</span>';
 
     // POI data is optional (build:data may never have run); the food and sight
@@ -204,7 +227,7 @@ export function createPlaces({ el, callbacks = {} }) {
 
     el.innerHTML = `
       <div class="places__scope">${scope}</div>
-      ${section('fav', '⭐ Favorites', favorites, 'Nothing starred yet — hit ⭐ on any place.', (f, i) => favRow(f, i, { days, breakKeys: breakSet }))}
+      ${section('fav', '⭐ Favorites', favorites, 'Nothing starred yet — hit ⭐ on any place.', (f, i) => favRow(f, i, { dayNumberForKm, breakKeys: breakSet, trip }))}
       ${section('town', '🛏 Overnight options', towns, 'No towns near this stretch.', (t, i) => townRow(t, i, ctx))}
       ${poiSections}`;
 

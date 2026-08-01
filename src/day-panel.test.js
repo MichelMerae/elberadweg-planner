@@ -2,6 +2,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createDayPanel } from './day-panel.js';
 import { MIN_DAY_KM } from './boundaries.js';
+import { createTrip } from './trip.js';
+
+// The whole road ridden forwards: tripKm is the identity on it, so every km below is
+// the number it always was. The oriented cases live in their own describe at the end.
+const WHOLE_ROAD = createTrip({ startKm: 0, destinationKm: 650 });
 
 let el;
 let callbacks;
@@ -49,7 +54,7 @@ beforeEach(() => {
 describe('createDayPanel - empty plan', () => {
   it('invites a first day', () => {
     const panel = mount();
-    panel.render({ day: null, dayCount: 0, breaks: [], fromName: 'Hamburg' });
+    panel.render({ trip: WHOLE_ROAD, day: null, dayCount: 0, breaks: [], fromName: 'Hamburg' });
     expect(el.textContent).toContain('No days yet');
   });
 
@@ -58,7 +63,7 @@ describe('createDayPanel - empty plan', () => {
   // whose bottom sits under the taskbar) left no route to a first day at all.
   it('offers its own route to a first day', () => {
     const panel = mount();
-    panel.render({ day: null, dayCount: 0, breaks: [], fromName: 'Hamburg' });
+    panel.render({ trip: WHOLE_ROAD, day: null, dayCount: 0, breaks: [], fromName: 'Hamburg' });
 
     el.querySelector('[data-action="add-day"]').click();
 
@@ -70,7 +75,7 @@ describe('createDayPanel - empty plan', () => {
   // `2 >= NaN` is false.
   it('fails safe on a missing dayCount', () => {
     const panel = mount();
-    panel.render({ day: DAY });
+    panel.render({ trip: WHOLE_ROAD, day: DAY });
 
     expect(el.textContent).not.toContain('undefined');
     expect(el.querySelector('[data-action="focus-next"]').disabled).toBe(true);
@@ -80,7 +85,7 @@ describe('createDayPanel - empty plan', () => {
 describe('createDayPanel - header', () => {
   it('names the day, where it starts from, and its km range', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen (Elbe)' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen (Elbe)' });
 
     expect(el.querySelector('.day-panel__title').textContent).toContain('Day 3');
     expect(el.textContent).toContain('from Lenzen (Elbe)');
@@ -90,7 +95,7 @@ describe('createDayPanel - header', () => {
 
   it('escapes the previous overnight name', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: '<img src=x>' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: '<img src=x>' });
     expect(el.innerHTML).not.toContain('<img src=x>');
   });
 });
@@ -98,7 +103,7 @@ describe('createDayPanel - header', () => {
 describe('createDayPanel - distance', () => {
   it('shows the day length and reports a typed change', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     const input = el.querySelector('[data-day-distance]');
     expect(input.value).toBe('105');
@@ -110,7 +115,7 @@ describe('createDayPanel - distance', () => {
 
   it('ignores a non-positive distance', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     const input = el.querySelector('[data-day-distance]');
     input.value = '0';
@@ -124,7 +129,7 @@ describe('createDayPanel - distance', () => {
   // which throws on them.
   it('ignores a cleared or negative distance', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     const input = el.querySelector('[data-day-distance]');
     for (const value of ['', '-5']) {
@@ -137,7 +142,7 @@ describe('createDayPanel - distance', () => {
 
   it('quantizes a typed distance to the 0.1 km grid', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     const input = el.querySelector('[data-day-distance]');
     input.value = '90.42';
@@ -150,7 +155,7 @@ describe('createDayPanel - distance', () => {
 describe('createDayPanel - overnight', () => {
   it('shows the chosen town and its off-route detour', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     const overnight = el.querySelector('.day-panel__overnight').textContent;
     expect(overnight).toContain('Rosenhof');
@@ -159,14 +164,14 @@ describe('createDayPanel - overnight', () => {
 
   it('prompts when no town is chosen', () => {
     const panel = mount();
-    panel.render({ day: { ...DAY, townChoice: null }, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: { ...DAY, townChoice: null }, dayCount: 4, breaks: [], fromName: 'Lenzen' });
     expect(el.querySelector('.day-panel__overnight').textContent).toContain('none chosen');
   });
 
   it('explains a boundary that could not reach the town', () => {
     const panel = mount();
     const day = { ...DAY, endKm: 263, townChoice: { name: 'Rosenhof', routeDistanceKm: 265 } };
-    panel.render({ day, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     const note = el.querySelector('.day-panel__snap-note').textContent;
     expect(note).toContain('km 265');
@@ -177,7 +182,7 @@ describe('createDayPanel - overnight', () => {
   // carry one, or every day in a healthy plan shouts about nothing.
   it('stays silent when the boundary reached the town', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
     expect(el.querySelector('.day-panel__snap-note')).toBeNull();
   });
 
@@ -186,14 +191,14 @@ describe('createDayPanel - overnight', () => {
   it('stays silent for a sub-grid difference', () => {
     const panel = mount();
     const day = { ...DAY, endKm: 265, townChoice: { name: 'Rosenhof', routeDistanceKm: 264.97 } };
-    panel.render({ day, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day, dayCount: 4, breaks: [], fromName: 'Lenzen' });
     expect(el.querySelector('.day-panel__snap-note')).toBeNull();
   });
 
   it('escapes the town name in both the overnight line and the note', () => {
     const panel = mount();
     const day = { ...DAY, endKm: 263, townChoice: { name: '<img src=x>', routeDistanceKm: 265 } };
-    panel.render({ day, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     expect(el.querySelector('.day-panel__snap-note').textContent).toContain('<img src=x>');
     expect(el.innerHTML).not.toContain('<img src=x>');
@@ -208,7 +213,7 @@ describe('createDayPanel - legs', () => {
 
   it('lists legs as distance since the previous stop', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
 
     const legs = [...el.querySelectorAll('.day-card__leg')].map((li) => li.textContent.replace(/\s+/g, ' ').trim());
     expect(legs[0]).toContain('35 km');
@@ -222,7 +227,7 @@ describe('createDayPanel - legs', () => {
   it('reads a break at the very start as "at the start"', () => {
     const panel = mount();
     const day = { index: 0, targetKm: 80, startKm: 0, endKm: 80, townChoice: null };
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day,
       dayCount: 1,
       breaks: [{ name: 'Five Guys', kind: 'food', routeDistanceKm: 0 }],
@@ -238,7 +243,7 @@ describe('createDayPanel - legs', () => {
   // town itself and the ride from it to where you sleep is a bare "0 km →".
   it('reads a break exactly at the day end as "at the day end"', () => {
     const panel = mount();
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day: DAY,
       dayCount: 4,
       breaks: [{ name: 'Rosenhof', kind: 'town', routeDistanceKm: 265 }],
@@ -252,7 +257,7 @@ describe('createDayPanel - legs', () => {
 
   it('removes a break', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
 
     el.querySelector('[data-action="remove-break"]').click();
 
@@ -262,7 +267,7 @@ describe('createDayPanel - legs', () => {
   // Each × must carry its own leg's key, not the first one's.
   it('removes the break whose × was clicked', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
 
     el.querySelectorAll('[data-action="remove-break"]')[1].click();
 
@@ -278,7 +283,7 @@ describe('createDayPanel - legs', () => {
   it('escapes a break name and its note', () => {
     const panel = mount();
     const name = '<img src=x onerror="boom">';
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day: DAY,
       dayCount: 4,
       breaks: [{ name, kind: 'food', routeDistanceKm: 195, note: '<b>bold</b>' }],
@@ -303,7 +308,7 @@ describe('createDayPanel - editing a break inline', () => {
 
   function openEditor(breaks = [food]) {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
     el.querySelector('[data-action="edit-break"]').click();
     return el.querySelector('.leg-edit__input');
   }
@@ -328,10 +333,10 @@ describe('createDayPanel - editing a break inline', () => {
   // re-opening the editor over the note just saved.
   it('saves on Enter without the browser re-opening the editor', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [food], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [food], fromName: 'Lenzen' });
     // What main.js does with the save: persist, then re-render.
     callbacks.onEditBreak.mockImplementation(() => {
-      panel.render({
+      panel.render({ trip: WHOLE_ROAD,
         day: DAY,
         dayCount: 4,
         breaks: [{ ...food, note: '20 min cake' }],
@@ -406,13 +411,13 @@ describe('createDayPanel - editing a break inline', () => {
 describe('createDayPanel - custom stop prompt', () => {
   it('is hidden with no draft', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
     expect(el.querySelector('#custom-stop-prompt').hidden).toBe(true);
   });
 
   it('names the km clicked and how far into the day it falls', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 } });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 }, draftOnDay: true });
 
     const title = el.querySelector('.custom-stop__title').textContent;
     expect(title).toContain('km 200');
@@ -421,7 +426,7 @@ describe('createDayPanel - custom stop prompt', () => {
 
   it('reports the typed label, trimmed', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 } });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 }, draftOnDay: true });
 
     const input = el.querySelector('#custom-stop-label');
     const addBtn = el.querySelector('#custom-stop-add');
@@ -437,7 +442,7 @@ describe('createDayPanel - custom stop prompt', () => {
 
   it('cancels on Escape and on the Cancel button', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 } });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 }, draftOnDay: true });
 
     press(el.querySelector('#custom-stop-label'), 'Escape');
     el.querySelector('#custom-stop-cancel').click();
@@ -451,10 +456,10 @@ describe('createDayPanel - custom stop prompt', () => {
   it('keeps half-typed text through an unrelated re-render', () => {
     const panel = mount();
     const customStopDraft = { km: 200 };
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft, draftOnDay: true });
 
     el.querySelector('#custom-stop-label').value = 'half typ';
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft, draftOnDay: true });
 
     expect(el.querySelector('#custom-stop-label').value).toBe('half typ');
   });
@@ -462,55 +467,51 @@ describe('createDayPanel - custom stop prompt', () => {
   // ...but a NEW click is a new target, and must not inherit the old label.
   it('starts empty for a new click target', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 } });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 }, draftOnDay: true });
 
     el.querySelector('#custom-stop-label').value = 'half typ';
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 210 } });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 210 }, draftOnDay: true });
 
     expect(el.querySelector('#custom-stop-label').value).toBe('');
     expect(el.querySelector('.custom-stop__title').textContent).toContain('km 210');
   });
 
-  // A draft belongs to the day it was clicked on. Stepping to another day
-  // strands it: "(-65 km into the day)" is nonsense, and confirming it would add
-  // the stop to the day the user left. main.js clears a stranded draft too — this
-  // is the panel refusing to make a claim it can't back up.
-  it('ignores a draft that belongs to another day', () => {
+  // A draft belongs to the day it was clicked on. Stepping to another day strands it:
+  // "(-65 km into the day)" is nonsense, and confirming it would add the stop to the
+  // day the user left. WHICH day owns a km is the model's question — main.js answers it
+  // with itinerary.dayOwnsKm and hands the answer down as draftOnDay — so the cases
+  // that rule decides (a km past the end, one exactly on the end, one on a later day's
+  // start line, day 1's own start line) are pinned in itinerary.test.js. What is pinned
+  // here is that the panel honours the answer, either way.
+  it('ignores a draft the model says this day does not own', () => {
     const panel = mount();
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day: { index: 3, targetKm: 40, startKm: 265, endKm: 305, townChoice: null },
       dayCount: 4,
       breaks: [],
       fromName: 'Rosenhof',
       customStopDraft: { km: 200 },
+      draftOnDay: false,
     });
 
     expect(el.querySelector('#custom-stop-prompt').hidden).toBe(true);
     expect(el.querySelector('.custom-stop__title')).toBeNull();
   });
 
-  it('ignores a draft past the day end', () => {
+  it('measures a draft sitting exactly on the day end', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 265.1 } });
-    expect(el.querySelector('#custom-stop-prompt').hidden).toBe(true);
-  });
-
-  it('keeps a draft sitting exactly on the day end', () => {
-    const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 265 } });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 265 }, draftOnDay: true });
     expect(el.querySelector('.custom-stop__title').textContent).toContain('105 km into the day');
   });
 
-  // Same km-0 widening as main.js's breaksForDay: a stop at km 0 belongs to the
-  // first day, whose start is also 0.
-  it('keeps a km-0 draft on the first day', () => {
+  it('measures a draft sitting on the first day’s start line', () => {
     const panel = mount();
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day: { index: 0, targetKm: 80, startKm: 0, endKm: 80, townChoice: null },
       dayCount: 1,
       breaks: [],
       fromName: 'Hamburg',
-      customStopDraft: { km: 0 },
+      customStopDraft: { km: 0 }, draftOnDay: true,
     });
 
     const title = el.querySelector('.custom-stop__title').textContent;
@@ -518,26 +519,18 @@ describe('createDayPanel - custom stop prompt', () => {
     expect(title).toContain('0 km into the day');
   });
 
-  // ...but on any later day the start km belongs to the PREVIOUS day, whose end
-  // it is — otherwise one click would offer itself to two days.
-  it("ignores a draft on a later day's own start km", () => {
-    const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 160 } });
-    expect(el.querySelector('#custom-stop-prompt').hidden).toBe(true);
-  });
-
   // The prompt node outlives the markup around it, so emptying the plan has to
   // clear it explicitly or a later day inherits the label typed for a deleted one.
   it('discards a typed label when the plan empties', () => {
     const panel = mount();
     const customStopDraft = { km: 200 };
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft, draftOnDay: true });
     el.querySelector('#custom-stop-label').value = 'half typ';
 
-    panel.render({ day: null, dayCount: 0, breaks: [] });
+    panel.render({ trip: WHOLE_ROAD, day: null, dayCount: 0, breaks: [] });
     expect(el.querySelector('#custom-stop-prompt')).toBeNull(); // not in the empty panel at all
 
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft, draftOnDay: true });
     expect(el.querySelector('#custom-stop-label').value).toBe('');
     expect(el.querySelector('#custom-stop-prompt').hidden).toBe(false);
   });
@@ -545,13 +538,14 @@ describe('createDayPanel - custom stop prompt', () => {
   it('refreshes the distance into the day when the day start moves', () => {
     const panel = mount();
     const customStopDraft = { km: 200 };
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft, draftOnDay: true });
+    panel.render({ trip: WHOLE_ROAD,
       day: { ...DAY, startKm: 150 },
       dayCount: 4,
       breaks: [],
       fromName: 'Lenzen',
       customStopDraft,
+      draftOnDay: true,
     });
 
     expect(el.querySelector('.custom-stop__title').textContent).toContain('50 km into the day');
@@ -572,12 +566,12 @@ describe('createDayPanel - focus across a re-render', () => {
 
   it('keeps focus on the stepper, so the next press lands', () => {
     const panel = mount();
-    panel.render({ day: DAY2, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY2, dayCount: 4, breaks: [], fromName: 'Lenzen' });
     const next = el.querySelector('[data-action="focus-next"]');
     next.focus();
 
     // What handleFocusDay does: focus moves on, then everything re-renders.
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     expect(document.activeElement).not.toBe(next); // the node itself is gone
     expect(document.activeElement.dataset.action).toBe('focus-next');
@@ -591,10 +585,10 @@ describe('createDayPanel - focus across a re-render', () => {
   // also the only way back.
   it('hands focus to the twin when the stepper reaches the end', () => {
     const panel = mount();
-    panel.render({ day: DAY2, dayCount: 3, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY2, dayCount: 3, breaks: [], fromName: 'Lenzen' });
     el.querySelector('[data-action="focus-next"]').focus();
 
-    panel.render({ day: DAY, dayCount: 3, breaks: [], fromName: 'Lenzen' }); // index 2 of 3: › disabled
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 3, breaks: [], fromName: 'Lenzen' }); // index 2 of 3: › disabled
 
     expect(el.querySelector('[data-action="focus-next"]').disabled).toBe(true);
     expect(document.activeElement.dataset.action).toBe('focus-prev');
@@ -602,10 +596,10 @@ describe('createDayPanel - focus across a re-render', () => {
 
   it('hands focus to the twin at the start of the plan', () => {
     const panel = mount();
-    panel.render({ day: DAY2, dayCount: 3, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY2, dayCount: 3, breaks: [], fromName: 'Lenzen' });
     el.querySelector('[data-action="focus-prev"]').focus();
 
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day: { index: 0, targetKm: 100, startKm: 0, endKm: 100, townChoice: null },
       dayCount: 3,
       breaks: [],
@@ -617,10 +611,10 @@ describe('createDayPanel - focus across a re-render', () => {
 
   it('drops focus rather than picking a stray control when both ends are disabled', () => {
     const panel = mount();
-    panel.render({ day: DAY2, dayCount: 3, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY2, dayCount: 3, breaks: [], fromName: 'Lenzen' });
     el.querySelector('[data-action="focus-next"]').focus();
 
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day: { index: 0, targetKm: 80, startKm: 0, endKm: 80, townChoice: null },
       dayCount: 1,
       breaks: [],
@@ -632,10 +626,10 @@ describe('createDayPanel - focus across a re-render', () => {
 
   it('keeps focus on the distance field', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
     el.querySelector('[data-day-distance]').focus();
 
-    panel.render({ day: { ...DAY, endKm: 250 }, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: { ...DAY, endKm: 250 }, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     expect(document.activeElement.matches('[data-day-distance]')).toBe(true);
   });
@@ -645,13 +639,13 @@ describe('createDayPanel - focus across a re-render', () => {
   it('keeps focus and caret in the prompt input', () => {
     const panel = mount();
     const customStopDraft = { km: 200 };
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft, draftOnDay: true });
     const input = el.querySelector('#custom-stop-label');
     input.value = 'half typ';
     input.setSelectionRange(8, 8);
     input.focus();
 
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft, draftOnDay: true });
 
     expect(document.activeElement).toBe(input);
     expect(input.selectionStart).toBe(8);
@@ -661,20 +655,20 @@ describe('createDayPanel - focus across a re-render', () => {
   // held focus before.
   it('yields to a brand-new prompt', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
     el.querySelector('[data-day-distance]').focus();
 
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 } });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen', customStopDraft: { km: 200 }, draftOnDay: true });
 
     expect(document.activeElement.id).toBe('custom-stop-label');
   });
 
   it("keeps focus on a surviving leg's own remove button", () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
     el.querySelectorAll('[data-action="remove-break"]')[1].focus();
 
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
 
     expect(document.activeElement.dataset.breakKey).toBe('Grenzturm@213');
   });
@@ -683,10 +677,10 @@ describe('createDayPanel - focus across a re-render', () => {
   // whichever leg slid into its place rather than back to the top of the document.
   it('hands a removed break position to the leg that takes it', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
     el.querySelector('[data-action="remove-break"]').focus();
 
-    panel.render({ day: DAY, dayCount: 4, breaks: [breaks[1]], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [breaks[1]], fromName: 'Lenzen' });
 
     expect(document.activeElement.dataset.breakKey).toBe('Grenzturm@213');
   });
@@ -698,11 +692,11 @@ describe('createDayPanel - focus across a re-render', () => {
   // focus on a destructive control the user never aimed at.
   it('never falls back from a disabled Split to the Delete beside it', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
     el.querySelector('[data-action="split-day"]').focus();
 
     // Editing the day down under 2 x MIN_DAY_KM disables Split under the finger.
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day: { ...DAY, targetKm: 8, startKm: 160, endKm: 168 },
       dayCount: 4,
       breaks: [],
@@ -718,10 +712,10 @@ describe('createDayPanel - focus across a re-render', () => {
   // case where "the leg that took its place" does not exist.
   it('clamps a removed last break position to the leg still there', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
     el.querySelectorAll('[data-action="remove-break"]')[1].focus();
 
-    panel.render({ day: DAY, dayCount: 4, breaks: [breaks[0]], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [breaks[0]], fromName: 'Lenzen' });
 
     expect(document.activeElement.dataset.breakKey).toBe('Café Elbterrasse@195');
   });
@@ -732,13 +726,13 @@ describe('createDayPanel - focus across a re-render', () => {
   // be the only control in the panel that dropped focus on <body>.
   it('discards an open note editor but hands focus back to its ✎', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
     el.querySelectorAll('[data-action="edit-break"]')[1].click();
     const input = el.querySelector('.leg-edit__input');
     input.value = 'half typed';
     expect(document.activeElement).toBe(input);
 
-    panel.render({ day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
 
     expect(el.querySelector('.leg-edit__input')).toBeNull(); // discarded
     expect(callbacks.onEditBreak).not.toHaveBeenCalled(); // and not saved either
@@ -754,10 +748,10 @@ describe('createDayPanel - focus across a re-render', () => {
     outside.setAttribute('data-day-distance', '');
     document.body.appendChild(outside);
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
     outside.focus();
 
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     expect(document.activeElement).toBe(outside);
   });
@@ -766,7 +760,7 @@ describe('createDayPanel - focus across a re-render', () => {
 describe('createDayPanel - day operations', () => {
   it('splits and deletes the focused day', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     el.querySelector('[data-action="split-day"]').click();
     expect(callbacks.onSplitDay).toHaveBeenCalledWith(2);
@@ -778,7 +772,7 @@ describe('createDayPanel - day operations', () => {
   it('disables split on a day too short to split', () => {
     const panel = mount();
     const day = { index: 0, targetKm: 8, startKm: 0, endKm: 8, townChoice: null };
-    panel.render({ day, dayCount: 1, breaks: [], fromName: 'Hamburg' });
+    panel.render({ trip: WHOLE_ROAD, day, dayCount: 1, breaks: [], fromName: 'Hamburg' });
 
     expect(el.querySelector('[data-action="split-day"]').disabled).toBe(true);
   });
@@ -788,7 +782,7 @@ describe('createDayPanel - day operations', () => {
   it('allows a split at exactly two minimum days', () => {
     const panel = mount();
     const endKm = 2 * MIN_DAY_KM;
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day: { index: 0, targetKm: endKm, startKm: 0, endKm, townChoice: null },
       dayCount: 1,
       breaks: [],
@@ -800,7 +794,7 @@ describe('createDayPanel - day operations', () => {
 
   it('steps focus between days', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
 
     el.querySelector('[data-action="focus-prev"]').click();
     expect(callbacks.onFocusDay).toHaveBeenCalledWith(1);
@@ -811,7 +805,7 @@ describe('createDayPanel - day operations', () => {
 
   it('disables the stepper at the ends', () => {
     const panel = mount();
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD,
       day: { index: 0, targetKm: 80, startKm: 0, endKm: 80, townChoice: null },
       dayCount: 1,
       breaks: [],
@@ -826,8 +820,8 @@ describe('createDayPanel - day operations', () => {
   // with — the panel's listeners outlive its markup.
   it('acts on the newly focused day after a re-render', () => {
     const panel = mount();
-    panel.render({ day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
-    panel.render({
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+    panel.render({ trip: WHOLE_ROAD,
       day: { index: 3, targetKm: 40, startKm: 265, endKm: 305, townChoice: null },
       dayCount: 4,
       breaks: [],
@@ -840,9 +834,111 @@ describe('createDayPanel - day operations', () => {
 
   it('ignores day operations with no day in the panel', () => {
     const panel = mount();
-    panel.render({ day: null, dayCount: 0, breaks: [] });
+    panel.render({ trip: WHOLE_ROAD, day: null, dayCount: 0, breaks: [] });
 
     expect(el.querySelector('[data-action="delete-day"]')).toBeNull();
     expect(callbacks.onDeleteDay).not.toHaveBeenCalled();
+  });
+});
+
+// --- Oriented trips --------------------------------------------------------
+//
+// The day records still carry ABSOLUTE route km; every km the panel prints is counted
+// from the rider's own start. Both directions, because the two failure modes differ:
+// offset-forward overstates every km by the trip's start, and downstream negates every
+// distance.
+describe('createDayPanel - oriented trips', () => {
+  const UP = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: 1026.5 });
+  const DOWN = createTrip({ startKm: 797.6, destinationKm: 149.3, totalKm: 1026.5 });
+  // Day 2 of each trip: 80 km ridden, then 105 more.
+  const UP_DAY = { index: 1, targetKm: 105, startKm: 229.3, endKm: 334.3, townChoice: null };
+  const DOWN_DAY = { index: 1, targetKm: 105, startKm: 717.6, endKm: 612.6, townChoice: null };
+
+  it('heads the day with km from the rider’s start', () => {
+    const panel = mount();
+    panel.render({ trip: UP, day: UP_DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+
+    expect(el.querySelector('.day-panel__from').textContent).toContain('km 80 → 185');
+    expect(el.innerHTML).not.toContain('229.3');
+    expect(el.innerHTML).not.toContain('334.3');
+  });
+
+  it('heads a downstream day the same way round', () => {
+    const panel = mount();
+    panel.render({ trip: DOWN, day: DOWN_DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+
+    expect(el.querySelector('.day-panel__from').textContent).toContain('km 80 → 185');
+  });
+
+  it('reports a downstream day’s length as a positive distance', () => {
+    const panel = mount();
+    panel.render({ trip: DOWN, day: DOWN_DAY, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+
+    // 612.6 − 717.6 is −105: an absolute difference puts "-105" in the Distance field,
+    // which the number input then refuses (min = MIN_DAY_KM), and "-105 km total" on
+    // the Legs heading.
+    expect(el.querySelector('[data-day-distance]').value).toBe('105');
+    expect(el.querySelector('.day-panel__section').textContent).toContain('105 km total');
+  });
+
+  it('measures a downstream day’s legs in the order they are ridden', () => {
+    const panel = mount();
+    const breaks = [
+      { name: 'Café', kind: 'food', routeDistanceKm: 697.6 }, // 20 km into the day
+      { name: 'Schloss', kind: 'sight', routeDistanceKm: 667.6 }, // 50 km in
+    ];
+    panel.render({ trip: DOWN, day: DOWN_DAY, dayCount: 4, breaks, fromName: 'Lenzen' });
+
+    const legs = [...el.querySelectorAll('.day-card__leg-dist')].map((n) => n.textContent);
+    expect(legs).toEqual(['20 km', '30 km', '55 km']);
+  });
+
+  it('names the overnight town’s km and the snap gap in rider km', () => {
+    const panel = mount();
+    const day = {
+      ...UP_DAY,
+      // The town sits 2 km past where the boundary could stop, so the snap note fires.
+      townChoice: { name: 'Rosenhof', routeDistanceKm: 336.3, offsetKm: 0.4 },
+    };
+    panel.render({ trip: UP, day, dayCount: 4, breaks: [], fromName: 'Lenzen' });
+
+    expect(el.querySelector('.day-panel__overnight').textContent).toContain('km 185');
+    const note = el.querySelector('.day-panel__snap-note').textContent;
+    expect(note).toContain('km 187');
+    expect(note).toContain('km 185');
+  });
+
+  it('names a draft stop in rider km', () => {
+    const panel = mount();
+    panel.render({
+      trip: UP,
+      day: UP_DAY,
+      dayCount: 4,
+      breaks: [],
+      fromName: 'Lenzen',
+      customStopDraft: { km: 269.3 },
+      draftOnDay: true,
+    });
+
+    const title = el.querySelector('.custom-stop__title').textContent;
+    expect(title).toContain('New stop at km 120');
+    expect(title).toContain('40 km into the day');
+  });
+
+  it('names a draft stop on a downstream day too', () => {
+    const panel = mount();
+    panel.render({
+      trip: DOWN,
+      day: DOWN_DAY,
+      dayCount: 4,
+      breaks: [],
+      fromName: 'Lenzen',
+      customStopDraft: { km: 677.6 },
+      draftOnDay: true,
+    });
+
+    const title = el.querySelector('.custom-stop__title').textContent;
+    expect(title).toContain('New stop at km 120');
+    expect(title).toContain('40 km into the day');
   });
 });
