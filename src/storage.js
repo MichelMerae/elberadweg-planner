@@ -43,9 +43,10 @@ function normalizeDays(days) {
 
 // Enforces the plan record shape on data read back from storage so the rest of
 // the app can rely on days/breaks being arrays. Unknown fields are dropped.
-// `totalKm` is the road's length, the whole-road default for a plan that records
-// no trip window.
-function normalizePlan(plan, totalKm) {
+// `wholeRoad` is the window to fall back to, end by end - the store's own
+// wholeRoad(), so that a repaired plan and a freshly built one cannot disagree
+// about what "no window" means.
+function normalizePlan(plan, wholeRoad) {
   return {
     id: plan.id,
     name: plan.name,
@@ -58,9 +59,11 @@ function normalizePlan(plan, totalKm) {
     // which is exactly what it did before the field existed. Either order is
     // legal - destinationKm below startKm is a downstream ride, not a mistake to
     // sort out - and neither end is clamped here, because pulling a window onto
-    // the road is createTrip's job and two owners of that rule would drift.
-    startKm: Number.isFinite(plan.startKm) ? plan.startKm : 0,
-    destinationKm: Number.isFinite(plan.destinationKm) ? plan.destinationKm : totalKm,
+    // the road is createTrip's job and two owners of that rule would drift. Each
+    // end is repaired on its own: km 0 is a real destination, so a plan with a
+    // good start and a ruined end keeps the start.
+    startKm: Number.isFinite(plan.startKm) ? plan.startKm : wholeRoad.startKm,
+    destinationKm: Number.isFinite(plan.destinationKm) ? plan.destinationKm : wholeRoad.destinationKm,
   };
 }
 
@@ -91,9 +94,10 @@ function normalizePlan(plan, totalKm) {
  *   to disable the check entirely and keep the module usable standalone.
  * @param {number} opts.totalKm - the road's length. **Required and finite**: it
  *   is the destination a plan that records no window gets, so there is nothing
- *   sensible to fall back to. Passing 0 for "unknown" would put every such
- *   plan's destination behind its start - a silently reversed trip, the failure
- *   `createTrip` refuses in trip.js.
+ *   sensible to fall back to. Under a 0 fallback every such plan would come back
+ *   as km 0 to km 0 - a legal, zero-length trip that `createTrip` builds without
+ *   complaint, and that strands every day in the plan at the start line. The
+ *   store either knows the road's length or refuses to guess it.
  * @returns {{
  *   load: () => {plans: Array<{id: string, name: string, createdAt: string, updatedAt: string}>, activePlanId: string},
  *   getActivePlan: () => object|null,
@@ -108,7 +112,8 @@ function normalizePlan(plan, totalKm) {
 export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}) {
   // Thrown at construction rather than papered over per plan: a store that does
   // not know the road's length cannot say where a window-less plan ends, and
-  // every plan it hands out would carry the guess.
+  // every plan it hands out would carry the guess. Nothing downstream would
+  // report it either - a 0-to-0 window is a trip createTrip accepts.
   if (!Number.isFinite(totalKm)) {
     throw new Error(`createPlanStore needs a finite totalKm, got: ${totalKm}`);
   }
@@ -118,6 +123,14 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
 
   function nowIso() {
     return new Date().toISOString();
+  }
+
+  // The window a plan gets when it names none: the whole road, the trip every
+  // plan had before the field existed. Defined once for the three places that
+  // need it - a fresh plan, a migrated v1 payload, and a stored plan whose window
+  // is missing or unusable - so they cannot drift apart.
+  function wholeRoad() {
+    return { startKm: 0, destinationKm: totalKm };
   }
 
   // A new plan rides the whole road until its rider narrows the window.
@@ -131,8 +144,7 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
       routeVersion,
       days: [],
       breaks: [],
-      startKm: 0,
-      destinationKm: totalKm,
+      ...wholeRoad(),
     };
   }
 
@@ -221,10 +233,8 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
       routeVersion: legacy.routeVersion,
       days: legacy.days.map(normalizeDay),
       breaks: [],
-      // A v1 payload predates the window by two schemas: the whole road, like
-      // every other plan that never named one.
-      startKm: 0,
-      destinationKm: totalKm,
+      // A v1 payload predates the window by two schemas.
+      ...wholeRoad(),
     };
 
     if (favoritesEmpty()) {
@@ -269,7 +279,8 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
       ) {
         return null;
       }
-      const plans = parsed.plans.map((plan) => normalizePlan(plan, totalKm));
+      const fallbackWindow = wholeRoad();
+      const plans = parsed.plans.map((plan) => normalizePlan(plan, fallbackWindow));
       let activePlanId = parsed.activePlanId;
       if (!plans.some((plan) => plan.id === activePlanId)) {
         activePlanId = mostRecentlyUpdated(plans).id;
@@ -422,12 +433,16 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
     if (!plan) return null;
     plan.days = normalizeDays(days);
     plan.breaks = Array.isArray(breaks) ? clone(breaks) : [];
-    // A save is a whole snapshot of the plan, as it already is for breaks: what
-    // the payload leaves out is not kept, it is defaulted. The default is the
-    // same whole road normalizePlan gives a window-less stored plan, so a caller
-    // that never names a window and one that predates the field agree.
-    plan.startKm = Number.isFinite(startKm) ? startKm : 0;
-    plan.destinationKm = Number.isFinite(destinationKm) ? destinationKm : totalKm;
+    // The window survives a save that does not name one - deliberately unlike
+    // days and breaks, which a save does replace wholesale. Every plan in state
+    // already carries a window the rider chose, and a caller with only days in
+    // mind would otherwise wipe it invisibly: found after a reload, with nothing
+    // left to restore it from. A window left stale is the better failure of the
+    // two, because it is on screen and can be picked again. A non-finite end is
+    // treated the same way, as a caller bug worth ignoring rather than answering
+    // by resetting the trip.
+    if (Number.isFinite(startKm)) plan.startKm = startKm;
+    if (Number.isFinite(destinationKm)) plan.destinationKm = destinationKm;
     plan.updatedAt = nowIso();
     plan.routeVersion = routeVersion;
     persist();

@@ -56,10 +56,11 @@ const OLD_ROUTE_ID = 'hamburg-dresden-elberadweg-v1';
 const TOTAL_KM = 1026.5;
 
 // A stored plans blob whose 114 km day boundary was measured from a different
-// origin. Pass `routeId: null` for a schema 2 blob, which predates routeId
-// being recorded at all. The stored plan carries no trip window unless
-// `tripWindow` says otherwise - schema 3 and below predate the field.
-function storedBlob({ schemaVersion = 3, routeId = OLD_ROUTE_ID, tripWindow = null } = {}) {
+// origin. Defaults to the current schema so the corridor tests exercise the read
+// path in use; pass an older `schemaVersion` to read one as it stands, with
+// `routeId: null` for a schema 2 blob, which predates routeId being recorded at
+// all. The stored plan carries no trip window unless `tripWindow` says otherwise.
+function storedBlob({ schemaVersion = 4, routeId = OLD_ROUTE_ID, tripWindow = null } = {}) {
   const blob = {
     schemaVersion,
     activePlanId: 'p-old',
@@ -915,8 +916,9 @@ describe('createPlanStore - totalKm is required', () => {
   it('throws rather than inventing a road length', () => {
     const storage = createFakeStorage();
 
-    // A 0 fallback would hand every window-less plan a destination at km 0 -
-    // behind its start, i.e. a silently reversed trip.
+    // A 0 fallback would hand every window-less plan a destination at km 0, one
+    // its start already sits on: a zero-length trip that createTrip accepts
+    // happily and that leaves every day in the plan stranded at km 0.
     expect(() => createPlanStore({ storage, routeVersion: 'r1' })).toThrow(/totalKm/);
     expect(() => createPlanStore({ storage, routeVersion: 'r1', totalKm: NaN })).toThrow(/totalKm/);
     expect(() => createPlanStore({ storage, routeVersion: 'r1', totalKm: '1026.5' })).toThrow(/totalKm/);
@@ -926,7 +928,8 @@ describe('createPlanStore - totalKm is required', () => {
 
 describe('storage v4 - trip window', () => {
   it('defaults a v3 plan to the whole road', () => {
-    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(storedBlob({ routeId: CURRENT_ROUTE_ID })) });
+    const blob = storedBlob({ schemaVersion: 3, routeId: CURRENT_ROUTE_ID });
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
     const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
     store.load();
 
@@ -938,7 +941,7 @@ describe('storage v4 - trip window', () => {
   it('upgrades a v3 blob in place: nothing archived, plans intact', () => {
     // A window is not a corridor. v3 -> v4 must read the plans, not move them aside.
     const storage = createFakeStorage({
-      [PLANS_KEY]: JSON.stringify(storedBlob({ routeId: CURRENT_ROUTE_ID })),
+      [PLANS_KEY]: JSON.stringify(storedBlob({ schemaVersion: 3, routeId: CURRENT_ROUTE_ID })),
       [FAVORITES_KEY]: OLD_FAVORITES,
     });
     const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
@@ -999,7 +1002,7 @@ describe('storage v4 - trip window', () => {
   });
 
   it('repairs a stored window that is not finite', () => {
-    const blob = storedBlob({ schemaVersion: 4, routeId: CURRENT_ROUTE_ID, tripWindow: { startKm: null, destinationKm: 'x' } });
+    const blob = storedBlob({ routeId: CURRENT_ROUTE_ID, tripWindow: { startKm: null, destinationKm: 'x' } });
     const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
     const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
     store.load();
@@ -1012,7 +1015,7 @@ describe('storage v4 - trip window', () => {
   it('leaves a stored window that runs off the road alone', () => {
     // Pulling both ends onto the road is createTrip's job, and doing it here too
     // would mean two places deciding what the road's edges are.
-    const blob = storedBlob({ schemaVersion: 4, routeId: CURRENT_ROUTE_ID, tripWindow: { startKm: -50, destinationKm: 9999 } });
+    const blob = storedBlob({ routeId: CURRENT_ROUTE_ID, tripWindow: { startKm: -50, destinationKm: 9999 } });
     const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
     const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
     store.load();
@@ -1020,16 +1023,72 @@ describe('storage v4 - trip window', () => {
     expect(store.getActivePlan()).toMatchObject({ startKm: -50, destinationKm: 9999 });
   });
 
-  it('treats a save that names no window as a save of the whole road', () => {
+  it('cannot have a stored window moved by a save that names none', () => {
     const storage = createFakeStorage();
     const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
-    store.saveActivePlan({ days: [], breaks: [], startKm: 200, destinationKm: 400 });
+    store.saveActivePlan({ days: [], breaks: [], startKm: 797.6, destinationKm: 149.3 });
 
+    // A caller thinking only about days must not be able to destroy the rider's
+    // window on its way past - a loss they would discover after a reload, with
+    // nothing left to restore it from.
     const saved = store.saveActivePlan({ days: [{ targetKm: 80, townChoice: null }], breaks: [] });
 
-    expect(saved.startKm).toBe(0);
-    expect(saved.destinationKm).toBe(TOTAL_KM);
+    expect(saved).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+    expect(store.getActivePlan()).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+    expect(JSON.parse(storage.store[PLANS_KEY]).plans[0]).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+  });
+
+  it('lets a window named in the payload win', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], startKm: 797.6, destinationKm: 149.3 });
+
+    const saved = store.saveActivePlan({ days: [], breaks: [], startKm: 200, destinationKm: 400 });
+
+    expect(saved).toMatchObject({ startKm: 200, destinationKm: 400 });
+    expect(JSON.parse(storage.store[PLANS_KEY]).plans[0]).toMatchObject({ startKm: 200, destinationKm: 400 });
+  });
+
+  it('ignores a non-finite end in the payload instead of widening the window', () => {
+    // Garbage from a caller is that caller's bug; answering it by resetting to the
+    // whole road would spend the rider's trip on someone else's mistake.
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], startKm: 797.6, destinationKm: 149.3 });
+
+    const saved = store.saveActivePlan({ days: [], breaks: [], startKm: NaN, destinationKm: 'x' });
+
+    expect(saved).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+  });
+
+  it('keeps a destination at km 0 - a ride down to Cuxhaven', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], startKm: 500, destinationKm: 0 });
+
+    const reloaded = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    reloaded.load();
+
+    // km 0 is a real destination, not a missing one. A `??` or `||` on either the
+    // save or the read path would widen this ride to the far end of the road.
+    expect(reloaded.getActivePlan()).toMatchObject({ startKm: 500, destinationKm: 0 });
+  });
+
+  it('does not widen a stored narrow window when load() re-persists it', () => {
+    const blob = storedBlob({ routeId: CURRENT_ROUTE_ID, tripWindow: { startKm: 797.6, destinationKm: 149.3 } });
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
+
+    store.load();
+
+    // load() re-persists whatever it read. What it writes back has to still be the
+    // rider's window rather than the whole-road default.
+    expect(JSON.parse(storage.store[PLANS_KEY]).plans[0]).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+    expect(store.getActivePlan()).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
   });
 
   it('gives a migrated v1 plan the whole road', () => {
