@@ -186,6 +186,19 @@ describe('boundaries - oriented trips', () => {
     // and max the farthest (km 105, 195 km ridden), so min is the larger number.
     expect(w.min).toBeCloseTo(295, 6);
     expect(w.max).toBeCloseTo(105, 6);
+    expect(w.min).toBeGreaterThan(w.max); // numerically inverted, deliberately
+  });
+
+  // The contract itself, stated once for the export the slider bounds come from.
+  // Without this, sorting the pair numerically inside boundaries.js would pass every
+  // other case in this file — the forward ones cannot tell the orders apart and the
+  // squeezed downstream one has min === max — while strip-markup.js keeps a sort whose
+  // only purpose is undoing trip order for aria-valuemin/valuemax.
+  it('returns its bounds in trip order, downstream', () => {
+    const bounds = boundaryBounds(downDays(), 0, { trip: DOWN });
+    expect(bounds.min).toBeCloseTo(295, 6); // closest to the rider's start
+    expect(bounds.max).toBeCloseTo(105, 6); // farthest along the trip
+    expect(bounds.min).toBeGreaterThan(bounds.max); // numerically inverted, deliberately
   });
 
   it('refuses a window with no legal position, downstream', () => {

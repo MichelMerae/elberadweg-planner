@@ -75,10 +75,7 @@ export function boundaryBounds(days, index, { trip, minDayKm = MIN_DAY_KM } = {}
  * @returns {{min: number, max: number}|null}
  */
 export function boundaryWindow(days, index, { trip, minDayKm = MIN_DAY_KM } = {}) {
-  const { min, max } = rawBounds(riderDays(days, trip), index, {
-    lengthKm: trip.lengthKm,
-    minDayKm,
-  });
+  const { min, max } = rawRiderBounds(days, index, { trip, minDayKm });
   return min > max ? null : { min: trip.absoluteKm(min), max: trip.absoluteKm(max) };
 }
 
@@ -120,15 +117,17 @@ function riderDays(days, trip) {
   return days.map((day) => ({ startKm: trip.tripKm(day.startKm), endKm: trip.tripKm(day.endKm) }));
 }
 
-// The floored window in RIDER km: max never behind min. Both the clamp and the
-// public bounds are derived from this one computation so they cannot drift, and the
-// flooring stays in rider km — `Math.max` on absolute km would pick the larger
-// NUMBER, which downstream is the inverted window's illegal end.
-function riderBounds(days, index, { trip, minDayKm }) {
-  const { min, max } = rawBounds(riderDays(days, trip), index, {
-    lengthKm: trip.lengthKm,
-    minDayKm,
-  });
+// Absolute days in, unfloored RIDER-km window out: the one composition all three
+// exports go through, so none of them can spell the conversion differently.
+function rawRiderBounds(days, index, { trip, minDayKm }) {
+  return rawBounds(riderDays(days, trip), index, { lengthKm: trip.lengthKm, minDayKm });
+}
+
+// The floored window in RIDER km: max never behind min. The flooring stays in rider
+// km — `Math.max` on absolute km would pick the larger NUMBER, which downstream is
+// the inverted window's illegal end.
+function riderBounds(days, index, opts) {
+  const { min, max } = rawRiderBounds(days, index, opts);
   return { min, max: Math.max(min, max) };
 }
 

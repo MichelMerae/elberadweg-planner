@@ -199,17 +199,12 @@ export function createItinerary({ trip } = {}) {
       throw new Error(`endKm must be a finite number, got: ${endKm}`);
     }
     const day = days[index];
-    // Absolute km in, absolute km out: boundaries.js measures its MIN_DAY_KM floor
-    // from the rider's own start, doing the arithmetic in rider km internally. That
-    // conversion used to live here and plan Task 3 moved it in there, where strip.js's
-    // drag preview and the slider bounds get it too.
-    //
-    // It is not a cosmetic detail. Measured instead from a hardcoded km-0 origin, the
-    // floor sits 149.3 km behind an offset rider and past the destination on a
-    // downstream one, so the clamped position lands BEHIND the day's own start and the
-    // length derived from it comes out negative. hydrate rejects a non-positive
-    // targetKm by dropping every day, so that is a corrupted plan on the next reload,
-    // reachable from moveBoundary, editDay and setTownChoice alike.
+    // Absolute km in, absolute km out; boundaries.js measures the floor from the
+    // rider's own start (see its header for how, and why a km-0 origin is not the
+    // same thing). What rides on it: a floor behind the day's own start yields a
+    // NEGATIVE length, hydrate drops every day of a plan with a non-positive
+    // targetKm, and moveBoundary, editDay and setTownChoice all arrive here — so
+    // getting this wrong is a plan lost on the next reload, not a sloppy drag.
     const target = clampBoundaryKm(days, index, endKm, { trip });
     // Position unchanged AND the stored length already matches it: nothing to do.
     // The second term matters — a day clamped at the destination stores a length

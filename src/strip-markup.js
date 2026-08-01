@@ -124,15 +124,13 @@ function blockLabelMarkup(block, day) {
  * `activeIndex` is the boundary currently being dragged, or null. The dragging
  * class is re-derived on every render rather than set on the node, because the
  * node this class belongs to is destroyed by the drag's first preview.
+ *
+ * `trip` is the window the boundary math is measured in, built once per render by
+ * axisMarkup rather than per handle.
  */
-function handleMarkup(days, index, axis, activeIndex) {
+function handleMarkup(days, index, axis, activeIndex, trip) {
   const day = days[index];
-  // STOPGAP trip: the whole road ridden forwards, which is what the axis still
-  // draws — every conversion inside boundaries.js is an identity on it. Plan Task 8
-  // threads the real trip through the axis and this becomes `axis.trip`.
-  const bounds = boundaryBounds(days, index, {
-    trip: createTrip({ startKm: 0, destinationKm: axis.totalKm }),
-  });
+  const bounds = boundaryBounds(days, index, { trip });
   // boundaryBounds answers in TRIP order — on a downstream trip its `min` is the
   // numerically LARGER km — so the pair is sorted before it becomes a range. An
   // inverted aria-valuemin/valuemax is undefined behaviour for a screen reader, the
@@ -199,6 +197,12 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
     width: axis.width,
     height: axis.height,
   });
+  // STOPGAP trip: the whole road ridden forwards, which is what the axis still
+  // draws — every conversion inside boundaries.js is an identity on it, so the
+  // slider bounds are the numbers they always were. Built once per render and passed
+  // down; plan Task 8 threads the real trip through the axis and this becomes
+  // `axis.trip`, read in exactly this place.
+  const trip = createTrip({ startKm: 0, destinationKm: axis.totalKm });
   const blocks = layout.blocks
     .map((block) => {
       const day = state.days[block.index];
@@ -214,7 +218,7 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
           <div class="strip__block${focused}" data-day-index="${block.index}" role="button" tabindex="0"
                style="left:${box.left}px;width:${box.width}px" title="${esc(title)}">
             ${blockLabelMarkup(block, day)}
-          </div>${handleMarkup(state.days, block.index, axis, activeIndex)}`;
+          </div>${handleMarkup(state.days, block.index, axis, activeIndex, trip)}`;
     })
     .join('');
 
