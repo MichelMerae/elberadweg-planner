@@ -890,6 +890,43 @@ describe('createPlaces - oriented trips', () => {
     expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 40 of 45');
   });
 
+  // The same argument the caps themselves were wrong about, one layer in: the front of a
+  // signed-rider-km list is not the first place the rider reaches, it is the place
+  // furthest BEHIND them — one they will never reach at all. So a cap taking the plain
+  // front of it drops places on the trip in favour of places off it, under a footer
+  // promising "the first 40". Reachable by design, not exotic: the starred list is global
+  // and plan-independent, so leftovers from a previous plan on this road are the normal
+  // case. Ahead of the start is therefore grouped first and the cap eats that group first.
+  it('gives the cap the places ahead of the rider before any behind them', () => {
+    const places = mount();
+    const startLine = poi('Start line', 149.3, 'sight'); // rider km 0, exactly on the start
+    const ahead = Array.from({ length: 35 }, (_, i) => poi(`Ahead ${String(i).padStart(2, '0')}`, 200 + i, 'sight'));
+    const behind = Array.from({ length: 10 }, (_, i) => poi(`Behind ${String(i).padStart(2, '0')}`, 100 + i, 'sight'));
+
+    places.render(renderArgs({
+      trip: UP,
+      ...UP_STRETCH,
+      // Arriving behind-first, which is the order the old signed sort rendered them in.
+      favorites: [...behind, startLine, ...ahead],
+      dayNumberForKm: (km) => (km >= 149.3 && km <= 234 ? 1 : null),
+    }));
+
+    const rows = favNamesAndKm();
+    expect(rows).toHaveLength(40);
+    // Not one of the 36 places on the trip was dropped, so the footer's promise is true.
+    expect(rows.filter(([name]) => name.startsWith('Ahead'))).toHaveLength(35);
+    expect(rows[0]).toEqual(['Start line', 'km 0']); // rider km 0 counts as ahead, not behind
+    expect(rows[35]).toEqual(['Ahead 34', 'km 84.7']);
+    // ...and only then the tail, in the same monotone order, filling the 4 slots left.
+    expect(rows[36]).toEqual(['Behind 00', 'km -49.3']);
+    expect(rows[39]).toEqual(['Behind 03', 'km -46.3']);
+    expect(el.textContent).not.toContain('Behind 04');
+    expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 40 of 46');
+    // Task 6's tag still speaks for the tail.
+    expect(el.querySelectorAll('[data-place-section="fav"]')[36].querySelector('.fav-day').textContent)
+      .toBe('beyond plan');
+  });
+
   it('falls back to the rider’s own start when no day is focused', () => {
     const places = mount();
     places.render({

@@ -107,12 +107,37 @@ function rowActions(name, isBreak, isFav) {
 // list without anyone remembering to come back here. Copied, not sorted in place —
 // main.js hands the same array to map.setFavoriteMarkers afterwards.
 //
-// tripKm is signed, so a favorite starred BEHIND the rider's start sorts before their
-// trip (a negative rider km) and one past their destination sorts after it. That is
-// one monotone axis — the order they would meet these places riding the whole road
-// their way — and the row's own "beyond plan" tag is what says it is not on the plan.
+// tripKm is signed, so a favorite starred BEHIND the rider's start is at a negative
+// rider km and one past their destination is beyond the trip's length. Both stay on the
+// one monotone axis — the order these places would be met riding the whole road this way
+// — and the row's own "beyond plan" tag is what says a place is not on the plan.
+//
+// But the ones BEHIND the start are then grouped to the tail, and that grouping is the
+// whole reason this is not a plain sort. The front of a signed list is not the first
+// place the rider reaches: it is the place furthest behind them, which they will never
+// reach at all. `section`'s cap takes the FRONT of this list, so a plain sort spent the
+// 40 rows on places off the trip before it reached places on it — the same false
+// promise the caps themselves used to make, one layer in, and printed under the same
+// "showing the first 40" footer. Grouped, the cap fills itself with the trip first and
+// only spends what is left over on the road behind, so the promise is true again.
+//
+// Reachable by design rather than exotic: the starred list is global and
+// plan-independent — which is why the ordering has to happen here at all — so favorites
+// left over from a previous plan on this road are the ordinary case, not a corner one.
+//
+// Places past the DESTINATION need no such handling: they sort last on the same axis, so
+// the cap already drops them before anything the rider will actually pass.
+//
+// Sorted through trip.tripKm rather than by `(a - b) * trip.direction`, which is the
+// same number: the conversion has one owner, and a change to it should reach this
+// list without anyone remembering to come back here. Copied, not sorted in place —
+// main.js hands the same array to map.setFavoriteMarkers afterwards.
 function inRideOrder(places, trip) {
-  return [...places].sort((a, b) => trip.tripKm(a.routeDistanceKm) - trip.tripKm(b.routeDistanceKm));
+  const riderKm = (place) => trip.tripKm(place.routeDistanceKm);
+  const sorted = [...places].sort((a, b) => riderKm(a) - riderKm(b));
+  // Two passes over one sorted array, so each group keeps that order internally. Rider
+  // km 0 is the start LINE and belongs to the trip, not to the road behind it.
+  return [...sorted.filter((p) => riderKm(p) >= 0), ...sorted.filter((p) => riderKm(p) < 0)];
 }
 
 // Which day a favorite falls on is the model's question: `dayNumberForKm` is
