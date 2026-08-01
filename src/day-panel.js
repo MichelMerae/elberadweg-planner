@@ -349,6 +349,13 @@ export function createDayPanel({ el, callbacks = {} }) {
     draftOnDay = false,
     climb = null,
   }) {
+    // The header above says there is no fallback for a missing trip; this is what makes
+    // that true rather than incidental. Without it the empty-plan branch below returns
+    // before touching the trip, so a caller that forgot it renders cleanly and only
+    // fails once the plan has a day — one render later, somewhere else.
+    if (!trip || typeof trip.tripKm !== 'function') {
+      throw new Error('day panel render needs a trip (see createTrip in src/trip.js)');
+    }
     current = { day, dayCount };
     const focusTarget = focusedTarget();
     if (!day) {

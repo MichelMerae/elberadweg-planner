@@ -171,6 +171,14 @@ export function createPlaces({ el, callbacks = {} }) {
   }
 
   function render(args = {}) {
+    // The header above says there is no fallback for a missing trip; this is what makes
+    // that true rather than incidental. The conversions below are all inside row
+    // builders, so a caller that forgot the trip AND named its own startKm/endKm
+    // rendered a panel with no rows perfectly quietly — and the first starred place
+    // turned that into a TypeError with no hint of which argument was missing.
+    if (!args.trip || typeof args.trip.tripKm !== 'function') {
+      throw new Error('places render needs a trip (see createTrip in src/trip.js)');
+    }
     lastArgs = { ...args };
     const {
       dayNumber = null,

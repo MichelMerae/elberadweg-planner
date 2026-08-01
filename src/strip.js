@@ -86,6 +86,10 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
   // boundary drag would re-interpolate ~700 samples to redraw an identical path.
   let elevationMemo = null;
 
+  // The window below is the WHOLE ROAD in absolute km, deliberately, and it is the one
+  // absolute site plan Task 8 is guaranteed to edit: the profile has to be sampled over
+  // the trip's window instead, and the memo key has to gain both of its ends — memoising
+  // on `totalKm` alone would serve a stale profile to every window on the same road.
   function elevationPointsFor(width, height) {
     if (!state.elevation) return null;
     if (

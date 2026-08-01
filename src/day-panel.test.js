@@ -82,6 +82,19 @@ describe('createDayPanel - empty plan', () => {
   });
 });
 
+describe('createDayPanel - without a trip', () => {
+  // Every km this panel prints is counted from the rider's start, so a render with no
+  // trip has no idea where km 0 is. Falling back to the road's origin would put a
+  // plausible-looking wrong number on every line; the empty-plan branch would not even
+  // notice. See the file header.
+  it('refuses to render, with or without a day', () => {
+    const panel = mount();
+
+    expect(() => panel.render({ day: DAY, dayCount: 4, breaks: [] })).toThrow(/trip/);
+    expect(() => panel.render({ day: null, dayCount: 0, breaks: [] })).toThrow(/trip/);
+  });
+});
+
 describe('createDayPanel - header', () => {
   it('names the day, where it starts from, and its km range', () => {
     const panel = mount();

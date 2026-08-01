@@ -441,6 +441,19 @@ describe('createPlaces - favorite day tags', () => {
   });
 });
 
+describe('createPlaces - without a trip', () => {
+  // The conversions all live inside row builders, so a trip-less render with its own
+  // stretch and no places used to succeed in silence — and then throw an unhelpful
+  // TypeError the first time something WAS in the lists. See the file header.
+  it('refuses to render, even with a stretch named and nothing to show', () => {
+    const places = mount();
+
+    expect(() =>
+      places.render({ dayNumber: 2, startKm: 160, endKm: 265, towns: [], food: [], sights: [], favorites: [] }),
+    ).toThrow(/trip/);
+  });
+});
+
 describe('createPlaces - hover', () => {
   it('reports a hovered POI once and clears on exit', () => {
     const places = mount();
@@ -804,7 +817,10 @@ describe('createPlaces - oriented trips', () => {
     places.render({
       trip: UP,
       dayNumber: null,
-      towns: [],
+      // A row is what makes the fallback observable at all: with no places rendered,
+      // any fallback passes. The road's origin — the value this replaced — would
+      // measure this town from 149.3 km behind the rider and read "169.3 km from".
+      towns: [town('Rosenhof', 169.3)],
       food: [],
       sights: [],
       favorites: [],
@@ -814,5 +830,6 @@ describe('createPlaces - oriented trips', () => {
     });
 
     expect(el.querySelector('.places__scope-range').textContent).toBe('no day focused');
+    expect(el.querySelector('.town__meta').textContent).toContain('20 km from your last stop');
   });
 });

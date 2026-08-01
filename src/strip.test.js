@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createStrip } from './strip.js';
-import { MIN_DAY_KM, clampBoundaryKm } from './boundaries.js';
+import { MIN_DAY_KM } from './boundaries.js';
 import { createTrip } from './trip.js';
 // The model itself, for the oriented cases at the end: a keyboard nudge is only
 // observable once something applies the move and re-renders (the announcement is read
@@ -50,10 +50,20 @@ beforeEach(() => {
 // drag that cannot work in a browser — the failure Task 7's review measured in
 // Chromium. Every pointer and keyboard test below goes through here.
 //
-// The move callback also mirrors itinerary.moveBoundary's REFUSAL: a pair of
-// days spanning under 2 x MIN_DAY_KM has no legal boundary between them, so the
-// model returns the day unchanged. The strip must never assume the km it sent
-// was accepted.
+// The move callback applies each move through a REAL itinerary rather than a clamp
+// spelled out here. It used to re-implement moveBoundary's refusal rule — a pair of
+// days spanning under 2 x MIN_DAY_KM has no legal boundary between them, so the model
+// returns the day unchanged — and a copy of that rule in the harness is a copy that
+// can drift from the model the app actually drives. The strip must never assume the km
+// it sent was accepted, which is the property either version exercises; only one of
+// them can go stale.
+//
+// The harness also owns the TRIP, so the whole-road fallback in strip.js is reached
+// from one place here instead of from every render in this file — which is what plan
+// Task 8 has to delete.
+//
+// `ends` are cumulative day ends, as the rest of this file writes plans; the model
+// stores lengths, so they are differenced on the way in.
 function mountLive(ends, { totalKm = TOTAL_KM, width = WIDTH, focusedIndex = 0, breaks = [] } = {}) {
   const strip = mount(width);
   const axis = el.querySelector('[data-strip-axis]');
@@ -61,19 +71,22 @@ function mountLive(ends, { totalKm = TOTAL_KM, width = WIDTH, focusedIndex = 0, 
   // zeros unless we say otherwise.
   axis.getBoundingClientRect = () => ({ left: 0, top: 0, right: width, bottom: 46, width, height: 46 });
 
-  const plan = [...ends];
+  const trip = createTrip({ startKm: 0, destinationKm: totalKm });
+  const itinerary = createItinerary({ trip });
+  itinerary.hydrate({
+    days: days(...ends).map((day) => ({ targetKm: day.targetKm })),
+    // Breaks stay a pass-through below: some fixtures here are glyph-shaped rather
+    // than plan-shaped (no lat/lng), and the model would drop them as malformed.
+    breaks: [],
+  });
   let focused = focusedIndex;
   const moves = [];
-  const render = () => strip.render({ days: days(...plan), totalKm, focusedIndex: focused, breaks });
+  const render = () =>
+    strip.render({ days: itinerary.getDays(), totalKm, trip, focusedIndex: focused, breaks });
 
   callbacks.onMoveBoundary.mockImplementation((index, endKm, opts = {}) => {
     moves.push({ index, endKm, commit: !!opts.commit });
-    // The whole road ridden forwards, matching the trip the strip builds for itself
-    // until plan Task 8 hands it a real one.
-    const trip = createTrip({ startKm: 0, destinationKm: totalKm });
-    const target = clampBoundaryKm(days(...plan), index, endKm, { trip });
-    const nextEnd = index + 1 < plan.length ? plan[index + 1] : null;
-    if (nextEnd === null || round1(nextEnd - target) >= MIN_DAY_KM) plan[index] = target;
+    itinerary.moveBoundary(index, endKm);
     render();
   });
   callbacks.onFocusDay.mockImplementation((index) => {
@@ -82,7 +95,15 @@ function mountLive(ends, { totalKm = TOTAL_KM, width = WIDTH, focusedIndex = 0, 
   });
 
   render();
-  return { strip, axis, moves, plan: () => [...plan], handle: (i) => axis.querySelector(`[data-boundary-index="${i}"]`), block: (i) => axis.querySelector(`[data-day-index="${i}"]`) };
+  return {
+    strip,
+    axis,
+    moves,
+    itinerary,
+    plan: () => itinerary.getDays().map((day) => round1(day.endKm)),
+    handle: (i) => axis.querySelector(`[data-boundary-index="${i}"]`),
+    block: (i) => axis.querySelector(`[data-day-index="${i}"]`),
+  };
 }
 
 // jsdom implements the PointerEvent constructor but NOT setPointerCapture, so a
@@ -1176,23 +1197,27 @@ describe('createStrip - oriented trips', () => {
     expect(title).toContain('km 0 → 80');
   });
 
-  it('keeps a downstream handle’s aria range ascending', () => {
+  it('announces a downstream handle’s whole range in rider km', () => {
     // What replaces handleMarkup's numeric sort: boundaryBounds answers in TRIP order
     // (downstream its `min` is the numerically LARGER absolute km), and converting the
     // pair to rider km puts it in ascending order by construction.
+    //
+    // The VALUES are the assertion, not their order. Asserting only min <= now <= max
+    // cannot fail: the widening that keeps valuenow inside its range collapses an
+    // unconverted pair around the value, so bounds left in absolute km still come out
+    // ordered — a rider at km 80 with a range of 80 to 622.6, which is ordered and
+    // meaningless. (Verified by mutation: leaving lo/hi absolute passes every other
+    // test in this file.)
     renderTrip(DOWN, tripDays(DOWN, 80, 100));
 
-    for (const handle of el.querySelectorAll('.strip__handle')) {
-      const [now, min, max] = ['aria-valuenow', 'aria-valuemin', 'aria-valuemax'].map((name) =>
-        Number(handle.getAttribute(name)),
-      );
-      expect(min).toBeLessThanOrEqual(max);
-      expect(now).toBeGreaterThanOrEqual(min);
-      expect(now).toBeLessThanOrEqual(max);
-    }
-    const first = el.querySelector('.strip__handle');
-    expect(first.getAttribute('aria-valuenow')).toBe('80');
+    const [first, last] = el.querySelectorAll('.strip__handle');
+    const reported = (handle) =>
+      ['aria-valuenow', 'aria-valuemin', 'aria-valuemax'].map((name) => handle.getAttribute(name));
+    // Day 1 ends 80 km in; it may sit from MIN_DAY_KM to 5 km short of day 2's end.
+    expect(reported(first)).toEqual(['80', '5', '175']);
     expect(first.getAttribute('aria-label')).toContain('km 80');
+    // The last boundary may run to the trip's own end, and no further.
+    expect(reported(last)).toEqual(['180', '85', '648.3']);
   });
 
   it('counts the summary down to the rider’s own destination', () => {
@@ -1213,15 +1238,26 @@ describe('createStrip - oriented trips', () => {
     expect(scale).not.toContain('1026.5');
   });
 
-  it('names a break sitting exactly on the rider’s start line', () => {
+  it('names a break on the rider’s start line, and nothing behind it', () => {
     // The km-0 widening this replaces keyed on the ROAD's origin, so on a trip starting
     // at km 149.3 a stop dropped on the start line was named on no day at all — the
     // same start-line exception itinerary.dayOwnsKm makes for day 1, and nowhere else.
+    //
+    // The far side of that edge matters just as much: day 1 owns its start LINE, not
+    // the road behind it. A favorite starred behind the rider's start can be made a
+    // break from the Favorites list, which is not windowed to the trip, so this is
+    // reachable rather than theoretical. itinerary.dayOwnsKm pins its own half
+    // (`dayOwnsKm(0, 301) === false` on a downstream trip); this is the strip's.
     renderTrip(UP, tripDays(UP, 80), {
-      breaks: [{ name: 'Kiosk', kind: 'food', routeDistanceKm: 149.3 }],
+      breaks: [
+        { name: 'Kiosk', kind: 'food', routeDistanceKm: 149.3 }, // on the start line
+        { name: 'Behind', kind: 'food', routeDistanceKm: 146.1 }, // 3.2 km before it
+      ],
     });
 
-    expect(el.querySelector('.strip__block').getAttribute('title')).toContain('☕ Kiosk');
+    const title = el.querySelector('.strip__block').getAttribute('title');
+    expect(title).toContain('☕ Kiosk');
+    expect(title).not.toContain('Behind');
   });
 
   it('names each downstream day’s own breaks', () => {
