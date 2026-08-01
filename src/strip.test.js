@@ -1386,6 +1386,12 @@ describe('createStrip - oriented trips', () => {
     expect(el.querySelector('.strip__summary').textContent).not.toContain('0.3 km to');
     expect(el.querySelector('.strip__remainder')).toBeNull();
     expect(el.querySelector('.strip__finish').textContent).toContain('reached');
+    // And the pair beside the countdown stays EXACT — it is two measurements, while only
+    // the arrival claim rounds, so this is the one place the 0.3 km the tolerance forgives
+    // is still visible. Rounding the pair to make it subtract to `0 km` would falsify how
+    // far the plan actually reaches, which is why the invariant is pinned and not only
+    // documented at summaryMarkup: the "fix" is a one-line change that looks like tidying.
+    expect(el.querySelector('.strip__summary').textContent).toContain('648.3 / 648.6 km planned');
   });
 
   // The other edge of the band, so the tolerance cannot quietly swallow real distance:

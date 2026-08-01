@@ -415,9 +415,11 @@ export function summaryMarkup(state) {
   const { days, trip } = state;
   const planned = days.length ? trip.tripKm(days[days.length - 1].endKm) : 0;
   const left = trip.lengthKm - planned;
-  // This `Math.abs` is symmetry with stripLayout's rather than a guard — the `Math.max`
-  // beside it makes both forms equivalent, so no test pins it. stripLayout's IS
-  // load-bearing and pinned twice; do not generalise from this one to that one.
+  // This `Math.abs` is symmetry with `stripLayout`'s in strip-geometry.js rather than a
+  // guard — the `Math.max` beside it makes the two forms equivalent for every input, so no
+  // test pins it and none can. That one IS load-bearing: dropping it fails three tests,
+  // two written for it and one that only breaks downstream of a false `arrived`. Do not
+  // generalise from this expression to that one; they are not the same claim.
   const remaining = Math.abs(left) <= ARRIVED_EPSILON_KM ? 0 : Math.max(0, left);
   const avg = days.length ? round1(planned / days.length) : 0;
   const right = days.length
