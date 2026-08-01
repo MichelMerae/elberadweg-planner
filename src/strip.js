@@ -408,13 +408,23 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       const day = state.days[index];
       if (!day) return;
       const step = e.shiftKey ? KEY_STEP_SHIFT_KM : KEY_STEP_KM;
-      const km = proposeKm(index, round1(day.endKm + direction * step));
+      const trip = tripFor();
+      // Stepped in RIDER km: an arrow moves the boundary along the TRIP, so
+      // ArrowRight is always "further from the rider's start". Added to the absolute
+      // km instead it ran backwards downstream — a press the user reads as forward
+      // took the slider from 80 to 79. The km SENT stays absolute (the callback's
+      // contract), and downstream that number decreases.
+      const requested = trip.absoluteKm(trip.tripKm(day.endKm) + direction * step);
+      const km = proposeKm(index, round1(requested));
       if (km === null) return;
       callbacks.onMoveBoundary?.(index, km, { commit: true });
       // Announce where it ACTUALLY ended up, read back after the re-render, so a
-      // move the model refused is not reported as having happened.
+      // move the model refused is not reported as having happened. In rider km, like
+      // the aria-valuenow on the very handle this describes: the two are one boundary
+      // and speaking it two ways ("km 230.3" against a slider reading 81) is worse
+      // than either way alone.
       const settled = state.days[index]?.endKm;
-      if (settled !== undefined) announce(`Day ${index + 1} end, km ${round1(settled)}`);
+      if (settled !== undefined) announce(`Day ${index + 1} end, km ${round1(trip.tripKm(settled))}`);
       return;
     }
     // Task 7 gave blocks role="button" and tabindex="0" with no key handler, so

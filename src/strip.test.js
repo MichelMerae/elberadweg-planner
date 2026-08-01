@@ -3,6 +3,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createStrip } from './strip.js';
 import { MIN_DAY_KM, clampBoundaryKm } from './boundaries.js';
 import { createTrip } from './trip.js';
+// The model itself, for the oriented cases at the end: a keyboard nudge is only
+// observable once something applies the move and re-renders (the announcement is read
+// back from the state the re-render left), and one test pins the strip's own break
+// bucketing AGAINST the model's rule on a shared fixture.
+import { createItinerary } from './itinerary.js';
 import { round1 } from './ui-util.js';
 
 const TOTAL_KM = 650;
@@ -1231,5 +1236,105 @@ describe('createStrip - oriented trips', () => {
     expect(titles[0]).toContain('☕ Café');
     expect(titles[0]).not.toContain('Schloss');
     expect(titles[1]).toContain('📷 Schloss');
+  });
+});
+
+// The strip driven the way main.js drives it, on a trip: the move callback applies the
+// boundary to a real itinerary and re-renders. A keyboard nudge needs that round trip —
+// the live-region announcement is read back from the state the re-render left behind,
+// so a strip mounted with a bare vi.fn() certifies an announcement nobody can hear.
+describe('createStrip - oriented trips, keyboard', () => {
+  const ROAD_KM = 1026.5;
+  const UP = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: ROAD_KM });
+  const DOWN = createTrip({ startKm: 797.6, destinationKm: 149.3, totalKm: ROAD_KM });
+
+  function mountLiveTrip(trip, ...lengths) {
+    const itinerary = createItinerary({ trip });
+    itinerary.hydrate({ days: lengths.map((targetKm) => ({ targetKm })), breaks: [] });
+    const strip = mount();
+    const axis = el.querySelector('[data-strip-axis]');
+    axis.getBoundingClientRect = () => ({ left: 0, top: 0, right: WIDTH, bottom: 46, width: WIDTH, height: 46 });
+    const render = () =>
+      strip.render({
+        days: itinerary.getDays(),
+        totalKm: ROAD_KM,
+        trip,
+        focusedIndex: 0,
+        breaks: itinerary.getBreaks(),
+      });
+    callbacks.onMoveBoundary.mockImplementation((index, endKm) => {
+      itinerary.moveBoundary(index, endKm);
+      render();
+    });
+    render();
+    return {
+      itinerary,
+      live: () => el.querySelector('.strip__live').textContent,
+      handle: (i) => axis.querySelector(`[data-boundary-index="${i}"]`),
+    };
+  }
+
+  it('announces a nudge in the same km the slider reports', () => {
+    const { handle, live } = mountLiveTrip(UP, 80, 100);
+
+    press(handle(0), 'ArrowRight');
+
+    // The announcement and aria-valuenow describe one boundary; speaking the absolute
+    // km said "km 230.3" while the slider it belongs to read 81.
+    expect(live()).toBe('Day 1 end, km 81');
+    expect(handle(0).getAttribute('aria-valuenow')).toBe('81');
+    expect(live()).not.toContain('230.3');
+  });
+
+  it('steps forward along the trip on a downstream trip', () => {
+    const { handle, live, itinerary } = mountLiveTrip(DOWN, 80, 100);
+
+    press(handle(0), 'ArrowRight');
+
+    // Stepped in absolute km this ran BACKWARDS: 717.6 + 1 is rider km 79, so the
+    // slider counted down under a key the user reads as forward.
+    expect(handle(0).getAttribute('aria-valuenow')).toBe('81');
+    expect(live()).toBe('Day 1 end, km 81');
+    // The km handed to the callback stays absolute, and downstream that DECREASES.
+    expect(callbacks.onMoveBoundary).toHaveBeenCalledWith(0, 716.6, { commit: true });
+    expect(itinerary.getDays()[0].endKm).toBeCloseTo(716.6, 6);
+  });
+
+  it('steps back towards the rider’s start on ArrowLeft, downstream too', () => {
+    const { handle, live } = mountLiveTrip(DOWN, 80, 100);
+
+    press(handle(0), 'ArrowLeft', { shiftKey: true });
+
+    expect(handle(0).getAttribute('aria-valuenow')).toBe('75');
+    expect(live()).toBe('Day 1 end, km 75');
+  });
+
+  // The strip buckets a block's break names itself (strip-markup's breaksIn) rather
+  // than asking the model, which is only safe while the two rules agree. This is the
+  // case the half-open rule exists for, checked on ONE fixture from both sides.
+  it('gives a break on a shared boundary to the day that ends on it, as the model does', () => {
+    const trip = DOWN;
+    const itinerary = createItinerary({ trip });
+    itinerary.hydrate({ days: [{ targetKm: 80 }, { targetKm: 100 }], breaks: [] });
+    const shared = itinerary.getDays()[0].endKm; // the boundary both days touch
+    itinerary.addBreak({ kind: 'food', name: 'Shared', routeDistanceKm: shared, lat: 51, lng: 13 });
+    const strip = mount();
+    strip.render({
+      days: itinerary.getDays(),
+      totalKm: ROAD_KM,
+      trip,
+      focusedIndex: 0,
+      breaks: itinerary.getBreaks(),
+    });
+
+    const titles = [...el.querySelectorAll('.strip__block')].map((b) => b.getAttribute('title'));
+    expect(titles[0]).toContain('☕ Shared');
+    expect(titles[1]).not.toContain('Shared');
+    // ...and the model says the same thing about the same km, which is what justifies
+    // strip-markup keeping a span-keyed copy of the rule at all.
+    expect(itinerary.dayOwnsKm(0, shared)).toBe(true);
+    expect(itinerary.dayOwnsKm(1, shared)).toBe(false);
+    expect(itinerary.breaksForDay(0).map((b) => b.name)).toEqual(['Shared']);
+    expect(itinerary.breaksForDay(1)).toEqual([]);
   });
 });
