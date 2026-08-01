@@ -1353,6 +1353,17 @@ export function tripHeadline(trip, { startName, destinationName } = {}) {
 > when the spec's outcome section is appended (Task 16).** If the controller wants the
 > spec's word kept as written, only `DIRECTION_WORD` changes — but then the app tells
 > Michel he is riding downstream to Dresden, which is up the Elbe.
+>
+> **RULED (controller, 2026-08-01): the implementation is correct — `+1` is upstream. Keep it; the spec's §6a example is wrong and gets corrected at Task 16.**
+> Settled against the data rather than the prose: `src/data/elevation.json` gives km 0
+> (Cuxhaven) an elevation of **5 m** and the road's far end (Prague) **205 m**, so
+> ascending km climbs toward the source. Cuxhaven is the mouth. Riding Hamburg →
+> Dresden therefore is upstream, and the app saying *"648.3 km upstream"* is telling
+> the truth. Note the product consequence, worth carrying into Task 11's wording: this
+> means Michel's own trip runs **against** the direction guidebooks describe
+> (source-to-sea), so "upstream" is the word most Elberadweg literature will not have
+> prepared a user for — the setup step naming it in words is doing real work, not
+> decoration.
 
 - [ ] **Step 7: The picking prompt** (`index.html`, `src/ui.js`, `src/ui.test.js`,
       `src/style.css`)
@@ -1608,6 +1619,16 @@ reason `add-day` already sits there):
 > when the outcome is appended.** An app that says "not set" about a window it is
 > already using and drawing would be lying about its own state, which is the failure
 > this whole branch has been recording.
+>
+> **RULED (controller, 2026-08-01): adopted. One state, ends shown named; §6a corrected at Task 16.**
+> The reasoning is the same one that has caught six unfalsifiable assertions on this
+> branch — a surface must not claim something the state cannot be in. "Not set" was
+> written before storage v4 decided every plan carries a real window, so §6a is
+> describing a draft of the model that no longer exists rather than expressing a
+> preference. Note for Task 11: because there is no empty state to escape, the setup
+> step must not read as a *blocking* step either — a user happy with the whole road
+> should be able to ignore it entirely and press `+ add a first day`, which is exactly
+> what keeping that button throughout achieves.
 
 Test obligations (`src/day-panel.test.js`):
 
