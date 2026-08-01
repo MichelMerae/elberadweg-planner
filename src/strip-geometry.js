@@ -19,7 +19,8 @@ import { ARRIVED_EPSILON_KM } from './boundaries.js';
 // number, and including the label's 12px padding and the block's 2px border:
 // "12" needs 27.1px and "12 30.5 km" needs 68.8px. (A three-digit day number
 // needs 75.1px, so it clips at the km tier's lower edge — that takes a plan of
-// 100+ days, which on a 650 km route means every day near the 5 km minimum.)
+// 100+ days, which even on the full 1026.5 km road means every day near the 5 km
+// minimum, and on a shorter WINDOW means more of them still.)
 // The 'full' threshold is the one judgement rather than a measurement: its first
 // line is the km tier's, and the 18px above it are so the second line has room
 // to say something about the town before the ellipsis bites.

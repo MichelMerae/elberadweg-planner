@@ -35,9 +35,17 @@ describe('kmToX / xToKm', () => {
     expect(xToKm(x, WHOLE)).toBeCloseTo(km, 6);
   });
 
-  it('degrades to 0 rather than NaN for a zero width', () => {
+  it('degrades to 0 rather than NaN for a zero-width axis', () => {
     expect(kmToX(100, { ...WHOLE, width: 0 })).toBe(0);
-    expect(xToKm(100, { startKm: 0, endKm: 0, width: WIDTH })).toBe(0);
+    expect(xToKm(100, { ...WHOLE, width: 0 })).toBe(0);
+  });
+
+  // What `kmAtClientX` leans on: a pointer can leave the axis mid-drag (the gesture
+  // captures on the axis, so a move 200 px past its edge still arrives here), and it
+  // must read as the end it went past rather than as km off the road.
+  it('clamps a pointer past either end of the axis onto the window', () => {
+    expect(xToKm(-100, WHOLE)).toBe(0);
+    expect(xToKm(WIDTH + 100, WHOLE)).toBe(TOTAL_KM);
   });
 
   // Defense in depth. The model throws on a non-finite endKm, so this shouldn't be
@@ -95,6 +103,16 @@ describe('kmToX / xToKm - oriented windows', () => {
     // Both directions, halfway along a 648.3 km window.
     expect(xToKm(500, up)).toBeCloseTo(473.45, 6);
     expect(xToKm(500, down)).toBeCloseTo(473.45, 6);
+  });
+
+  // Past the left edge is the rider's START whichever way the trip runs — which
+  // downstream is the numerically LARGER km, so a numeric clamp would answer with the
+  // wrong end of the window.
+  it('clamps a pointer off the axis onto the trip’s own ends, either direction', () => {
+    expect(xToKm(-100, up)).toBeCloseTo(149.3, 6);
+    expect(xToKm(1100, up)).toBeCloseTo(797.6, 6);
+    expect(xToKm(-100, down)).toBeCloseTo(797.6, 6);
+    expect(xToKm(1100, down)).toBeCloseTo(149.3, 6);
   });
 
   // A zero-length window is the degenerate every consumer would divide by.
@@ -159,6 +177,24 @@ describe('stripLayout', () => {
   it('treats a sub-epsilon remainder as finished, so an off-grid end leaves no sliver', () => {
     const layout = stripLayout(days(650.2), { startKm: 0, endKm: 650.24, width: WIDTH });
     expect(layout.remainder.width).toBe(0);
+  });
+
+  // The bolded half of this function's contract, and until now only its prose: an
+  // inverted day keeps a NEGATIVE width so that `x + width` still equals kmToX(endKm)
+  // and its handle stays where its end is. Clamping at source here (rather than in the
+  // renderer, which has its own test) would move that handle to the day's start.
+  it('keeps an inverted day’s width negative, so its handle stays on its own end', () => {
+    const layout = stripLayout(
+      [
+        { index: 0, startKm: 0, endKm: 80 },
+        { index: 1, startKm: 80, endKm: 60 },
+      ],
+      WHOLE,
+    );
+
+    expect(layout.blocks[1].width).toBeLessThan(0);
+    expect(layout.blocks[1].x + layout.blocks[1].width).toBeCloseTo(kmToX(60, WHOLE), 9);
+    expect(hitTestHandle(kmToX(60, WHOLE), layout)).toBe(1);
   });
 });
 

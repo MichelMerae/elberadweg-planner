@@ -1227,8 +1227,9 @@ input[type="number"]:disabled {
    the remaining road is named — and out here it covers no part of the axis's drag
    surface, so it cannot eat a grab.
 
-   --start / --end are the TRIP's ends, which are always left and right on screen:
-   the axis runs in trip order whichever way along the road that is. */
+   --start / --destination are the TRIP's ends, named as the model names them, and they
+   are always left and right on screen: the axis runs in trip order whichever way along
+   the road that is. */
 .strip__stub {
   --strip-stub-width: 10px;
   --strip-stub-gap: 2px;
@@ -1246,7 +1247,7 @@ input[type="number"]:disabled {
   right: calc(100% + var(--strip-stub-gap));
 }
 
-.strip__stub--end {
+.strip__stub--destination {
   left: calc(100% + var(--strip-stub-gap));
 }
 

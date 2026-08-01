@@ -1206,10 +1206,13 @@ describe('createStrip - oriented trips', () => {
     const block = el.querySelector('.strip__block');
     expect(block.textContent).toContain('80 km');
     expect(block.getAttribute('title')).toContain('km 0 → 80');
-    // Nothing the PLAN draws may carry an absolute route km. The edge stubs are
-    // excluded deliberately: their "149.3" is the DISTANCE of road behind the rider,
-    // which on this particular window happens to equal the km it starts at.
-    const planHtml = [...el.querySelectorAll('.strip__block, .strip__handle')]
+    // Nothing the PLAN draws may carry an absolute route km — blocks, handles, the
+    // remainder and its flag, the glyph titles. The edge stubs are the one exclusion,
+    // and NOT because their "149.3" is a coincidence: `roadPast` measures road running
+    // back to the road's origin as the trip's own startKm, so a forward trip's start cap
+    // always reads exactly that number. It is a DISTANCE of road there, not a position
+    // on it, which is the one place on the strip where an absolute figure belongs.
+    const planHtml = [...el.querySelectorAll('[data-strip-axis] > *:not(.strip__stub)')]
       .map((node) => node.outerHTML)
       .join('');
     expect(planHtml).not.toContain('229.3');
@@ -1280,6 +1283,33 @@ describe('createStrip - oriented trips', () => {
 
     expect(el.querySelector('.strip__remainder')).toBeNull();
     expect(el.querySelector('.strip__finish').textContent).toContain('reached');
+  });
+
+  // The arrival TOLERANCE has to reach the summary too, or the strip contradicts itself
+  // again inside a 0.1–0.5 km band: the axis collapses its remainder while the line
+  // above it still counts down. Reachable by dragging the last boundary near an off-grid
+  // finish — no picking UI needed — which is why this window's end is 797.9 rather than
+  // the 797.6 a day can actually land on.
+  it('says 0 km left once the axis says the destination is reached', () => {
+    const band = createTrip({ startKm: 149.3, destinationKm: 797.9, totalKm: ROAD_KM });
+    renderTrip(band, tripDays(band, 648.3));
+
+    // 0.3 km short: inside the tolerance, so every part of the strip calls it arrived.
+    expect(el.querySelector('.strip__summary').textContent).toContain('0 km to finish');
+    expect(el.querySelector('.strip__summary').textContent).not.toContain('0.3 km to');
+    expect(el.querySelector('.strip__remainder')).toBeNull();
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
+  });
+
+  // The other edge of the band, so the tolerance cannot quietly swallow real distance:
+  // 0.6 km left is still 0.6 km left, and still has a remainder to add a day into.
+  it('still counts down a remainder wider than the tolerance', () => {
+    const short = createTrip({ startKm: 149.3, destinationKm: 798.2, totalKm: ROAD_KM });
+    renderTrip(short, tripDays(short, 648.3));
+
+    expect(el.querySelector('.strip__summary').textContent).toContain('0.6 km to finish');
+    expect(el.querySelector('.strip__remainder')).not.toBeNull();
+    expect(el.querySelector('.strip__finish')).toBeNull();
   });
 
   it('still offers the remainder while the window is unfilled', () => {
@@ -1548,7 +1578,7 @@ describe('createStrip - edge stubs', () => {
 
     expect(titles()).toEqual(['road continues 228.9 km to Prague']);
     expect(el.querySelector('.strip__stub--start')).toBeNull();
-    expect(el.querySelector('.strip__stub--end')).not.toBeNull();
+    expect(el.querySelector('.strip__stub--destination')).not.toBeNull();
   });
 
   it('caps the start of a downstream trip that runs to the road’s origin', () => {
@@ -1556,16 +1586,43 @@ describe('createStrip - edge stubs', () => {
     renderTrip(toOrigin, tripDays(toOrigin, 80), named);
 
     expect(titles()).toEqual(['road continues 228.9 km to Prague']);
-    expect(el.querySelector('.strip__stub--end')).toBeNull();
+    expect(el.querySelector('.strip__stub--destination')).toBeNull();
   });
 
-  it('says nothing about road it was never told the length of', () => {
-    // createTrip keeps totalKm null when nobody supplies one, and the strip must not
-    // invent an end for road it cannot measure. This is also the shape the strip drew
-    // before windows existed: as far as it knows, the trip IS the road.
-    renderTrip(createTrip({ startKm: 149.3, destinationKm: 797.6 }), tripDays(UP, 80), named);
+  // The two sides need different things to answer. Road running back to the road's
+  // ORIGIN is just the trip's own startKm — measurable with no road length at all —
+  // while road running on past the far end needs one. So a totalKm-less trip caps the
+  // side it can measure and stays silent about the side it cannot, rather than
+  // suppressing both and then letting the scale line call a start 149 km past Cuxhaven
+  // "Cuxhaven".
+  it('caps the end it can measure without a road length, and only that end', () => {
+    const noRoad = createTrip({ startKm: 149.3, destinationKm: 797.6 });
+    renderTrip(noRoad, tripDays(UP, 80), named);
 
-    expect(titles()).toEqual([]);
+    expect(titles()).toEqual(['road continues 149.3 km to Cuxhaven']);
+    expect(el.querySelector('.strip__stub--destination')).toBeNull();
+    // ...and the start is therefore NOT called Cuxhaven, which is the point.
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · start');
+  });
+
+  // `roadContinues` rounds before it decides, and this is the edge that proves it: the
+  // cap and the end's own NAME come from that one predicate, so both flip together.
+  // Unrounded, a 0.04 km offset would draw a cap reading "road continues 0 km".
+  it('ignores an offset too small to name, keeping the road’s own name', () => {
+    const hair = createTrip({ startKm: 0.04, destinationKm: 797.6, totalKm: ROAD_KM });
+    renderTrip(hair, tripDays(hair, 80), named);
+
+    expect(el.querySelector('.strip__stub--start')).toBeNull();
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · Cuxhaven');
+  });
+
+  it('caps the smallest offset it can name, and drops the road’s name with it', () => {
+    const grid = createTrip({ startKm: 0.05, destinationKm: 797.6, totalKm: ROAD_KM });
+    renderTrip(grid, tripDays(grid, 80), named);
+
+    expect(titles()[0]).toBe('road continues 0.1 km to Cuxhaven');
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · start');
+    expect(el.querySelector('.strip__scale').textContent).not.toContain('Cuxhaven');
   });
 
   // Not a control. Extending the trip is what the scale line's Set start / Set finish
@@ -1591,11 +1648,16 @@ describe('createStrip - edge stubs', () => {
     expect(titles()[0]).toBe('road continues 12.3 km to Cuxhaven');
   });
 
-  it('escapes a road end name rather than injecting it as markup', () => {
-    renderTrip(UP, tripDays(UP, 80), { originName: '<img src=x onerror=alert(1)>' });
+  // The payload has to BREAK OUT of the attribute to prove anything. An `<img …>` inside
+  // `title="…"` is never parsed into an element, so querying for an img is null with or
+  // without escaping — the first version of this test could not fail. A stray quote can
+  // end the attribute and start a new one, which is what esc() actually prevents.
+  it('escapes a road end name rather than letting it open a new attribute', () => {
+    renderTrip(UP, tripDays(UP, 80), { originName: '" onmouseover="alert(1)' });
 
-    expect(el.querySelector('[data-strip-axis] img')).toBeNull();
-    expect(titles()[0]).toContain('<img');
+    const stub = el.querySelector('.strip__stub--start');
+    expect(stub.getAttribute('onmouseover')).toBeNull();
+    expect(stub.getAttribute('title')).toBe('road continues 149.3 km to " onmouseover="alert(1)');
   });
 
   // A cap sits 2 px outside the axis, and the boundary hit-test works in px from the
@@ -1722,6 +1784,33 @@ describe('createStrip - elevation over the trip window', () => {
 
     expect(path()).not.toBe(first);
     expect(path()).toMatch(new RegExp(`^M0,${y(0)}L`));
+  });
+
+  // Moving BOTH ends only proves at least one of them is in the key — either half alone
+  // would satisfy it. The two tests below move one end each, which is not a contrived
+  // split: `Set start` and `Set finish` (plan Task 11) each move exactly one, so each of
+  // these is a real control's path.
+  it('re-samples when only the far end moves, as Set finish will', () => {
+    const strip = renderWindow(400, 600);
+    const first = path();
+
+    renderWindow(400, 900, strip);
+
+    expect(path()).not.toBe(first);
+    // Same first km, so the profile still starts at 400 m — the END is what changed.
+    expect(path()).toMatch(new RegExp(`^M0,${y(400)}L`));
+    expect(path().endsWith(`L${WIDTH},${y(900)}`)).toBe(true);
+  });
+
+  it('re-samples when only the near end moves, as Set start will', () => {
+    const strip = renderWindow(400, 600);
+    const first = path();
+
+    renderWindow(100, 600, strip);
+
+    expect(path()).not.toBe(first);
+    expect(path()).toMatch(new RegExp(`^M0,${y(100)}L`));
+    expect(path().endsWith(`L${WIDTH},${y(600)}`)).toBe(true);
   });
 });
 
