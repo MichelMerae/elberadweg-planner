@@ -1992,3 +1992,27 @@ Ran against live Overpass; raw responses cached in the scratchpad. Two runs: an 
 **Verdict: proceed.** The one assumption that could have sunk the plan — EV7's continuity through Prague — holds: 171.6 km trimmed, no surviving hard gaps, Prague anchor 0.21 km off. Expected total after the derived junctions: **~1,030 km** (137.1 + 2.25 + 715.5 + 3.26 + 171.6), inside the 1,000–1,150 nominal band.
 
 Spike files deleted, not committed.
+
+### Tasks 1–4 — the pure helpers
+
+`anchorSnap` was written, tested, and then **deleted before it had a caller**. Once junctions became derived, `findJunction(coords, [anchor])` gave both the nearest-vertex index and the distance guard, and one mechanism for every trim point beat two. A tested-but-unused export is still dead code.
+
+`findJunction` itself was rewritten mid-task. The first version used a widening spatial grid; its own test caught the flaw — when the sweep finds nothing it can only report that it found nothing, which is the least useful thing to say at exactly the moment a distance is needed. Coarse-subsample-then-refine always measures something, so the error can always name the gap that failed.
+
+Four of the five initial `findJunction` test failures were **the tests being wrong, not the code**: the fixtures were two lines I described as "2.2 km apart" that were in fact 11.3 km apart, because I ignored a latitude offset while writing them.
+
+### Task 5–8 — the build, and two rounds of Overpass refusing to cooperate
+
+The route assembly worked first time: **1026.50 km**, every gate green. Cuxhaven's anchor snapped 0.13 km (it was 2.15 km before the coordinate fix), Prague 0.21 km, monotonicity strictly increasing across all nine checkpoints, doubling-back 1.1%, five known hard gaps inside segments totalling 5.78 km against the 8 km budget.
+
+A consistency check worth recording: **Hamburg (km 149.3) → Dresden (km 797.6) measures 648.3 km**, against the previous build's 650.24 km for the same two points. Re-assembling from three sources left the middle section alone.
+
+The place queries were another matter. The `around:` corridor — deviation 5's careful radius derivation and all — **does not work at this route length**. 515 coordinates at 2 km spacing: HTTP 504, then a dropped connection. 130 coordinates at 8 km spacing after re-deriving the radii: same failure across two mirrors, for the *single-clause towns query*. The coverage arithmetic was right and irrelevant; the problem was that evaluating a union of hundreds of circles is expensive.
+
+Replaced with **per-chunk bounding boxes** (`chunkBboxes`, tested): eleven ~100 km boxes that hug a diagonal river far more tightly than one 5.5° × 6.5° rectangle, each cached separately. That worked — and the per-chunk caching paid for itself immediately when a session restart killed the build mid-run: all eleven towns chunks were already on disk.
+
+### Deviation 12 — `import.meta.glob` for optional data
+
+`loadElevation` first used the same `await import('./data/elevation.json')` inside a `try/catch` that `pois.js` and `route.js` use. It fails: Vite resolves that specifier when it *transforms* the module, so a missing file is a build error long before any catch block runs — the whole suite went red on a file that had not been generated yet.
+
+Worth flagging beyond this feature: **`route.js` and `pois.js` carry the same pattern with comments claiming it degrades gracefully.** It holds only because their data files always exist. If `pois.json` were ever absent, the app would not boot with a warning — it would fail to build. Not fixed here (out of scope), but it is a latent claim the code does not honour.
