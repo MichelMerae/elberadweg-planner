@@ -8,6 +8,17 @@
 // given. There is deliberately no fallback for a missing trip: a display module that
 // quietly counts from the road's origin instead is the one bug this feature can
 // produce, and it produces it silently — every number still looks like a number.
+//
+// Every km-ordered list here runs in the rider's DIRECTION OF TRAVEL — the first row is
+// the first place they will reach — which matters twice over, because the 40-row cap
+// keeps the front of each list (see ROW_CAP). Food and sights arrive that way already
+// (poisInRange orders them); favorites are ordered here, being the one list with no
+// stretch to carry a direction (see inRideOrder).
+//
+// The overnight candidates are the deliberate exception: towns.js ranks them by how well
+// each suits the day's END — distance to it, weighted against the detour off route — and
+// its measure is symmetric, so the ranking already means the same thing in both
+// directions. Best-first is the point of that list; ride order would be a downgrade.
 
 import { esc, round1, townKey, poiKey, favGlyphFor } from './ui-util.js';
 // The one model import, and only for the key builder — a pure function, no store
@@ -21,11 +32,18 @@ import { favKey } from './favorites.js';
 // that scrolls 50,000 px is unusable. Ranking/grouping is a separate project —
 // until then, show the first 40 along the stretch and say how many there are.
 //
-// Route order, not nearest-by-detour, and map.js's POI_MAP_CAP must agree on both
-// the number and the criterion: the map draws that same set, and marker-hover
-// highlights a row by key, so a marker whose row was never rendered highlights
-// nothing. (map.js imports nothing but Leaflet, which is why the constant is
-// duplicated rather than shared.)
+// A PREFIX of each list, which is what makes those 40 the first 40 the rider will
+// reach: every list here already runs in the rider's direction of travel, so the cap
+// has only to take the front of it. It used to take the front of an absolute-km
+// ascending list, which downstream is the far end of the day — a rider looking for
+// lunch was shown the cafés they would reach last.
+//
+// The order, not nearest-by-detour, and map.js's POI_MAP_CAP must agree on both the
+// number and the criterion: the map draws that same set, and marker-hover highlights a
+// row by key, so a marker whose row was never rendered highlights nothing. They agree
+// by construction rather than by coincidence — main.js hands both this panel and the
+// map the one array poisInRange returned, and each takes its first 40. (map.js imports
+// nothing but Leaflet, which is why the constant is duplicated rather than shared.)
 const ROW_CAP = 40;
 
 // Distance ridden from one absolute km to another, counted the rider's way: positive
@@ -71,6 +89,30 @@ function rowActions(name, isBreak, isFav) {
         <button type="button" class="row-action row-action--fav${isFav ? ' row-action--active' : ''}"
                 data-action="fav" aria-pressed="${isFav}" title="${favLabel}" aria-label="${favLabel}: ${safeName}">⭐</button>
       </span>`;
+}
+
+// Every list this panel shows runs in the rider's direction of travel, so the first
+// row is the first place they will reach. For the food and sights lists that is
+// already true when they arrive — poisInRange returns a stretch in the order its span
+// was asked in, and main.js asks in trip order — and the favorites list is the one
+// exception, ordered HERE.
+//
+// It has to be: the starred list is global rather than windowed to a stretch, so there
+// is no span to carry a direction, and the store that holds it is shared across plans
+// and has no trip to order by. This module holds both the list and the trip, which
+// makes it the only place the question can be answered.
+//
+// Sorted through trip.tripKm rather than by `(a - b) * trip.direction`, which is the
+// same number: the conversion has one owner, and a change to it should reach this
+// list without anyone remembering to come back here. Copied, not sorted in place —
+// main.js hands the same array to map.setFavoriteMarkers afterwards.
+//
+// tripKm is signed, so a favorite starred BEHIND the rider's start sorts before their
+// trip (a negative rider km) and one past their destination sorts after it. That is
+// one monotone axis — the order they would meet these places riding the whole road
+// their way — and the row's own "beyond plan" tag is what says it is not on the plan.
+function inRideOrder(places, trip) {
+  return [...places].sort((a, b) => trip.tripKm(a.routeDistanceKm) - trip.tripKm(b.routeDistanceKm));
 }
 
 // Which day a favorite falls on is the model's question: `dayNumberForKm` is
@@ -216,7 +258,12 @@ export function createPlaces({ el, callbacks = {} }) {
       scopeKey = nextScope;
       expanded = new Set();
     }
-    lists = { fav: favorites, town: towns, food, sight: sights };
+    // Ordered before section() caps it, because the cap keeps a PREFIX: ordering after
+    // it would pick the wrong 40 and then sort those 40 nicely. `lists` holds the same
+    // ordered array the rows are built from — a click resolves back through
+    // data-place-index, so the two cannot be allowed to disagree.
+    const favRows = inRideOrder(favorites, trip);
+    lists = { fav: favRows, town: towns, food, sight: sights };
 
     const ctx = { startKm, fromName, selectedTownKey, breakKeys: breakSet, favoriteKeys: favSet, trip };
     // Day numbers here are 1-based, but they are 0-based nearly everywhere else
@@ -235,7 +282,7 @@ export function createPlaces({ el, callbacks = {} }) {
 
     el.innerHTML = `
       <div class="places__scope">${scope}</div>
-      ${section('fav', '⭐ Favorites', favorites, 'Nothing starred yet — hit ⭐ on any place.', (f, i) => favRow(f, i, { dayNumberForKm, breakKeys: breakSet, trip }))}
+      ${section('fav', '⭐ Favorites', favRows, 'Nothing starred yet — hit ⭐ on any place.', (f, i) => favRow(f, i, { dayNumberForKm, breakKeys: breakSet, trip }))}
       ${section('town', '🛏 Overnight options', towns, 'No towns near this stretch.', (t, i) => townRow(t, i, ctx))}
       ${poiSections}`;
 

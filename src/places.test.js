@@ -271,11 +271,18 @@ describe('createPlaces - key shapes', () => {
 });
 
 describe('createPlaces - the 40-row cap', () => {
-  it('renders 40 rows and says how many there are', () => {
+  // Which 40, not just how many. The footer promises "the first 40" and the list
+  // arrives in ride order, so they have to be the 40 the rider meets FIRST — and
+  // counting rows cannot tell the difference: a cap keeping the LAST 40 of the stretch
+  // rendered 40 rows under that same footer and passed this whole file.
+  it('renders the first 40 rows of the stretch and says how many there are', () => {
     const places = mount();
     places.render(renderArgs({ food: MANY }));
 
-    expect(el.querySelectorAll('[data-place-section="food"]')).toHaveLength(40);
+    const names = [...el.querySelectorAll('[data-place-section="food"] .poi__name')].map((n) => n.textContent);
+    expect(names).toHaveLength(40);
+    expect(names[0]).toBe('Place 0');
+    expect(names[39]).toBe('Place 39');
     expect(el.querySelector('.places__more').textContent).toContain('showing the first 40 of 451');
   });
 
@@ -810,6 +817,77 @@ describe('createPlaces - oriented trips', () => {
     const row = el.querySelector('[data-place-section="fav"]');
     expect(row.querySelector('.poi__meta').textContent).toContain('km -3.2');
     expect(row.querySelector('.fav-day').textContent).toBe('beyond plan');
+  });
+
+  // The favorites list is the one list this panel orders itself: it is the global
+  // starred list, not windowed to any stretch, and the store that holds it has no trip
+  // to order it by (see the note at inRideOrder in places.js). Three favorites at the
+  // same three absolute km, ridden both ways — the only variable between these two
+  // tests is the trip's direction.
+  const A = poi('A', 249.3, 'sight'); // UP: rider 100 · DOWN: rider 548.3
+  const B = poi('B', 349.3, 'sight'); // UP: rider 200 · DOWN: rider 448.3
+  const C = poi('C', 449.3, 'sight'); // UP: rider 300 · DOWN: rider 348.3
+
+  function favNamesAndKm() {
+    return [...el.querySelectorAll('[data-place-section="fav"]')].map((row) => [
+      row.querySelector('.poi__name').textContent.replace(/^\S+\s/, ''),
+      row.querySelector('.poi__meta').textContent.trim().split(' ').slice(0, 2).join(' '),
+    ]);
+  }
+
+  it('lists favorites in ride order, whatever order they arrive in', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: UP, ...UP_STRETCH, favorites: [C, A, B], dayNumberForKm: () => 1 }));
+
+    // Arrived C, A, B and rendered A, B, C: the panel orders them, it does not just
+    // pass an already-sorted list through.
+    expect(favNamesAndKm()).toEqual([['A', 'km 100'], ['B', 'km 200'], ['C', 'km 300']]);
+  });
+
+  // The bug this closes: sorted by ABSOLUTE km, a downstream rider's starred places ran
+  // back-to-front — the first row was the one they would reach LAST.
+  it('runs the same favorites the other way round on a downstream trip', () => {
+    const places = mount();
+    const given = [A, B, C];
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, favorites: given, dayNumberForKm: () => 1 }));
+
+    expect(favNamesAndKm()).toEqual([['C', 'km 348.3'], ['B', 'km 448.3'], ['A', 'km 548.3']]);
+    // Ordered on a copy: main.js hands this very array to map.setFavoriteMarkers after
+    // the render returns, and lastArgs keeps a reference to it for "show all".
+    expect(given).toEqual([A, B, C]);
+  });
+
+  // Reordering rows and resolving a click both go through data-place-index, so a
+  // reordered list is exactly where the two can come apart — and the symptom is silent:
+  // starring or ☕-ing one place would act on a different one. Every other favorite test
+  // in this file renders a single row, where any alignment passes.
+  it('resolves a click on a reordered favorite row to the row that was shown', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, favorites: [A, B, C], dayNumberForKm: () => 1 }));
+
+    const first = el.querySelector('[data-place-section="fav"]');
+    expect(first.textContent).toContain('C'); // the place this rider meets first
+    first.querySelector('.poi__name').click();
+
+    expect(callbacks.onSelectPoi).toHaveBeenCalledWith(C);
+  });
+
+  // Ordering decides which favorites the 40-row cap KEEPS, which is the more serious
+  // half: in absolute order a downstream rider with more than 40 starred places was
+  // shown the 40 furthest from them and lost every one they would pass first.
+  it('caps the favorites at the ones the rider meets first, not last', () => {
+    const places = mount();
+    // Absolute 200…244. Downstream the rider starts at 797.6, so 244 is met FIRST and
+    // 200 last; the five that must drop off are the lowest absolute km, not the highest.
+    const many = Array.from({ length: 45 }, (_, i) => poi(`Fav ${String(i).padStart(2, '0')}`, 200 + i, 'sight'));
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, favorites: many, dayNumberForKm: () => 1 }));
+
+    const rows = favNamesAndKm();
+    expect(rows).toHaveLength(40);
+    expect(rows[0]).toEqual(['Fav 44', 'km 553.6']);
+    expect(rows[39]).toEqual(['Fav 05', 'km 592.6']);
+    expect(el.textContent).not.toContain('Fav 00');
+    expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 40 of 45');
   });
 
   it('falls back to the rider’s own start when no day is focused', () => {

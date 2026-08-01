@@ -170,16 +170,19 @@ const FAV_ICON = L.divIcon({
 });
 
 // A dense city stretch can hold hundreds of food POIs, so the map shows the first
-// POI_MAP_CAP of a kind in ROUTE ORDER — the order they arrive in.
+// POI_MAP_CAP of a kind IN THE ORDER THEY ARRIVE — a prefix, and no order of its own.
 //
 // The criterion matters more than the number, and it has to be the same one
-// places.js's ROW_CAP uses (also 40, also route order). It used to keep the 40
-// NEAREST by offsetKm instead, which on a dense stretch is a different set from
+// places.js's ROW_CAP uses (also 40, also a prefix of the same list). It used to keep
+// the 40 NEAREST by offsetKm instead, which on a dense stretch is a different set from
 // the panel's first 40: hovering a marker then highlighted nothing, because that
-// POI's row was never rendered. Route order makes the two sets identical by
-// construction, so every marker has a row to light up — and it is the order the
-// panel reads in, which is what makes "the first 40 along this stretch" an
-// explicable cap rather than an arbitrary subset.
+// POI's row was never rendered. Taking a prefix makes the two sets identical by
+// construction, so every marker has a row to light up.
+//
+// Which is why re-sorting here would be a bug and not a tidy-up, however harmless a
+// sort looks: the list arrives in the RIDER's direction of travel (see poisInRange),
+// which on a downstream trip descends by route km. Imposing ascending km would pin the
+// 40 places the rider reaches LAST while the panel listed the 40 they reach first.
 //
 // The constants are deliberately not shared: map.js imports nothing but Leaflet
 // (see poiMarkerKey below for the same trade). Change one, change the other.

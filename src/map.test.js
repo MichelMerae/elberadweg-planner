@@ -506,11 +506,11 @@ describe('createMap - a pin drag the page never saw the end of', () => {
 });
 
 describe('createMap - POI markers', () => {
-  // Route order, and the same 40 places.js's ROW_CAP keeps, because a marker hover
-  // highlights a panel row BY KEY: a marker whose row was never rendered
-  // highlights nothing. These POIs run in route order with the detour shrinking
-  // along the way, so "the first 40" and "the 40 nearest the route" are different
-  // sets — the criterion is what this pins, not the number.
+  // The first 40 of the order they were HANDED IN, which is the same 40 places.js's
+  // ROW_CAP keeps, because a marker hover highlights a panel row BY KEY: a marker whose
+  // row was never rendered highlights nothing. These POIs have the detour shrinking as
+  // the km rises, so "the first 40" and "the 40 nearest the route" are different sets —
+  // the criterion is what these pin, not the number.
   const DENSE = Array.from({ length: 45 }, (_, i) => ({
     name: `Food ${i}`,
     kind: 'food',
@@ -520,7 +520,7 @@ describe('createMap - POI markers', () => {
     lng: 10 + i * 0.01,
   }));
 
-  it('keeps the first 40 of a kind in route order', () => {
+  it('keeps the first 40 of a kind in the order they arrive', () => {
     const api = createMap({ routeFeature: ROUTE });
 
     api.setPoiMarkers(DENSE);
@@ -529,6 +529,27 @@ describe('createMap - POI markers', () => {
     expect(names).toHaveLength(40);
     expect(names[0]).toBe('Food 0');
     expect(names[39]).toBe('Food 39');
+  });
+
+  // The other half of that contract, and the half an ascending fixture cannot see.
+  // main.js hands the panel and the map ONE list, in the rider's direction of travel
+  // (poisInRange returns a stretch in the order its span was asked in), and each caps
+  // it to a prefix — so the map must keep a prefix of what it was given and impose no
+  // order of its own. A map that re-sorted by absolute km passed every test in this
+  // file, because on an ascending list "the order it arrived in" and "sorted by km" are
+  // the same answer. Downstream they are opposite ends of the day: the panel would list
+  // the 40 cafés the rider reaches first while the map pinned the 40 they reach last,
+  // and not one visible row would have a pin.
+  it('keeps a descending ride order as given, so its 40 are the panel’s 40', () => {
+    const api = createMap({ routeFeature: ROUTE });
+
+    api.setPoiMarkers([...DENSE].reverse()); // a downstream day's stretch, first met first
+
+    const names = poiMarkers().map(tooltipText);
+    expect(names).toHaveLength(40);
+    expect(names[0]).toBe('Food 44'); // km 144 — where this rider starts the day
+    expect(names[39]).toBe('Food 5');
+    expect(names).not.toContain('Food 0'); // km 100 — met last, and past the cap
   });
 
   // The temporary marker for a capped-out POI is added to the map, not to the POI
