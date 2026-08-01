@@ -26,10 +26,10 @@ const HIGHLIGHT_STYLE = {
 //
 // Not grey, which is the obvious way to make the highlight pop and was tried and
 // measured at 1512x900: OSM's own tiles draw state and district boundaries as grey
-// dashed lines, so a grey dashed route reads as map furniture — the 570 unplanned
-// km from Boizenburg to Dresden disappeared into the boundary between
-// Niedersachsen and Brandenburg. Blue is the one hue these tiles reserve for water,
-// and water is drawn as filled area, never as a dashed line.
+// dashed lines, so a grey dashed route reads as map furniture — 570 km of unplanned
+// route disappeared into the state boundary it happened to run along. Blue is the
+// one hue these tiles reserve for water, and water is drawn as filled area, never
+// as a dashed line.
 const ROUTE_STYLE = { color: '#5b93ff', weight: 3, opacity: 0.75, dashArray: '7 6' };
 
 // How much viewport to leave around a framed stretch, in px. The focused day gets
@@ -194,6 +194,8 @@ function cappedByKind(pois, kind) {
  *
  * @param {Object} opts
  * @param {Feature<LineString>} opts.routeFeature - the route in GeoJSON order.
+ * @param {string} [opts.originName] - the place km 0 sits in, named on the start
+ *   pin. Omitted, the pin reads just "Start" (see below).
  * @param {(lngLat: [number, number]) => void} [opts.onRouteClick] - fired when
  *   the user clicks the map; receives the clicked point as [lng, lat].
  * @param {(poi: object) => void} [opts.onPoiClick] - fired when the user clicks
@@ -229,6 +231,7 @@ function cappedByKind(pois, kind) {
  */
 export function createMap({
   routeFeature,
+  originName,
   onRouteClick,
   onPoiClick,
   onPoiHover,
@@ -389,12 +392,21 @@ export function createMap({
 
   fitWholeRoute({ animate: false });
 
-  // Static start pin at km 0 (Hamburg) — the first route coordinate.
+  // Static start pin at km 0 — the first route coordinate.
+  //
+  // The place name comes in from the route data rather than being spelled out
+  // here: which town km 0 is in is a fact about the route, and the module has no
+  // business knowing it. With no name given the pin claims nothing — a wrong
+  // fallback town would be worse than an unnamed pin, and this module has to stay
+  // mountable on its own.
+  // The glyph followed the same rule as the title, and for the same reason: it used
+  // to be a hardcoded "H" for Hamburg, which silently became wrong the moment km 0
+  // moved to Cuxhaven. An initial derived from the name cannot go stale that way.
   const startCoord = routeFeature.geometry.coordinates[0];
   L.marker(toLatLng(startCoord), {
-    icon: numberedPinIcon('H', 'start'),
+    icon: numberedPinIcon(originName ? originName.trim().charAt(0).toUpperCase() : '•', 'start'),
     zIndexOffset: 400,
-    title: 'Start — Hamburg',
+    title: originName ? `Start — ${originName}` : 'Start',
   }).addTo(map);
 
   if (typeof onRouteClick === 'function') {

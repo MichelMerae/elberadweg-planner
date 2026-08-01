@@ -72,6 +72,36 @@ function glyphLayerMarkup(breaks, axis) {
     .join('');
 }
 
+/**
+ * The elevation profile as one filled area plus a stroked top line.
+ *
+ * Sits ABOVE the day blocks, not behind them: blocks carry an opaque background, so
+ * a profile behind them would only show in the gaps. It is `pointer-events: none`
+ * (see the CSS) exactly like the glyph layer, because the axis underneath is a drag
+ * surface for the boundary handles.
+ *
+ * No viewBox, deliberately. SVG user units then equal CSS pixels, so the 2px stroke
+ * cannot be distorted by a non-uniform scale — which is what `preserveAspectRatio="none"`
+ * over a stale viewBox would do the moment the window was resized.
+ *
+ * aria-hidden: the profile is decorative here. The numbers a screen reader needs are
+ * the ascent figures in the day panel and the range in the scale line, both text.
+ *
+ * @param {Array<[number, number]>} points - from elevation.js's profilePoints.
+ */
+function elevationMarkup(points, { width, height } = {}) {
+  if (!Array.isArray(points) || points.length < 2 || !width || !height) return '';
+  const line = points
+    .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${round1(x)},${round1(y)}`)
+    .join('');
+  const area = `${line}L${round1(width)},${round1(height)}L0,${round1(height)}Z`;
+  return `
+      <svg class="strip__elevation" aria-hidden="true" focusable="false">
+        <path class="strip__elevation-fill" d="${area}" />
+        <path class="strip__elevation-line" d="${line}" />
+      </svg>`;
+}
+
 function blockLabelMarkup(block, day) {
   const km = `${round1(day.endKm - day.startKm)} km`;
   const town = day.townChoice ? `<span class="strip__block-town">🛏 ${esc(day.townChoice.name)}</span>` : '';
@@ -117,16 +147,24 @@ function handleMarkup(days, index, axis, activeIndex) {
               aria-label="${esc(label)}" title="${esc(label)}"></button>`;
 }
 
+// Neutral stand-ins for the endpoint names. The corridor is data — it grew from
+// Hamburg → Dresden to Cuxhaven → Prague and will change again — so no place name
+// belongs in this module. These are what it says when mounted without names, which
+// the tests do and which must not read as "undefined".
+const ORIGIN_FALLBACK = 'start';
+const DESTINATION_FALLBACK = 'finish';
+
 /** The line above the axis: how far the plan reaches, and the average day. */
-export function summaryMarkup({ days, totalKm }) {
+export function summaryMarkup({ days, totalKm, destinationName }) {
   const planned = days.length ? days[days.length - 1].endKm : 0;
   const remaining = Math.max(0, totalKm - planned);
   const avg = days.length ? round1(planned / days.length) : 0;
   const right = days.length
     ? `${days.length} ${days.length === 1 ? 'day' : 'days'} · ⌀ ${avg} km/day`
     : 'no days yet';
+  const destination = esc(destinationName ?? DESTINATION_FALLBACK);
   return `
-      <span><b>${round1(planned)} / ${round1(totalKm)} km planned</b> · ${round1(remaining)} km to Dresden</span>
+      <span><b>${round1(planned)} / ${round1(totalKm)} km planned</b> · ${round1(remaining)} km to ${destination}</span>
       <span>${right}</span>`;
 }
 
@@ -145,6 +183,10 @@ export function summaryMarkup({ days, totalKm }) {
  * @param {number|null} activeIndex - the boundary being dragged, or null.
  */
 export function axisMarkup(state, layout, axis, activeIndex = null) {
+  const elevation = elevationMarkup(axis.elevationPoints, {
+    width: axis.width,
+    height: axis.height,
+  });
   const blocks = layout.blocks
     .map((block) => {
       const day = state.days[block.index];
@@ -169,11 +211,13 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
     box.width > 0
       ? `<div class="strip__remainder" style="left:${box.left}px;width:${box.width}px">
              <button type="button" class="strip__add" data-action="add-day">+ add a day</button>
-             <span class="strip__flag">⚑ Dresden</span>
+             <span class="strip__flag">⚑ ${esc(state.destinationName ?? DESTINATION_FALLBACK)}</span>
            </div>`
       : '';
 
-  return blocks + tail + glyphLayerMarkup(state.breaks, axis);
+  // Elevation first in source order: it and the glyph layer share z-index 1, so the
+  // later one paints on top and a café pin must not disappear under the terrain fill.
+  return elevation + blocks + tail + glyphLayerMarkup(state.breaks, axis);
 }
 
 /**
@@ -181,14 +225,27 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
  *
  * The finish marker lives here rather than on the axis: at right: 0 over a
  * collapsed remainder it sat on top of the last block and underneath the last
- * handle. The scale line already names Dresden, so it says "reached" instead.
+ * handle. The scale line already names the destination, so it says "reached"
+ * instead.
  */
 export function scaleMarkup(state, layout) {
   const arrived = state.days.length > 0 && tailBox(layout).width <= 0;
+  const origin = esc(state.originName ?? ORIGIN_FALLBACK);
+  const destination = esc(state.destinationName ?? DESTINATION_FALLBACK);
+  // The vertical range, whenever a profile is drawn. Not decoration: this corridor
+  // falls from sea level to 184 m over 1026 km, so the profile is exaggerated
+  // roughly 500:1, and an unlabelled exaggerated profile invites reading a 30 m
+  // river terrace as a climb.
+  const profile = state.elevation;
+  const range =
+    profile && Number.isFinite(profile.minM) && Number.isFinite(profile.maxM)
+      ? `<span class="strip__range" title="Elevation range along the whole route. The profile's vertical scale is exaggerated to make this relief visible.">↕ ${Math.round(profile.minM)}–${Math.round(profile.maxM)} m</span>`
+      : '';
   return (
-    `<span>km 0 · Hamburg</span>` +
+    `<span>km 0 · ${origin}</span>` +
+    range +
     (arrived
-      ? `<span class="strip__finish">⚑ km ${round1(state.totalKm)} · Dresden reached</span>`
-      : `<span>km ${round1(state.totalKm)} · Dresden</span>`)
+      ? `<span class="strip__finish">⚑ km ${round1(state.totalKm)} · ${destination} reached</span>`
+      : `<span>km ${round1(state.totalKm)} · ${destination}</span>`)
   );
 }

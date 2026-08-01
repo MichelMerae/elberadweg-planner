@@ -63,11 +63,11 @@ function toPublicDay(day, index) {
 }
 
 /**
- * Creates a multi-day itinerary model for a route running Hamburg (km 0) ->
- * Dresden (km totalKm). Days are 0-indexed: days[0] always starts at km 0,
- * and each day's startKm chains from the previous day's endKm. This is pure
- * trip math; persistence lives in src/storage.js and feeds days back in via
- * hydrate().
+ * Creates a multi-day itinerary model for a route running from its origin (km 0)
+ * to its destination (km totalKm) — the corridor itself is data, named in
+ * route.meta.json. Days are 0-indexed: days[0] always starts at km 0, and each
+ * day's startKm chains from the previous day's endKm. This is pure trip math;
+ * persistence lives in src/storage.js and feeds days back in via hydrate().
  *
  * Plan-level breaks (committed waypoints like a lunch stop) live here too,
  * sorted by routeDistanceKm; each day derives its own breaks by km range via

@@ -13,6 +13,7 @@ import { createStrip } from './strip.js';
 import { createDayPanel } from './day-panel.js';
 import { createPlaces } from './places.js';
 import { createPlansBar } from './plans-bar.js';
+import { loadElevation, profileForRoute, ascentBetween } from './elevation.js';
 import meta from './data/route.meta.json';
 
 const DEFAULT_TARGET_KM = 80;
@@ -27,17 +28,30 @@ async function boot() {
   // POI data is optional: if it fails to load (e.g. build:data never ran), the
   // app still boots and the POI sections show a note. A rejected loadPois()
   // must not sink the whole Promise.all, so it resolves to null on failure.
-  const [route, towns, pois] = await Promise.all([
+  const [route, towns, pois, elevationRaw] = await Promise.all([
     loadRoute(),
     loadTowns(),
     loadPois().catch((err) => {
       console.warn('planner-app: POI data unavailable', err);
       return null;
     }),
+    // Same contract as POIs: optional data, resolved to null on any failure, so an
+    // app whose elevation build has never been run still boots.
+    loadElevation(),
   ]);
   const totalKm = meta.totalKm;
+  // The corridor's endpoints are data. Read once here so no module below holds a
+  // place name of its own.
+  const ORIGIN_NAME = meta.origin.name;
+  const DESTINATION_NAME = meta.destination.name;
+  // The header names the corridor, which is data rather than markup.
+  const routeLabel = document.getElementById('app-route');
+  if (routeLabel) routeLabel.textContent = `${ORIGIN_NAME} → ${DESTINATION_NAME}`;
   const poisMissing = pois == null;
   const poiData = pois || [];
+  // Elevation sampled along a different corridor describes a different road, so it
+  // is rejected rather than drawn — a wrong profile would look authoritative.
+  const elevation = profileForRoute(elevationRaw, meta.routeId);
 
   // Built once: every render turns km into map coordinates (five day pins, the
   // whole focused stretch), and a boundary drag re-renders on every pointermove.
@@ -48,7 +62,14 @@ async function boot() {
   // Storage owns the named plans; itinerary is now pure trip math fed from the
   // active plan via hydrate(). load() runs any v1→v2 migration and guarantees at
   // least one plan.
-  const store = createPlanStore({ storage: window.localStorage, routeVersion: meta.builtAt });
+  // routeVersion (builtAt) drives the "distances may have shifted" banner for a
+  // rebuild of the same corridor; routeId is coarser and drives the archive-and-
+  // reset for a corridor whose km measure from a different origin entirely.
+  const store = createPlanStore({
+    storage: window.localStorage,
+    routeVersion: meta.builtAt,
+    routeId: meta.routeId,
+  });
   const initial = store.load();
   const itinerary = createItinerary({ totalKm });
   // Object form restores days AND breaks; a stored plan may predate breaks, so
@@ -112,6 +133,7 @@ async function boot() {
 
   const map = createMap({
     routeFeature: route,
+    originName: ORIGIN_NAME,
     onRouteClick: handleRouteClick,
     onPoiClick: handleSelectPoi,
     // Map-marker hover highlights the matching row in the left panel.
@@ -274,14 +296,14 @@ async function boot() {
   // The plan is complete when the last endKm is within the shared arrival
   // tolerance of the route total (endKm clamps to totalKm, so it never quite
   // exceeds it). The strip collapses its remainder on the same constant.
-  function hasReachedDresden() {
+  function hasReachedDestination() {
     return itinerary.totalPlannedKm() >= totalKm - ARRIVED_EPSILON_KM;
   }
 
-  // "from X" for a day: the previous day's overnight town, "Hamburg" for day 0,
-  // "your last stop" when the previous day has no town chosen.
+  // "from X" for a day: the previous day's overnight town, the route's origin for
+  // day 0, "your last stop" when the previous day has no town chosen.
   function fromNameFor(index) {
-    if (index === 0) return 'Hamburg';
+    if (index === 0) return ORIGIN_NAME;
     return itinerary.getDays()[index - 1].townChoice?.name ?? 'your last stop';
   }
 
@@ -301,6 +323,9 @@ async function boot() {
       totalKm,
       focusedIndex,
       breaks: itinerary.getBreaks(),
+      originName: ORIGIN_NAME,
+      destinationName: DESTINATION_NAME,
+      elevation,
     });
   }
 
@@ -309,8 +334,9 @@ async function boot() {
       day,
       dayCount: itinerary.getDays().length,
       breaks: day ? breaksForDay(day) : [],
-      fromName: day ? fromNameFor(day.index) : 'Hamburg',
+      fromName: day ? fromNameFor(day.index) : ORIGIN_NAME,
       customStopDraft,
+      climb: day && elevation ? ascentBetween(elevation, day.startKm, day.endKm) : null,
     });
   }
 
@@ -332,7 +358,7 @@ async function boot() {
       dayNumber: day ? day.index + 1 : null,
       startKm,
       endKm,
-      fromName: day ? fromNameFor(day.index) : 'Hamburg',
+      fromName: day ? fromNameFor(day.index) : ORIGIN_NAME,
       towns: day ? townsNear(towns, day.endKm) : [],
       selectedTownKey: day?.townChoice ? townKey(day.townChoice) : null,
       food,
@@ -578,7 +604,7 @@ async function boot() {
   // point that could put an off-grid boundary into the plan (every other write
   // path rounds), and a remainder click is off-grid by nature.
   function handleAddDay(endKm) {
-    if (hasReachedDresden()) return;
+    if (hasReachedDestination()) return;
     const days = itinerary.getDays();
     const startKm = itinerary.totalPlannedKm();
     const fallback = days.length ? days[days.length - 1].targetKm : DEFAULT_TARGET_KM;

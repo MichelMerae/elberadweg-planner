@@ -105,6 +105,31 @@ function draftForDay(draft, day) {
 // always targeting the focused day. Guarded by data-km so unrelated re-renders
 // (e.g. toggling a ☕ elsewhere) don't wipe half-typed text; only a new click
 // rebuilds it.
+/**
+ * The day's climb, or nothing when there is no elevation data.
+ *
+ * This is the line that answers "how hard is this day" — the strip's profile shows
+ * *where* it gets hard, which is a different question and belongs on the axis.
+ *
+ * The ≈ is not decoration. Cumulative ascent derived from a DEM is an artefact of
+ * the sampling interval: this profile is sampled every 250 m against data accurate
+ * to a few metres, and only runs clearing a 5 m threshold are counted, so the figure
+ * is a fair comparison between days rather than a number to quote.
+ */
+function climbMarkup(climb) {
+  if (!climb || !Number.isFinite(climb.ascentM)) return '';
+  const title =
+    'Approximate: sampled every 250 m from a 90 m surface model, counting only rises ' +
+    'and falls of more than 5 m. A surface model measures the top of what stands on ' +
+    'the ground, so buildings and tree cover add climb the road does not have. Good ' +
+    'for comparing one day against another, not for quoting.';
+  return `<div class="day-panel__climb" title="${esc(title)}">
+            <span class="day-panel__climb-up">↑ ${Math.round(climb.ascentM)} m</span>
+            <span class="day-panel__climb-down">↓ ${Math.round(climb.descentM)} m</span>
+            <span class="day-panel__climb-approx" aria-hidden="true">≈</span>
+          </div>`;
+}
+
 function renderCustomStopPrompt(draft, day, callbacks, promptEl) {
   if (!draft || !day) {
     promptEl.hidden = true;
@@ -288,7 +313,14 @@ export function createDayPanel({ el, callbacks = {} }) {
   // forgets it renders "3 of undefined" in the stepper, and `2 >= NaN` is false —
   // so `›` stays enabled past the end of the plan. Zero fails safe (both
   // disabled) and is visibly wrong rather than quietly wrong.
-  function render({ day, dayCount = 0, breaks = [], fromName = 'your last stop', customStopDraft = null }) {
+  function render({
+    day,
+    dayCount = 0,
+    breaks = [],
+    fromName = 'your last stop',
+    customStopDraft = null,
+    climb = null,
+  }) {
     current = { day, dayCount };
     const focusTarget = focusedTarget();
     if (!day) {
@@ -326,6 +358,7 @@ export function createDayPanel({ el, callbacks = {} }) {
           </div>
         </div>
         <div class="day-panel__from">from ${esc(fromName)} · km ${round1(day.startKm)} → ${round1(day.endKm)}</div>
+        ${climbMarkup(climb)}
 
         <label class="day-panel__field">
           <span>Distance</span>

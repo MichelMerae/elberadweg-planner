@@ -3,20 +3,31 @@
  * build-data.mjs — Build-time data pipeline for the Elberadweg Day Planner.
  *
  * Produces:
- *   src/data/route.json       — Feature<LineString>, Hamburg -> Dresden, [lng,lat]
+ *   src/data/route.json       — Feature<LineString>, Cuxhaven -> Prague, [lng,lat]
  *   src/data/route.meta.json  — metadata about the built route
- *   src/data/towns.json       — array of towns near the route, sorted by distance along it
+ *   src/data/towns.json       — towns near the route, sorted by distance along it
+ *   src/data/pois.json        — food stops & sights near the route
  *
- * Source: the Elberadweg OSM superroute, RIGHT bank (rechtselbisch, relation 22327).
- * We fetch the 12 consecutive stage relations that cover Hamburg -> Dresden, stitch
- * their ways into one ordered LineString (respecting relation-member order + roles),
- * trim to the Hamburg/Dresden anchors, simplify, validate, and write out.
+ * THREE sources, because no single one spans the corridor:
+ *   - Elberadweg LEFT bank (linkselbisch, 22328): Cuxhaven -> Finkenwerder.
+ *     Cuxhaven is a left-bank town; the right-bank superroute stops at Brunsbüttel.
+ *   - Elberadweg RIGHT bank (rechtselbisch, 22327): the Hamburg crossing -> Schöna.
+ *   - EuroVelo 7, Czech part (2775754): the border -> Prague, Elbe and Vltava in
+ *     one relation, so there is no junction to invent at Mělník.
+ *
+ * Each source is stitched, trimmed, simplified and rounded INDEPENDENTLY, then the
+ * three are concatenated by joinSegments() across two declared ferry bridges. The
+ * interior trim points are DERIVED by findJunction() — where the lines actually
+ * come closest — because guessing a coordinate for the place two lines meet is
+ * guessing an answer the data already holds. Only Cuxhaven and Prague are anchored,
+ * having no neighbouring line to derive them from.
  *
  * Run:  node scripts/build-data.mjs [--refresh]
  *   --refresh  force re-fetch from Overpass instead of using the cached raw OSM.
  *
  * Overpass is flaky, so fetching uses retry + exponential backoff, honours
- * 429/Retry-After, falls back across mirrors, and caches the raw response.
+ * 429/Retry-After, falls back across mirrors, and caches the raw response per
+ * source (so one source can be refreshed without re-fetching 40k elements).
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -24,6 +35,13 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import * as turf from '@turf/turf';
+import {
+  haversineM,
+  findJunction,
+  joinSegments,
+  doublingBackReport,
+  chunkBboxes,
+} from './lib/route-assembly.mjs';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -31,45 +49,196 @@ import * as turf from '@turf/turf';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', 'src', 'data');
-const ROUTE_RAW_CACHE = join(DATA_DIR, 'route.raw.osm.json'); // gitignored
-const TOWNS_RAW_CACHE = join(tmpdir(), 'elberadweg-towns.raw.osm.json'); // not committed
-const POIS_RAW_CACHE = join(tmpdir(), 'elberadweg-pois.raw.osm.json'); // not committed
+const rawCachePath = (key) => join(DATA_DIR, `route.raw.${key}.json`); // gitignored
+// Place queries cache PER CHUNK (see fetchByChunks), so a run interrupted at chunk
+// 7 of 11 resumes rather than re-fetching everything. Paths are built at the call
+// site; nothing global to declare here.
 
 const ROUTE_JSON = join(DATA_DIR, 'route.json');
 const ROUTE_META_JSON = join(DATA_DIR, 'route.meta.json');
 const TOWNS_JSON = join(DATA_DIR, 'towns.json');
 const POIS_JSON = join(DATA_DIR, 'pois.json');
 
-// Elberadweg right-bank Hamburg -> Dresden stage relations, in north->south order.
-// The first (2599011) starts north of Hamburg and the last (2599032) ends south of
-// Dresden; both get trimmed to the anchors below.
-const STAGE_RELATIONS = [
-  2599011, // Wedel -> Kirchwerder (Hamburg is mid-stage)
-  2599013, // Ochsenwerder -> Lauenburg
-  2599015, // Lauenburg -> Hitzacker
-  2599016, // -> Wittenberge
-  2599018, // Wittenberge -> Havelberg
-  2599020, // Havelberg -> Tangermünde
-  2599024, // Tangermünde -> Magdeburg
-  2599025, // Magdeburg -> Dessau-Roßlau
-  2599026, // Dessau-Roßlau -> Elster
-  7758087, // Elster -> Belgern
-  2599030, // Belgern -> Meißen
-  2599032, // Meißen -> Heidenau (Dresden is mid-stage)
+// The three sources, in route order.
+//
+// `trimStart`/`trimEnd` name how each end is decided: 'junction' means derived
+// from the neighbouring source, an ANCHORS key means a fixed coordinate.
+const SOURCES = [
+  {
+    key: 'left',
+    source: 'elberadweg-left',
+    from: 'Cuxhaven',
+    to: 'Finkenwerder',
+    relations: [
+      2599008, // Cuxhaven -> Freiburg (Elbe)      [linkselbisch A]
+      2599035, // Freiburg (Elbe) -> Finkenwerder  [linkselbisch B]
+    ],
+    trimStart: 'CUXHAVEN',
+    trimEnd: 'junction',
+  },
+  {
+    key: 'right',
+    source: 'elberadweg-right',
+    from: 'Teufelsbrück',
+    to: 'Schmilka',
+    relations: [
+      2599011, // Wedel -> Kirchwerder (the Hamburg crossing is mid-stage)
+      2599013, // Ochsenwerder -> Lauenburg
+      2599015, // Lauenburg -> Bitter
+      2599016, // Bitter -> Wittenberge
+      2599018, // Wittenberge -> Havelberg
+      2599020, // Havelberg -> Tangermünde
+      2599024, // Tangermünde -> Magdeburg
+      2599025, // Magdeburg -> Dessau-Roßlau
+      2599026, // Dessau-Roßlau -> Elster
+      7758087, // Elster -> Belgern
+      2599030, // Belgern -> Meißen
+      2599032, // Meißen -> Heidenau
+      2599033, // Heidenau -> Schöna (reaches the border, then has a misordered
+      //          final way sitting 11.7 km back at Wehlen — trimmed away)
+    ],
+    trimStart: 'junction',
+    trimEnd: 'junction',
+  },
+  {
+    key: 'cz',
+    source: 'eurovelo-7-cz',
+    from: 'Hřensko',
+    to: 'Prague',
+    // EV7's Czech part runs border -> Ústí -> Mělník -> Prague -> the Austrian
+    // border as one flat way list. Its 128 km jump lies south of Prague, so the
+    // Prague trim discards it.
+    relations: [2775754],
+    trimStart: 'junction',
+    trimEnd: 'PRAGUE',
+  },
 ];
 
-const BANK = 'right';
+// The two joins between sources. Both are real water, not stitching artefacts:
+// measured 2.25 km and 3.26 km, the latter verified irreducible (no right-bank
+// vertex anywhere gets closer to the Czech route's start).
+const BRIDGES = [
+  { name: 'Finkenwerder–Teufelsbrück ferry', maxKm: 3 },
+  { name: 'Schmilka–Hřensko border link', maxKm: 4 },
+];
 
-// Trim anchors ([lng,lat]).
-const HAMBURG = [9.9686, 53.5457];
-const DRESDEN = [13.7373, 51.0504];
+// Outer trim anchors ([lng,lat]). Each is located to its nearest route vertex and
+// fails the build past ANCHOR_MAX_OFFSET_KM.
+const ANCHORS = {
+  CUXHAVEN: [8.6839, 53.8917], // Kugelbake, the Elbe-mouth marker
+  PRAGUE: [14.4114, 50.0865], // Charles Bridge
+};
+const ANCHOR_MAX_OFFSET_KM = 2;
 
-// Monotonicity checkpoints ([lng,lat]) — lie strictly north->south along the route.
+// How far apart consecutive sources may be before the junction is not believable.
+const JUNCTION_MAX_GAP_KM = 6;
+
+// Monotonicity checkpoints ([lng,lat]) — must lie strictly in route order.
+// Mělník precedes Prague because the Vltava leg runs upstream: they are ~50 km
+// apart along the route and ~45 km apart straight-line, so this is a real
+// assertion rather than an accident of ordering.
 const CHECKPOINTS = [
+  { name: 'Freiburg (Elbe)', pt: [9.2833, 53.825] },
+  { name: 'Stade', pt: [9.4757, 53.5928] },
+  { name: 'Hamburg', pt: [9.9686, 53.5457] },
+  { name: 'Lauenburg', pt: [10.5586, 53.3739] },
   { name: 'Wittenberge', pt: [11.75, 52.995] },
   { name: 'Magdeburg', pt: [11.629, 52.126] },
   { name: 'Meißen', pt: [13.472, 51.162] },
+  { name: 'Ústí nad Labem', pt: [14.04, 50.6607] },
+  { name: 'Mělník', pt: [14.474, 50.351] },
 ];
+
+// Route identity. Stable across rebuilds of the SAME corridor: storage resets
+// stored plans when this changes and only when it changes, so a plain data refresh
+// does not throw away a trip. (main.js separately banners on meta.builtAt.)
+const ROUTE_ID = 'cuxhaven-prague-ev7-v1';
+const ORIGIN_NAME = 'Cuxhaven';
+const DESTINATION_NAME = 'Prague';
+
+// Length bounds (km). The old Hamburg -> Dresden route measured 650.24 km and was
+// audited on 2026-07-31 as honest (1.3% doubling-back; milestones run slightly
+// SHORT against signposted values). Adding ~137 km of left bank and ~230 km past
+// Dresden puts the expected total near 1030.
+const LEN_HARD_MIN = 850;
+const LEN_HARD_MAX = 1350;
+const LEN_NOMINAL_MIN = 1000;
+const LEN_NOMINAL_MAX = 1150;
+
+// Fail above this much doubling-back. A regression guard against a new stitching
+// fault in the added sources, not an investigation — see the audit above.
+const DOUBLING_BACK_MAX_PERCENT = 5;
+
+// Hard gaps that survive INSIDE a trimmed segment get straight-bridged, which
+// silently adds distance nobody can ride. Five are known and expected, totalling
+// ~5.8 km (three in the tangled Hamburg harbour passage, one near Geesthacht, one
+// at Magdeburg). The budget tolerates those and catches a new one.
+const INTERNAL_GAP_BUDGET_KM = 8;
+
+// Place queries go out as per-chunk bounding boxes along the route.
+//
+// Two other shapes were tried and measured. ONE box for the whole corridor spans
+// ~5.5° × 6.5° and contains Berlin, Hannover, Leipzig and Nuremberg's latitude
+// band. An `around:` coordinate corridor — the obvious fix — Overpass would not
+// serve: 515 coordinates at 2 km spacing returned HTTP 504 then a dropped
+// connection, and 130 coordinates at 8 km spacing failed identically across two
+// mirrors, for the SINGLE-clause towns query. Evaluating a union of hundreds of
+// circles is expensive; a bounding box is what a spatial index is fast at.
+const CHUNK_KM = 100;
+
+// Padding must be at least the corridor half-width each filter keeps, or places
+// that pass the filter were never in the query. Asserted below rather than trusted:
+// getting it wrong loses places silently, in a band along the whole route, and
+// nothing downstream would ever report it.
+const TOWN_MAX_OFFSET_KM = 5;
+const TOWN_PAD_KM = 6;
+const POI_PAD_KM = 4;
+
+function assertChunkPadding() {
+  const checks = [
+    { what: 'towns', padKm: TOWN_PAD_KM, needKm: TOWN_MAX_OFFSET_KM },
+    { what: 'food', padKm: POI_PAD_KM, needKm: POI_MAX_OFFSET.food },
+    { what: 'sights', padKm: POI_PAD_KM, needKm: POI_MAX_OFFSET.sight },
+  ];
+  for (const { what, padKm, needKm } of checks) {
+    if (!(padKm >= needKm)) {
+      throw new Error(
+        `chunk padding for ${what} is ${padKm} km but the filter keeps ${needKm} km — ` +
+          `the query would silently miss places along the whole route`,
+      );
+    }
+    console.log(`[chunks] ${what}: pad ${padKm} km covers the ${needKm} km filter`);
+  }
+}
+
+/**
+ * Fetch one Overpass clause set across every chunk box, concatenating the elements.
+ *
+ * Chunk boxes overlap by their padding, so the same element arrives more than once;
+ * dedupe by type+id before anything downstream counts or filters it.
+ */
+async function fetchByChunks(boxes, buildQuery, label, cachePath) {
+  const seen = new Set();
+  const elements = [];
+  for (const [i, box] of boxes.entries()) {
+    const bbox =
+      `${box.south.toFixed(4)},${box.west.toFixed(4)},` +
+      `${box.north.toFixed(4)},${box.east.toFixed(4)}`;
+    const osm = await fetchCached(
+      buildQuery(bbox),
+      cachePath(i),
+      `${label} ${i + 1}/${boxes.length} (km ${box.startKm.toFixed(0)}–${box.endKm.toFixed(0)})`,
+    );
+    for (const el of osm.elements || []) {
+      const key = `${el.type}/${el.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      elements.push(el);
+    }
+  }
+  console.log(`[fetch] ${label}: ${elements.length} unique elements across ${boxes.length} chunks`);
+  return elements;
+}
 
 const SIMPLIFY_TOLERANCE = 0.00008;
 const COORD_DECIMALS = 6;
@@ -111,20 +280,6 @@ const REFRESH = process.argv.includes('--refresh');
 // ---------------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-/** Great-circle distance in metres between two [lng,lat] points. */
-function haversineM(a, b) {
-  const R = 6371000;
-  const toRad = (d) => (d * Math.PI) / 180;
-  const dLat = toRad(b[1] - a[1]);
-  const dLon = toRad(b[0] - a[0]);
-  const lat1 = toRad(a[1]);
-  const lat2 = toRad(b[1]);
-  const h =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
-}
 
 const round = (n, d = COORD_DECIMALS) => {
   const f = 10 ** d;
@@ -258,9 +413,9 @@ function wayCoords(wayId, ways, nodes) {
  * relation-member order and dropping members with role "backward".
  * @returns {{stageId:number, wayId:number}[]}
  */
-function orderedWayList(relations) {
+function orderedWayList(relations, relationIds) {
   const list = [];
-  for (const relId of STAGE_RELATIONS) {
+  for (const relId of relationIds) {
     const rel = relations.get(relId);
     if (!rel) {
       console.warn(`[stitch] WARNING: relation ${relId} missing from OSM data`);
@@ -281,10 +436,18 @@ function orderedWayList(relations) {
 
 /**
  * Stitch the ordered ways into a single coordinate array.
- * @returns {{coords:number[][], softGaps:number, hardGaps:number}}
+ *
+ * Gaps are recorded WITH the vertex index they occur at, not just counted: a gap
+ * that a later trim discards is harmless, and one that survives inside the kept
+ * range silently adds straight-line distance nobody can ride. Only the index makes
+ * those two distinguishable.
+ *
+ * @returns {{coords:number[][], softGaps:number, hardGaps:number,
+ *            gaps:Array<{gapM:number, index:number, stageId:number, wayId:number}>}}
  */
 function stitch(orderedWays, ways, nodes) {
   const route = [];
+  const gaps = [];
   let softGaps = 0;
   let hardGaps = 0;
   let missing = 0;
@@ -339,12 +502,11 @@ function stitch(orderedWays, ways, nodes) {
       toAppend = coords; // small connector, connect silently
     } else if (gap <= GAP_SOFT) {
       softGaps++;
-      console.warn(
-        `[stitch] soft gap ${gap.toFixed(0)}m before way ${wayId} (stage ${stageId}) — straight-bridging`
-      );
+      gaps.push({ gapM: gap, index: route.length, stageId, wayId });
       toAppend = coords;
     } else {
       hardGaps++;
+      gaps.push({ gapM: gap, index: route.length, stageId, wayId });
       console.warn(
         `[stitch] ‼ HARD GAP ${gap.toFixed(0)}m before way ${wayId} (stage ${stageId}) — straight-bridging`
       );
@@ -354,120 +516,306 @@ function stitch(orderedWays, ways, nodes) {
   }
 
   if (missing) console.warn(`[stitch] ${missing} way(s) skipped for missing coords`);
-  return { coords: route, softGaps, hardGaps };
+  return { coords: route, softGaps, hardGaps, gaps };
 }
 
 // ---------------------------------------------------------------------------
 // Trim / simplify / round
 // ---------------------------------------------------------------------------
 
-function trimToAnchors(line) {
-  const startSnap = turf.nearestPointOnLine(line, turf.point(HAMBURG), { units: 'kilometers' });
-  const stopSnap = turf.nearestPointOnLine(line, turf.point(DRESDEN), { units: 'kilometers' });
-  let trimmed = turf.lineSlice(startSnap, stopSnap, line);
-
-  // Ensure Hamburg -> Dresden orientation regardless of lineSlice direction.
-  const coords = trimmed.geometry.coordinates;
-  const first = coords[0];
-  const last = coords[coords.length - 1];
-  if (haversineM(last, HAMBURG) < haversineM(first, HAMBURG)) {
-    trimmed.geometry.coordinates = coords.slice().reverse();
-    console.log('[trim] reversed slice to enforce Hamburg -> Dresden order');
-  }
-  return trimmed;
+/** Round a coordinate array in place of a feature, so segments can be handled as arrays. */
+function roundCoordArray(coords) {
+  return coords.map(([lng, lat]) => [round(lng), round(lat)]);
 }
 
-function roundCoords(feature) {
-  feature.geometry.coordinates = feature.geometry.coordinates.map(([lng, lat]) => [
-    round(lng),
-    round(lat),
-  ]);
-  return feature;
+/**
+ * Locate an outer anchor's nearest vertex, with a maximum-offset guard.
+ *
+ * Vertex-based rather than perpendicular, so every trim point in this pipeline is
+ * an index into the stitched coordinates and the segments concatenate without any
+ * invented geometry. The guard matters: the first Cuxhaven anchor was 2.3 km out in
+ * longitude, and without a check a wrong coordinate trims somewhere else entirely
+ * while still reporting a plausible length.
+ */
+function anchorIndex(coords, key) {
+  const found = findJunction(coords, [ANCHORS[key]], {
+    maxGapKm: ANCHOR_MAX_OFFSET_KM,
+    name: `${key} anchor`,
+  });
+  return { index: found.indexA, offsetKm: found.gapM / 1000, alongKm: found.alongKmA };
+}
+
+/**
+ * Orient a stitched line so it runs in route order (start nearest `towards`).
+ *
+ * Relation member order gives no guarantee of direction, and the first-way
+ * orientation heuristic in stitch() only aligns the line with itself.
+ */
+function orient(coords, towards, label) {
+  if (haversineM(coords[coords.length - 1], towards) < haversineM(coords[0], towards)) {
+    console.log(`[orient] ${label}: reversed`);
+    return coords.slice().reverse();
+  }
+  return coords;
+}
+
+// ---------------------------------------------------------------------------
+// Per-source build
+// ---------------------------------------------------------------------------
+
+/** Fetch and stitch one source into an oriented, untrimmed coordinate array. */
+async function stitchSource(spec) {
+  const query =
+    `[out:json][timeout:300]; ` +
+    `rel(id:${spec.relations.join(',')}); ` +
+    `out body; >; out skel qt;`;
+  const rawOsm = await fetchCached(query, rawCachePath(spec.key), `route/${spec.key}`);
+
+  const { nodes, ways, relations } = indexOsm(rawOsm);
+  console.log(
+    `[index] ${spec.key}: ${nodes.size} nodes, ${ways.size} ways, ${relations.size} relations`,
+  );
+
+  const orderedWays = orderedWayList(relations, spec.relations);
+  const { coords, softGaps, hardGaps, gaps } = stitch(orderedWays, ways, nodes);
+
+  // cleanCoords on the array, not a feature, so index bookkeeping stays ours.
+  const cleaned = turf.cleanCoords(turf.lineString(coords)).geometry.coordinates;
+  console.log(
+    `[stitch] ${spec.key}: ${orderedWays.length} ways -> ${cleaned.length} points, ` +
+      `${turf.length(turf.lineString(cleaned), { units: 'kilometers' }).toFixed(1)} km, ` +
+      `gaps ${softGaps} soft / ${hardGaps} hard`,
+  );
+
+  // cleanCoords can drop duplicate vertices, which shifts the gap indices stitch()
+  // recorded. Re-derive them by position rather than trusting the old index: each
+  // gap's far side is a coordinate, and that coordinate is still in the line.
+  const positionOf = new Map(cleaned.map(([lng, lat], i) => [`${lng},${lat}`, i]));
+  const rebased = gaps
+    .map((g) => {
+      const far = coords[g.index];
+      const index = far ? positionOf.get(`${far[0]},${far[1]}`) : undefined;
+      return index === undefined ? null : { ...g, index };
+    })
+    .filter(Boolean);
+
+  return { coords: cleaned, softGaps, hardGaps, gaps: rebased };
+}
+
+/**
+ * Decide both trim points for every source, then cut, simplify and round.
+ *
+ * Interior trims come from findJunction against the neighbouring source; outer
+ * trims come from an anchor. Simplification happens AFTER trimming and BEFORE
+ * joining, so the km joinSegments measures are exactly the km of the written file.
+ */
+function trimSources(specs, stitched) {
+  // Junction i sits between source i and source i+1.
+  const junctions = [];
+  for (let i = 0; i + 1 < specs.length; i++) {
+    const found = findJunction(stitched[i].coords, stitched[i + 1].coords, {
+      maxGapKm: JUNCTION_MAX_GAP_KM,
+      name: `${specs[i].key}→${specs[i + 1].key} junction`,
+    });
+    console.log(
+      `[junction] ${specs[i].key}→${specs[i + 1].key}: ${found.gapM.toFixed(0)} m — ` +
+        `${specs[i].key} km ${found.alongKmA.toFixed(1)} [${found.pointA.map((n) => n.toFixed(4))}] -> ` +
+        `${specs[i + 1].key} km ${found.alongKmB.toFixed(1)} [${found.pointB.map((n) => n.toFixed(4))}]`,
+    );
+    junctions.push(found);
+  }
+
+  return specs.map((spec, i) => {
+    const { coords, gaps } = stitched[i];
+
+    let startIndex;
+    if (spec.trimStart === 'junction') {
+      startIndex = junctions[i - 1].indexB;
+    } else {
+      const a = anchorIndex(coords, spec.trimStart);
+      console.log(
+        `[trim] ${spec.key}: ${spec.trimStart} offset ${a.offsetKm.toFixed(2)} km @ km ${a.alongKm.toFixed(1)}`,
+      );
+      startIndex = a.index;
+    }
+
+    let endIndex;
+    if (spec.trimEnd === 'junction') {
+      endIndex = junctions[i].indexA;
+    } else {
+      const a = anchorIndex(coords, spec.trimEnd);
+      console.log(
+        `[trim] ${spec.key}: ${spec.trimEnd} offset ${a.offsetKm.toFixed(2)} km @ km ${a.alongKm.toFixed(1)}`,
+      );
+      endIndex = a.index;
+    }
+
+    if (endIndex <= startIndex) {
+      throw new Error(
+        `${spec.key}: trim end (index ${endIndex}) is not after trim start (index ${startIndex}) — ` +
+          `the source is oriented backwards or the junctions are in the wrong order`,
+      );
+    }
+
+    const kept = coords.slice(startIndex, endIndex + 1);
+
+    // Hard gaps inside the kept range get straight-bridged and add distance nobody
+    // can ride; ones outside it are discarded harmlessly. Count only the survivors.
+    const survivingGaps = gaps.filter(
+      (g) => g.gapM > GAP_SOFT && g.index > startIndex && g.index <= endIndex,
+    );
+
+    const line = turf.lineString(kept);
+    turf.simplify(line, { tolerance: SIMPLIFY_TOLERANCE, highQuality: true, mutate: true });
+    const finalCoords = roundCoordArray(line.geometry.coordinates);
+
+    console.log(
+      `[segment] ${spec.key}: ${finalCoords.length} points, ` +
+        `${turf.length(turf.lineString(finalCoords), { units: 'kilometers' }).toFixed(2)} km ` +
+        `(${spec.from} -> ${spec.to}), ${survivingGaps.length} hard gap(s) inside`,
+    );
+
+    return {
+      name: spec.key,
+      source: spec.source,
+      from: spec.from,
+      to: spec.to,
+      relations: spec.relations,
+      coords: finalCoords,
+      survivingGaps,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
 
-// Length bounds (km). NOTE: these deviate from the task brief's "expect 350–430,
-// fail if >600". Empirically the right-bank (rechtselbisch) Elberadweg Hamburg→Dresden
-// stitched from the 12 OSM stage relations is ~665–670 km. This was verified to be the
-// genuine route length, not a stitching artifact: coarsening the raw line to ~200 m
-// still measures ~648 km, and the sum of the 12 stage-endpoint chords alone is ~477 km
-// — a hard lower bound that already exceeds 430 km, so the brief's range is
-// geometrically impossible for this route. Bounds below are set to catch real
-// regressions while accepting the true length. Monotonicity (below) remains the strict
-// correctness guard.
-const LEN_HARD_MIN = 450;
-const LEN_HARD_MAX = 800;
-const LEN_NOMINAL_MIN = 620;
-const LEN_NOMINAL_MAX = 700;
-
-function validate(trimmed) {
-  const totalKm = turf.length(trimmed, { units: 'kilometers' });
+/**
+ * Validate the joined route and print the report that is this pipeline's real
+ * acceptance gate. Throws on anything that would ship wrong distances.
+ */
+function validate(line, joined, segments) {
+  const totalKm = turf.length(line, { units: 'kilometers' });
   console.log('\n===== VALIDATION REPORT =====');
-  console.log(`Total length: ${totalKm.toFixed(2)} km (expected ~${LEN_NOMINAL_MIN}–${LEN_NOMINAL_MAX} km for right bank; see note in source re: brief's 350–430)`);
+  console.log(
+    `Total length: ${totalKm.toFixed(2)} km (nominal ${LEN_NOMINAL_MIN}–${LEN_NOMINAL_MAX}, hard ${LEN_HARD_MIN}–${LEN_HARD_MAX})`,
+  );
+
+  // joinSegments measured these coordinates with haversine; turf measures the
+  // written line. They must agree, or the km recorded in meta describe a different
+  // line from the one in route.json.
+  if (Math.abs(totalKm - joined.totalKm) > 0.05) {
+    throw new Error(
+      `assembled total ${joined.totalKm.toFixed(3)} km disagrees with the written line ` +
+        `${totalKm.toFixed(3)} km by more than 50 m — meta km would not describe route.json`,
+    );
+  }
 
   if (totalKm < LEN_HARD_MIN || totalKm > LEN_HARD_MAX) {
     throw new Error(
-      `Total length ${totalKm.toFixed(1)} km is wildly out of range (${LEN_HARD_MIN}–${LEN_HARD_MAX}).`
+      `Total length ${totalKm.toFixed(1)} km is wildly out of range (${LEN_HARD_MIN}–${LEN_HARD_MAX}).`,
     );
   }
   if (totalKm < LEN_NOMINAL_MIN || totalKm > LEN_NOMINAL_MAX) {
     console.warn(
-      `[validate] length ${totalKm.toFixed(1)} km outside nominal ${LEN_NOMINAL_MIN}–${LEN_NOMINAL_MAX} (still within hard bounds)`
+      `[validate] length ${totalKm.toFixed(1)} km outside nominal ${LEN_NOMINAL_MIN}–${LEN_NOMINAL_MAX} (still within hard bounds)`,
     );
   }
 
-  // Monotonicity: checkpoint distances-along-line must strictly increase N->S.
+  console.log('\nSegments:');
+  for (const seg of joined.segments) {
+    console.log(
+      `  ${`${seg.name} · ${seg.from} -> ${seg.to}`.padEnd(44)}` +
+        `km ${seg.startKm.toFixed(1).padStart(7)} – ${seg.endKm.toFixed(1).padStart(7)}` +
+        `  (${(seg.endKm - seg.startKm).toFixed(1)} km)`,
+    );
+  }
+  console.log('Bridges:');
+  for (const bridge of joined.bridges) {
+    console.log(
+      `  ${bridge.name.padEnd(38)} @ km ${bridge.km.toFixed(1).padStart(7)}  ${(bridge.lengthKm * 1000).toFixed(0)} m`,
+    );
+  }
+
+  // Hard gaps that survived trimming: straight-line distance inside a segment.
+  const surviving = segments.flatMap((s) => s.survivingGaps.map((g) => ({ ...g, seg: s.name })));
+  const survivingKm = surviving.reduce((sum, g) => sum + g.gapM / 1000, 0);
+  console.log(
+    `\nHard gaps inside segments: ${surviving.length}, totalling ${survivingKm.toFixed(2)} km ` +
+      `(budget ${INTERNAL_GAP_BUDGET_KM} km)`,
+  );
+  for (const g of surviving) {
+    console.log(`  ${g.seg}: ${g.gapM.toFixed(0)} m before way ${g.wayId} (stage ${g.stageId})`);
+  }
+  if (survivingKm > INTERNAL_GAP_BUDGET_KM) {
+    throw new Error(
+      `${survivingKm.toFixed(2)} km of straight-line bridging survives inside the segments ` +
+        `(budget ${INTERNAL_GAP_BUDGET_KM} km) — a new stitching fault is adding distance nobody can ride`,
+    );
+  }
+
+  // Monotonicity: checkpoint distances along the line must strictly increase.
   const locations = CHECKPOINTS.map((c) => {
-    const snap = turf.nearestPointOnLine(trimmed, turf.point(c.pt), { units: 'kilometers' });
+    const snap = turf.nearestPointOnLine(line, turf.point(c.pt), { units: 'kilometers' });
     return { name: c.name, loc: snap.properties.location, off: snap.properties.dist };
   });
-  console.log('Monotonicity checkpoints (km along route, offset km):');
+  console.log('\nMonotonicity checkpoints (km along route, offset km):');
   for (const l of locations) {
-    console.log(`  ${l.name.padEnd(12)} @ ${l.loc.toFixed(1)} km (offset ${l.off.toFixed(2)} km)`);
+    console.log(`  ${l.name.padEnd(16)} @ ${l.loc.toFixed(1).padStart(7)} km (offset ${l.off.toFixed(2)} km)`);
   }
-  const strictlyIncreasing =
-    locations[0].loc < locations[1].loc && locations[1].loc < locations[2].loc;
-  console.log(`Monotonicity: ${strictlyIncreasing ? 'PASS (strictly increasing)' : 'FAIL'}`);
-  if (!strictlyIncreasing) {
+  for (let i = 1; i < locations.length; i++) {
+    if (locations[i].loc <= locations[i - 1].loc) {
+      throw new Error(
+        `Monotonicity failed: ${locations[i - 1].name} @ ${locations[i - 1].loc.toFixed(1)} km is not ` +
+          `before ${locations[i].name} @ ${locations[i].loc.toFixed(1)} km`,
+      );
+    }
+  }
+  console.log('Monotonicity: PASS (strictly increasing)');
+
+  // Doubling-back guard.
+  const db = doublingBackReport(line.geometry.coordinates);
+  console.log(
+    `\nDoubling-back: ${db.flaggedKm.toFixed(1)} km of ${db.totalKm.toFixed(1)} km ` +
+      `(${db.percent.toFixed(1)}%, max ${DOUBLING_BACK_MAX_PERCENT}%) in ${db.clusters.length} clusters`,
+  );
+  for (const c of db.clusters.slice(0, 5)) {
+    console.log(`  km ${c.startKm.toFixed(1)}–${c.endKm.toFixed(1)} = ${c.lengthKm.toFixed(2)} km`);
+  }
+  if (db.percent > DOUBLING_BACK_MAX_PERCENT) {
     throw new Error(
-      `Monotonicity assertion failed: expected ${locations.map((l) => l.name).join(' < ')}, got ` +
-        locations.map((l) => `${l.name}=${l.loc.toFixed(1)}`).join(', ')
+      `Doubling-back is ${db.percent.toFixed(1)}% of the route (max ${DOUBLING_BACK_MAX_PERCENT}%) — ` +
+        `the stitch is producing out-and-back spurs, and every distance the app quotes would be inflated`,
     );
   }
 
-  return { totalKm };
+  return { totalKm, doublingBackPercent: db.percent };
 }
 
 // ---------------------------------------------------------------------------
 // Towns
 // ---------------------------------------------------------------------------
 
-async function buildTowns(trimmed) {
-  const [minX, minY, maxX, maxY] = turf.bbox(trimmed);
-  const pad = 0.1;
-  const S = (minY - pad).toFixed(4);
-  const W = (minX - pad).toFixed(4);
-  const N = (maxY + pad).toFixed(4);
-  const E = (maxX + pad).toFixed(4);
-
-  const query =
-    `[out:json][timeout:180];` +
-    `( node["place"~"^(city|town|village)$"](${S},${W},${N},${E}); );` +
-    `out body;`;
-
-  const osm = await fetchCached(query, TOWNS_RAW_CACHE, 'towns');
+async function buildTowns(trimmed, boxes) {
+  const elements = await fetchByChunks(
+    boxes,
+    (bbox) =>
+      `[out:json][timeout:180];` +
+      `( node["place"~"^(city|town|village)$"](${bbox}); );` +
+      `out body;`,
+    'towns',
+    (i) => join(tmpdir(), `elberadweg-towns.chunk${i}.json`),
+  );
 
   const towns = [];
-  for (const el of osm.elements) {
+  for (const el of elements) {
     if (el.type !== 'node' || !el.tags?.name) continue;
     const snap = turf.nearestPointOnLine(trimmed, turf.point([el.lon, el.lat]), {
       units: 'kilometers',
     });
     const offsetKm = snap.properties.dist;
-    if (offsetKm > 5) continue;
+    if (offsetKm > TOWN_MAX_OFFSET_KM) continue;
     towns.push({
       name: el.tags.name,
       place: el.tags.place,
@@ -562,32 +910,28 @@ function dedupePois(pois) {
   return kept;
 }
 
-async function buildPois(trimmed) {
-  const [minX, minY, maxX, maxY] = turf.bbox(trimmed);
-  const pad = 0.1;
-  const S = (minY - pad).toFixed(4);
-  const W = (minX - pad).toFixed(4);
-  const N = (maxY + pad).toFixed(4);
-  const E = (maxX + pad).toFixed(4);
-
-  const query =
-    `[out:json][timeout:180];` +
-    `(` +
-    `nwr["amenity"~"^(cafe|restaurant|fast_food|ice_cream|biergarten)$"](${S},${W},${N},${E});` +
-    `nwr["shop"="bakery"](${S},${W},${N},${E});` +
-    `nwr["tourism"="viewpoint"](${S},${W},${N},${E});` +
-    `nwr["natural"="waterfall"](${S},${W},${N},${E});` +
-    `nwr["historic"~"^(castle|monument|ruins|fort|city_gate|tower)$"](${S},${W},${N},${E});` +
-    `nwr["man_made"="lighthouse"](${S},${W},${N},${E});` +
-    `nwr["man_made"="tower"]["tower:type"="observation"](${S},${W},${N},${E});` +
-    `nwr["man_made"="bridge"]["name"](${S},${W},${N},${E});` +
-    `);` +
-    `out center;`;
-
-  const osm = await fetchCached(query, POIS_RAW_CACHE, 'pois');
+async function buildPois(trimmed, boxes) {
+  const elements = await fetchByChunks(
+    boxes,
+    (b) =>
+      `[out:json][timeout:180];` +
+      `(` +
+      `nwr["amenity"~"^(cafe|restaurant|fast_food|ice_cream|biergarten)$"](${b});` +
+      `nwr["shop"="bakery"](${b});` +
+      `nwr["tourism"="viewpoint"](${b});` +
+      `nwr["natural"="waterfall"](${b});` +
+      `nwr["historic"~"^(castle|monument|ruins|fort|city_gate|tower)$"](${b});` +
+      `nwr["man_made"="lighthouse"](${b});` +
+      `nwr["man_made"="tower"]["tower:type"="observation"](${b});` +
+      `nwr["man_made"="bridge"]["name"](${b});` +
+      `);` +
+      `out center;`,
+    'pois',
+    (i) => join(tmpdir(), `elberadweg-pois.chunk${i}.json`),
+  );
 
   const pois = [];
-  for (const el of osm.elements) {
+  for (const el of elements) {
     const tags = el.tags;
     if (!tags) continue;
     const cls = classifyPoi(tags);
@@ -655,64 +999,88 @@ function validatePois(pois) {
 // ---------------------------------------------------------------------------
 
 async function main() {
-  console.log(`Elberadweg data pipeline — bank=${BANK}, refresh=${REFRESH}`);
+  console.log(
+    `Elberadweg data pipeline — ${ORIGIN_NAME} → ${DESTINATION_NAME} (${ROUTE_ID}), refresh=${REFRESH}`,
+  );
 
-  // 1. Fetch the 12 stage relations (bodies + recursed ways/nodes).
-  const routeQuery =
-    `[out:json][timeout:300]; ` +
-    `rel(id:${STAGE_RELATIONS.join(',')}); ` +
-    `out body; >; out skel qt;`;
-  const rawOsm = await fetchCached(routeQuery, ROUTE_RAW_CACHE, 'route');
+  // 1. Fetch and stitch each source independently.
+  const stitched = [];
+  for (const spec of SOURCES) stitched.push(await stitchSource(spec));
 
-  const { nodes, ways, relations } = indexOsm(rawOsm);
-  console.log(`[index] ${nodes.size} nodes, ${ways.size} ways, ${relations.size} relations`);
+  // 2. Orient each source in route order before junctions are derived: a reversed
+  //    line would put its "closest approach" at the wrong end.
+  SOURCES.forEach((spec, i) => {
+    const towards = spec.trimStart === 'junction' ? null : ANCHORS[spec.trimStart];
+    if (towards) stitched[i].coords = orient(stitched[i].coords, towards, spec.key);
+  });
+  // The right source has no outer anchor, so orient it towards the source before it.
+  for (let i = 1; i < SOURCES.length; i++) {
+    if (SOURCES[i].trimStart !== 'junction') continue;
+    const previousEnd = stitched[i - 1].coords[stitched[i - 1].coords.length - 1];
+    stitched[i].coords = orient(stitched[i].coords, previousEnd, SOURCES[i].key);
+  }
 
-  // 2. Stitch into one ordered LineString.
-  const orderedWays = orderedWayList(relations);
-  console.log(`[stitch] ${orderedWays.length} ordered ways (backward roles dropped)`);
-  const { coords, softGaps, hardGaps } = stitch(orderedWays, ways, nodes);
-  console.log(`[stitch] stitched raw route: ${coords.length} points`);
+  // 3. Derive the junctions, trim, simplify, round.
+  const segments = trimSources(SOURCES, stitched);
 
-  let line = turf.lineString(coords);
-  line = turf.cleanCoords(line);
-
-  // 3. Trim to Hamburg -> Dresden.
-  let trimmed = trimToAnchors(line);
-  console.log(`[trim] trimmed to ${trimmed.geometry.coordinates.length} points`);
-
-  // 4. Simplify + round.
-  turf.simplify(trimmed, { tolerance: SIMPLIFY_TOLERANCE, highQuality: true, mutate: true });
-  trimmed = roundCoords(trimmed);
-  const pointCount = trimmed.geometry.coordinates.length;
-  console.log(`[simplify] simplified to ${pointCount} points (tolerance ${SIMPLIFY_TOLERANCE})`);
+  // 4. Join across the declared bridges.
+  const joined = joinSegments(segments, { bridges: BRIDGES });
+  const trimmed = turf.lineString(joined.coords);
+  const pointCount = joined.coords.length;
+  console.log(`\n[join] ${pointCount} points, ${joined.totalKm.toFixed(2)} km`);
 
   // 5. Validate.
-  const { totalKm } = validate(trimmed);
-  console.log(`Gaps: ${softGaps} soft, ${hardGaps} hard`);
+  const { totalKm, doublingBackPercent } = validate(trimmed, joined, segments);
   console.log('=============================\n');
 
   // 6. Write route + meta.
-  trimmed.properties = { name: 'Elberadweg (right bank): Hamburg → Dresden', bank: BANK };
+  trimmed.properties = {
+    name: `Elberadweg + EuroVelo 7: ${ORIGIN_NAME} → ${DESTINATION_NAME}`,
+    routeId: ROUTE_ID,
+  };
   writeFileSync(ROUTE_JSON, JSON.stringify(trimmed));
   const meta = {
-    bank: BANK,
+    routeId: ROUTE_ID,
     totalKm: round(totalKm, 2),
+    origin: { name: ORIGIN_NAME, km: 0 },
+    destination: { name: DESTINATION_NAME, km: round(totalKm, 2) },
+    segments: joined.segments.map((seg) => ({
+      source: seg.source,
+      from: seg.from,
+      to: seg.to,
+      relations: seg.relations,
+      startKm: round(seg.startKm, 2),
+      endKm: round(seg.endKm, 2),
+    })),
+    bridges: joined.bridges.map((b) => ({
+      name: b.name,
+      km: round(b.km, 2),
+      lengthKm: round(b.lengthKm, 3),
+    })),
     builtAt: new Date().toISOString(),
-    osmRelations: STAGE_RELATIONS,
     simplifyTolerance: SIMPLIFY_TOLERANCE,
     pointCount,
+    doublingBackPercent: round(doublingBackPercent, 2),
   };
   writeFileSync(ROUTE_META_JSON, JSON.stringify(meta, null, 2));
   console.log(`[write] ${ROUTE_JSON}`);
   console.log(`[write] ${ROUTE_META_JSON}`);
 
-  // 7. Towns.
-  const towns = await buildTowns(trimmed);
+  // 7. The chunk boxes both place queries are built on. Towns need a wider pad
+  //    than POIs, so each gets its own set rather than sharing the wider one.
+  assertChunkPadding();
+  const coords = trimmed.geometry.coordinates;
+  const townBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: TOWN_PAD_KM });
+  const poiBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: POI_PAD_KM });
+  console.log(`[chunks] ${townBoxes.length} boxes of ~${CHUNK_KM} km`);
+
+  // 8. Towns.
+  const towns = await buildTowns(trimmed, townBoxes);
   writeFileSync(TOWNS_JSON, JSON.stringify(towns, null, 2));
   console.log(`[write] ${TOWNS_JSON} (${towns.length} towns)`);
 
-  // 8. POIs (food stops & sights).
-  const pois = await buildPois(trimmed);
+  // 9. POIs (food stops & sights).
+  const pois = await buildPois(trimmed, poiBoxes);
   validatePois(pois);
   writeFileSync(POIS_JSON, JSON.stringify(pois, null, 2));
   console.log(`[write] ${POIS_JSON} (${pois.length} POIs)`);

@@ -1,21 +1,73 @@
 {
-  "bank": "right",
-  "totalKm": 650.24,
-  "builtAt": "2026-07-19T15:23:33.131Z",
-  "osmRelations": [
-    2599011,
-    2599013,
-    2599015,
-    2599016,
-    2599018,
-    2599020,
-    2599024,
-    2599025,
-    2599026,
-    7758087,
-    2599030,
-    2599032
+  "routeId": "cuxhaven-prague-ev7-v1",
+  "totalKm": 1026.5,
+  "origin": {
+    "name": "Cuxhaven",
+    "km": 0
+  },
+  "destination": {
+    "name": "Prague",
+    "km": 1026.5
+  },
+  "segments": [
+    {
+      "source": "elberadweg-left",
+      "from": "Cuxhaven",
+      "to": "Finkenwerder",
+      "relations": [
+        2599008,
+        2599035
+      ],
+      "startKm": 0,
+      "endKm": 136.65
+    },
+    {
+      "source": "elberadweg-right",
+      "from": "Teufelsbrück",
+      "to": "Schmilka",
+      "relations": [
+        2599011,
+        2599013,
+        2599015,
+        2599016,
+        2599018,
+        2599020,
+        2599024,
+        2599025,
+        2599026,
+        7758087,
+        2599030,
+        2599032,
+        2599033
+      ],
+      "startKm": 138.9,
+      "endKm": 852.15
+    },
+    {
+      "source": "eurovelo-7-cz",
+      "from": "Hřensko",
+      "to": "Prague",
+      "relations": [
+        2775754
+      ],
+      "startKm": 855.42,
+      "endKm": 1026.5
+    }
   ],
+  "bridges": [
+    {
+      "name": "Finkenwerder–Teufelsbrück ferry",
+      "km": 136.65,
+      "lengthKm": 2.251
+    },
+    {
+      "name": "Schmilka–Hřensko border link",
+      "km": 852.15,
+      "lengthKm": 3.264
+    }
+  ],
+  "builtAt": "2026-08-01T06:54:38.890Z",
   "simplifyTolerance": 0.00008,
-  "pointCount": 3486
+  "pointCount": 5572,
+  "doublingBackPercent": 1.15
 }

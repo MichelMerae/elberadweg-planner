@@ -13,6 +13,9 @@ function createFakeStorage(initial = {}) {
     setItem: (key, value) => {
       store[key] = value;
     },
+    removeItem: (key) => {
+      delete store[key];
+    },
   };
 }
 
@@ -24,8 +27,59 @@ function createThrowingStorage() {
     setItem: () => {
       throw new Error('QuotaExceededError');
     },
+    removeItem: () => {
+      throw new Error('QuotaExceededError');
+    },
   };
 }
+
+// Reads back what it was seeded with, but every write throws - the shape of
+// private-mode/quota-exceeded storage. Used to prove an archive that cannot be
+// written still boots.
+function createUnwritableStorage(initial = {}) {
+  const store = { ...initial };
+  return {
+    store,
+    getItem: (key) => (Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null),
+    setItem: () => {
+      throw new Error('QuotaExceededError');
+    },
+    removeItem: () => {
+      throw new Error('QuotaExceededError');
+    },
+  };
+}
+
+const CURRENT_ROUTE_ID = 'cuxhaven-prague-ev7-v1';
+const OLD_ROUTE_ID = 'hamburg-dresden-elberadweg-v1';
+
+// A stored plans blob whose 114 km day boundary was measured from a different
+// origin. Pass `routeId: null` for a schema 2 blob, which predates routeId
+// being recorded at all.
+function storedBlob({ schemaVersion = 3, routeId = OLD_ROUTE_ID } = {}) {
+  const blob = {
+    schemaVersion,
+    activePlanId: 'p-old',
+    plans: [
+      {
+        id: 'p-old',
+        name: 'Old corridor plan',
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-02T00:00:00Z',
+        routeVersion: 'r-old',
+        days: [{ targetKm: 114, townChoice: { name: 'Lauenburg' } }],
+        breaks: [],
+      },
+    ],
+  };
+  if (routeId !== null) blob.routeId = routeId;
+  return blob;
+}
+
+const OLD_FAVORITES = JSON.stringify({
+  schemaVersion: 1,
+  favorites: [{ name: 'Café X', kind: 'food', routeDistanceKm: 42 }],
+});
 
 const LEGACY_V1 = {
   schemaVersion: 1,
@@ -66,13 +120,13 @@ describe('createPlanStore - fresh start', () => {
     expect(active.id.length).toBeGreaterThan(0);
   });
 
-  it('persists the fresh plan under the v2 key on load()', () => {
+  it('persists the fresh plan under the plans key on load()', () => {
     const storage = createFakeStorage();
     const store = createPlanStore({ storage, routeVersion: 'r1' });
     store.load();
 
     const parsed = JSON.parse(storage.store[PLANS_KEY]);
-    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.schemaVersion).toBe(3);
     expect(parsed.plans).toHaveLength(1);
     expect(parsed.activePlanId).toBe(parsed.plans[0].id);
   });
@@ -84,7 +138,7 @@ describe('createPlanStore - fresh start', () => {
   });
 });
 
-describe('createPlanStore - v1 -> v2 migration', () => {
+describe('createPlanStore - v1 legacy migration', () => {
   it('wraps the legacy days (minus poiPins) as one plan "My plan"', () => {
     const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(LEGACY_V1) });
     const store = createPlanStore({ storage, routeVersion: 'r-new' });
@@ -187,7 +241,7 @@ describe('createPlanStore - v1 -> v2 migration', () => {
     expect(storage.store[LEGACY_KEY]).toBe(rawLegacy);
   });
 
-  it('does not re-migrate on a second load(): the v2 key already exists', () => {
+  it('does not re-migrate on a second load(): the plans key already exists', () => {
     const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(LEGACY_V1) });
 
     const first = createPlanStore({ storage, routeVersion: 'r-new' });
@@ -502,7 +556,7 @@ describe('createPlanStore - defensive copies', () => {
 });
 
 describe('createPlanStore - corruption and error handling', () => {
-  it('treats a corrupted v2 blob as a fresh store (one "My plan"), without throwing', () => {
+  it('treats a corrupted plans blob as a fresh store (one "My plan"), without throwing', () => {
     const storage = createFakeStorage({ [PLANS_KEY]: '{not valid json' });
     const store = createPlanStore({ storage, routeVersion: 'r1' });
 
@@ -541,7 +595,7 @@ describe('createPlanStore - corruption and error handling', () => {
     expect(store.getActivePlan().days).toEqual([{ targetKm: 50, townChoice: null }]);
   });
 
-  it('falls through to migration when the v2 key is corrupt but a valid legacy v1 key exists', () => {
+  it('falls through to migration when the plans key is corrupt but a valid legacy v1 key exists', () => {
     const storage = createFakeStorage({
       [PLANS_KEY]: '{not valid json',
       [LEGACY_KEY]: JSON.stringify(LEGACY_V1),
@@ -614,13 +668,242 @@ describe('createPlanStore - snapped fractional lengths', () => {
     expect(days[1].targetKm).toBe(83.8);
   });
 
-  it('still writes schema version 2 — the timeline work needs no migration', () => {
+  it('writes the current schema version alongside the fractional lengths', () => {
     const storage = createFakeStorage();
     const store = createPlanStore({ storage, routeVersion: 'v1' });
     store.load();
     store.saveActivePlan({ days: [{ targetKm: 76.2, townChoice: null }], breaks: [] });
 
-    expect(JSON.parse(storage.getItem(PLANS_KEY)).schemaVersion).toBe(2);
+    expect(JSON.parse(storage.getItem(PLANS_KEY)).schemaVersion).toBe(3);
+  });
+});
+
+describe('createPlanStore - corridor change (routeId)', () => {
+  it('reads the stored plans normally when the stored routeId matches', () => {
+    const blob = storedBlob({ routeId: CURRENT_ROUTE_ID });
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    const result = store.load();
+
+    expect(result.plans).toHaveLength(1);
+    expect(result.plans[0].name).toBe('Old corridor plan');
+    expect(store.getActivePlan().days).toEqual([{ targetKm: 114, townChoice: { name: 'Lauenburg' } }]);
+    expect(storage.store[`${PLANS_KEY}-backup-${CURRENT_ROUTE_ID}`]).toBeUndefined();
+  });
+
+  it('does not archive on a mere data rebuild of the same corridor (routeVersion differs)', () => {
+    // A refreshed dataset keeps the routeId and only moves builtAt; main.js
+    // answers that with its route-changed banner, not with an archive.
+    const blob = storedBlob({ routeId: CURRENT_ROUTE_ID });
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob), [FAVORITES_KEY]: OLD_FAVORITES });
+    const store = createPlanStore({ storage, routeVersion: 'r-rebuilt', routeId: CURRENT_ROUTE_ID });
+
+    const result = store.load();
+
+    expect(result.plans[0].name).toBe('Old corridor plan');
+    expect(store.getActivePlan().routeVersion).toBe('r-old');
+    expect(storage.store[FAVORITES_KEY]).toBe(OLD_FAVORITES);
+    expect(Object.keys(storage.store).filter((key) => key.includes('-backup-'))).toEqual([]);
+  });
+
+  it('archives the plans blob under the stored routeId when the corridor changed', () => {
+    const raw = JSON.stringify(storedBlob());
+    const storage = createFakeStorage({ [PLANS_KEY]: raw });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    store.load();
+
+    expect(storage.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]).toBe(raw);
+  });
+
+  it('starts fresh after archiving: one empty "My plan" on the current corridor', () => {
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(storedBlob()) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    const result = store.load();
+
+    expect(result.plans).toHaveLength(1);
+    expect(result.plans[0].name).toBe('My plan');
+    expect(result.plans[0].id).not.toBe('p-old');
+
+    const active = store.getActivePlan();
+    expect(active.days).toEqual([]);
+    expect(active.breaks).toEqual([]);
+    expect(active.routeVersion).toBe('r-new');
+
+    // The live key now holds the fresh plan on the current corridor.
+    const persisted = JSON.parse(storage.store[PLANS_KEY]);
+    expect(persisted.routeId).toBe(CURRENT_ROUTE_ID);
+    expect(persisted.plans).toHaveLength(1);
+    expect(persisted.plans[0].name).toBe('My plan');
+  });
+
+  it('archives the favorites key alongside and clears the live one', () => {
+    const storage = createFakeStorage({
+      [PLANS_KEY]: JSON.stringify(storedBlob()),
+      [FAVORITES_KEY]: OLD_FAVORITES,
+    });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    store.load();
+
+    expect(storage.store[`${FAVORITES_KEY}-backup-${OLD_ROUTE_ID}`]).toBe(OLD_FAVORITES);
+    expect(storage.store[FAVORITES_KEY]).toBeUndefined();
+  });
+
+  it('archives a schema 2 blob (no routeId recorded) under the literal `v2` suffix', () => {
+    const raw = JSON.stringify(storedBlob({ schemaVersion: 2, routeId: null }));
+    const storage = createFakeStorage({ [PLANS_KEY]: raw, [FAVORITES_KEY]: OLD_FAVORITES });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    const result = store.load();
+
+    expect(storage.store[`${PLANS_KEY}-backup-v2`]).toBe(raw);
+    expect(storage.store[`${FAVORITES_KEY}-backup-v2`]).toBe(OLD_FAVORITES);
+    expect(result.plans[0].name).toBe('My plan');
+  });
+
+  it('never overwrites an occupied backup key: appends -2, numbering each key separately', () => {
+    const raw = JSON.stringify(storedBlob());
+    const storage = createFakeStorage({
+      [PLANS_KEY]: raw,
+      [FAVORITES_KEY]: OLD_FAVORITES,
+      [`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]: 'first backup',
+    });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    store.load();
+
+    expect(storage.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]).toBe('first backup');
+    expect(storage.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}-2`]).toBe(raw);
+    // The favorites key has its own numbering - an occupied plans backup must
+    // not push the favorites backup to -2.
+    expect(storage.store[`${FAVORITES_KEY}-backup-${OLD_ROUTE_ID}`]).toBe(OLD_FAVORITES);
+  });
+
+  it('appends -3 when both the backup key and its -2 are taken', () => {
+    const raw = JSON.stringify(storedBlob());
+    const storage = createFakeStorage({
+      [PLANS_KEY]: raw,
+      [`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]: 'first backup',
+      [`${PLANS_KEY}-backup-${OLD_ROUTE_ID}-2`]: 'second backup',
+    });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    store.load();
+
+    expect(storage.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]).toBe('first backup');
+    expect(storage.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}-2`]).toBe('second backup');
+    expect(storage.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}-3`]).toBe(raw);
+  });
+
+  it('does not resurrect the legacy v1 payload after archiving a foreign corridor', () => {
+    const storage = createFakeStorage({
+      [PLANS_KEY]: JSON.stringify(storedBlob()),
+      [LEGACY_KEY]: JSON.stringify(LEGACY_V1),
+    });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    const result = store.load();
+
+    expect(result.plans).toHaveLength(1);
+    const active = store.getActivePlan();
+    // A v1 payload is from the old corridor too: no days, no carried-over
+    // routeVersion, and none of its pins land in favorites.
+    expect(active.days).toEqual([]);
+    expect(active.routeVersion).toBe('r-new');
+    expect(storage.store[FAVORITES_KEY]).toBeUndefined();
+    expect(storage.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]).toBeDefined();
+  });
+
+  it('stamps the configured routeId into the persisted blob', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    store.load();
+
+    expect(JSON.parse(storage.store[PLANS_KEY]).routeId).toBe(CURRENT_ROUTE_ID);
+
+    store.saveActivePlan({ days: [{ targetKm: 90, townChoice: null }], breaks: [] });
+    const persisted = JSON.parse(storage.store[PLANS_KEY]);
+    expect(persisted.routeId).toBe(CURRENT_ROUTE_ID);
+    expect(persisted.schemaVersion).toBe(3);
+  });
+
+  it('records no corridor when none is configured', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    store.load();
+
+    expect(JSON.parse(storage.store[PLANS_KEY]).routeId ?? null).toBeNull();
+  });
+
+  it('with no configured routeId, a foreign-corridor blob is still read (check disabled)', () => {
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(storedBlob()) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+
+    const result = store.load();
+
+    expect(result.plans[0].name).toBe('Old corridor plan');
+    expect(store.getActivePlan().days).toEqual([{ targetKm: 114, townChoice: { name: 'Lauenburg' } }]);
+    expect(Object.keys(storage.store).filter((key) => key.includes('-backup-'))).toEqual([]);
+  });
+
+  it('with no configured routeId, a schema 2 blob is read as-is', () => {
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(storedBlob({ schemaVersion: 2, routeId: null })) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+
+    const result = store.load();
+
+    expect(result.plans[0].name).toBe('Old corridor plan');
+    expect(storage.store[`${PLANS_KEY}-backup-v2`]).toBeUndefined();
+  });
+
+  it('boots to a fresh plan when the archive writes throw (quota/private mode)', () => {
+    const storage = createUnwritableStorage({
+      [PLANS_KEY]: JSON.stringify(storedBlob()),
+      [FAVORITES_KEY]: OLD_FAVORITES,
+    });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    let result;
+    expect(() => {
+      result = store.load();
+    }).not.toThrow();
+
+    expect(result.plans).toHaveLength(1);
+    expect(result.plans[0].name).toBe('My plan');
+    expect(store.getActivePlan().days).toEqual([]);
+  });
+
+  it('archives without throwing when the injected storage has no removeItem', () => {
+    const raw = JSON.stringify(storedBlob());
+    const withoutRemove = createFakeStorage({ [PLANS_KEY]: raw });
+    delete withoutRemove.removeItem;
+    const store = createPlanStore({ storage: withoutRemove, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+
+    let result;
+    expect(() => {
+      result = store.load();
+    }).not.toThrow();
+
+    expect(result.plans[0].name).toBe('My plan');
+    expect(withoutRemove.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]).toBe(raw);
+  });
+
+  it('does not archive twice: a second load() on the archived storage is a no-op', () => {
+    const raw = JSON.stringify(storedBlob());
+    const storage = createFakeStorage({ [PLANS_KEY]: raw });
+
+    const first = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const firstId = first.load().activePlanId;
+
+    const second = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const result = second.load();
+
+    expect(result.activePlanId).toBe(firstId);
+    expect(storage.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]).toBe(raw);
+    expect(storage.store[`${PLANS_KEY}-backup-${OLD_ROUTE_ID}-2`]).toBeUndefined();
   });
 });
 

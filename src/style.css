@@ -6,7 +6,7 @@
      river blue  -> the route + planning progress
      amber       -> towns / overnight waypoints
      red         -> committed day boundaries (mirrors the numbered map pins)
-     green       -> the Hamburg start + the Dresden finish
+     green       -> the route's start + its reached-destination marker
    Type: Fraunces (display serif) for headings/day numbers, Archivo for UI/data.
    ========================================================================== */
 
@@ -35,7 +35,14 @@
   --river-deep: #2563eb;
   --town: #f6a723;       /* town dots on the map are #f59e0b                 */
   --day: #f0705f;        /* numbered day pins on the map are #b91c1c         */
-  --done: #4ec97e;       /* start ("H") + reached-Dresden green              */
+  --done: #4ec97e;       /* start pin + reached-destination green            */
+  /* Terrain, for the strip's elevation profile. Violet because every other hue on
+     the strip is already spoken for — blue handles, green finish, amber towns, red
+     boundaries — and a profile that read as any of those would be misread as a day
+     boundary. Contrast measured against all four strip surfaces: 4.95:1 on the
+     focused block, 6.13:1 on the strip itself. Mid-range luminance on purpose: the
+     profile is context, not the subject. */
+  --terrain: #a48fd0;
 
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
   --pad: 20px;
@@ -1049,6 +1056,53 @@ input[type="number"]:disabled {
   touch-action: none;
 }
 
+/* The elevation profile, drawn ACROSS the axis rather than behind it: the day
+   blocks carry an opaque background, so a profile underneath them would only show
+   in the gaps between days.
+
+   pointer-events: none for the same reason the glyph layer has it — the axis under
+   here is a drag surface for the boundary handles, and the profile must never eat a
+   grab. That is also why there is no crosshair/tooltip on it: a hover readout would
+   compete with the drag gesture that is the strip's whole purpose.
+
+   z-index 1 puts it over the blocks and under the handles (z-index 2). It shares
+   that level with the break glyphs, which come later in source order and so stay on
+   top of it. */
+.strip__elevation {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.strip__elevation-fill {
+  fill: var(--terrain);
+  /* Low enough that a day block's own fill, its focus ring and its label all stay
+     legible through it — the profile is context for the days, not a layer competing
+     with them — but not so low it disappears. At 0.13 the 800 flat km read as empty
+     axis; 0.18 gives the ground a floor without touching the labels. */
+  fill-opacity: 0.18;
+}
+
+.strip__elevation-line {
+  fill: none;
+  stroke: var(--terrain);
+  stroke-width: 2;
+  stroke-opacity: 0.85;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The vertical range that makes the exaggerated profile honest. Sits in the scale
+   line between the two endpoints. */
+.strip__range {
+  color: var(--terrain);
+  font-variant-numeric: tabular-nums;
+}
+
 .strip__block,
 .strip__remainder {
   position: absolute;
@@ -1151,9 +1205,9 @@ input[type="number"]:disabled {
   color: var(--text-faint);
 }
 
-/* Sits in the scale line, replacing "km 650 · Dresden". On the axis at right: 0
-   it collided with the last block and the last handle, which is what a finished
-   plan always leaves it doing. */
+/* Sits in the scale line, replacing the plain "km <total> · <destination>". On the
+   axis at right: 0 it collided with the last block and the last handle, which is
+   what a finished plan always leaves it doing. */
 .strip__finish {
   color: var(--done);
 }
@@ -1429,4 +1483,22 @@ input[type="number"]:disabled {
   outline: none;
   border-color: var(--river);
   box-shadow: 0 0 0 3px rgba(91, 147, 255, 0.35);
+}
+
+/* The focused day's climb, under its "from … km x → y" line. Terrain-coloured to
+   tie it to the strip's profile — the same fact in two places, one as a shape and
+   one as a number. */
+.day-panel__climb {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--terrain);
+  font-variant-numeric: tabular-nums;
+}
+
+.day-panel__climb-approx {
+  color: var(--text-faint);
+  cursor: help;
 }

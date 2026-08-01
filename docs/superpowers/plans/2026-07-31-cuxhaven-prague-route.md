@@ -25,6 +25,18 @@ Recorded here rather than silently applied.
 7. **A feature branch, not a worktree.** Nothing else is running against this checkout, and a worktree would need its own `npm install` before the data build could run. Branch: `route-cuxhaven-prague`.
 8. **Task 0 is a throwaway spike.** The single largest unknown is whether EV7 stitches cleanly through Prague. Discovering that after writing four tested helpers wastes the effort; the spike answers it in one script that is never committed.
 
+9. **Junctions are DERIVED, not anchored — decided after the spike ran.** Fixed junction anchors were wrong in both places, and not by a little: my Finkenwerder–Landungsbrücken pair measured **8.55 km** against a "~1.3 km" estimate I never checked, and the border pair measured **3.26 km** against "~0.2 km". Guessing a coordinate for a place where two lines meet is guessing an answer the data already holds.
+
+   So a new helper `findJunction(lineA, lineB)` returns the closest approach between consecutive segments, and each interior trim point comes from it. Only the two *outer* ends stay anchored — Cuxhaven and Prague — because there is no second line to derive them from.
+
+   Measured junctions: **left↔right 2,251 m** at the left bank's end `[9.8418, 53.5295]` and right-bank km 11.4 `[9.8501, 53.5492]` — the Finkenwerder↔Teufelsbrück ferry. **right↔cz 3,264 m**, Schmilka `[14.2342, 50.8878]` to Hřensko `[14.2224, 50.8594]`, verified irreducible: no right-bank vertex anywhere gets closer to the Czech start. Bridge ceilings become **3 km** and **4 km**.
+
+   Consequence worth stating: the right bank is now trimmed to *start* at km 11.4 rather than at Landungsbrücken. Hamburg centre stays on the route, 8.4 km after the junction, at roughly **km 148** — not the ~185 km I estimated in the spec, which assumed a longer northern leg.
+
+10. **`CUXHAVEN` is corrected to `[8.6839, 53.8917]`.** The spec's `[8.7166, 53.8917]` was wrong in longitude by 2.3 km — the Kugelbake is at ~8.684 — and would have failed its own 2 km snap guard.
+
+11. **Two known hard gaps are trimmed away, not fixed.** Right-bank stage 2599033 reaches the border at km 726.9 and then jumps 11.68 km *backwards* to Wehlen, where its misordered final way sits; EV7 has a 128 km jump south of Prague. Both lie outside the trimmed range, so both vanish. The build must still assert that zero hard gaps survive *inside* each trimmed segment — a gap that gets trimmed is luck, not correctness.
+
 ---
 
 ## File Structure
@@ -1950,4 +1962,57 @@ Append an addendum to the spec: measured total length, segment and bridge figure
 
 ## Ledger
 
-Filled in during execution — measured numbers, surprises, and anything decided at the keyboard rather than here.
+### Task 0 — spike, 2026-07-31
+
+Ran against live Overpass; raw responses cached in the scratchpad. Two runs: an assembly pass, then a diagnostic pass after the first one surfaced problems.
+
+**Per source, stitched and untrimmed:**
+
+| Source | Ways | Points | Raw km | Gaps | Start | End |
+| --- | --- | --- | --- | --- | --- | --- |
+| left | 390 | 3,698 | 137.1 | **0 soft, 0 hard** | `[8.6818, 53.8916]` | `[9.8419, 53.5295]` |
+| right | 2,705 | 21,792 | 738.7 | 10 soft, 6 hard | `[9.7018, 53.5692]` | `[14.0759, 50.9207]` |
+| cz | 1,516 | 13,222 | 601.6 | 7 soft, 3 hard | `[14.2224, 50.8594]` | `[14.4232, 49.7576]` |
+
+**Hard gaps, and whether they survive trimming:**
+
+| Where | Gap | Stage | Survives? |
+| --- | --- | --- | --- |
+| right km 19.8 / 20.8 / 23.8 | 971 m / 958 m / 1,800 m | 2599011 | **Yes** — the tangled Hamburg harbour passage, present in the shipped data too, and part of its 1.3% doubling-back |
+| right km 63.5 | 1,016 m | 2599013 | Yes |
+| right km 363.8 | 1,036 m | 2599024 | Yes |
+| right km 726.9 | 11,680 m | 2599033 | No — a misordered final way sitting back at Wehlen, past the border trim |
+| cz km 454.1 | 127,918 m | 2775754 | No — south of Prague |
+| cz km 596.7 / 599.5 | 1,074 m / 1,286 m | 2775754 | No — south of Prague |
+
+**Anchor snaps as originally specified:** Cuxhaven 2.15 km ✗ (over the 2 km guard), Finkenwerder 2.41 km ✗, Hamburg 0.04 km ✓, Schöna 1.96 km / 1.59 km (marginal), **Prague 0.21 km ✓**.
+
+**Junctions (see deviation 9):** left↔right 2,251 m; right↔cz 3,264 m, irreducible.
+
+**Verdict: proceed.** The one assumption that could have sunk the plan — EV7's continuity through Prague — holds: 171.6 km trimmed, no surviving hard gaps, Prague anchor 0.21 km off. Expected total after the derived junctions: **~1,030 km** (137.1 + 2.25 + 715.5 + 3.26 + 171.6), inside the 1,000–1,150 nominal band.
+
+Spike files deleted, not committed.
+
+### Tasks 1–4 — the pure helpers
+
+`anchorSnap` was written, tested, and then **deleted before it had a caller**. Once junctions became derived, `findJunction(coords, [anchor])` gave both the nearest-vertex index and the distance guard, and one mechanism for every trim point beat two. A tested-but-unused export is still dead code.
+
+`findJunction` itself was rewritten mid-task. The first version used a widening spatial grid; its own test caught the flaw — when the sweep finds nothing it can only report that it found nothing, which is the least useful thing to say at exactly the moment a distance is needed. Coarse-subsample-then-refine always measures something, so the error can always name the gap that failed.
+
+Four of the five initial `findJunction` test failures were **the tests being wrong, not the code**: the fixtures were two lines I described as "2.2 km apart" that were in fact 11.3 km apart, because I ignored a latitude offset while writing them.
+
+### Task 5–8 — the build, and two rounds of Overpass refusing to cooperate
+
+The route assembly worked first time: **1026.50 km**, every gate green. Cuxhaven's anchor snapped 0.13 km (it was 2.15 km before the coordinate fix), Prague 0.21 km, monotonicity strictly increasing across all nine checkpoints, doubling-back 1.1%, five known hard gaps inside segments totalling 5.78 km against the 8 km budget.
+
+A consistency check worth recording: **Hamburg (km 149.3) → Dresden (km 797.6) measures 648.3 km**, against the previous build's 650.24 km for the same two points. Re-assembling from three sources left the middle section alone.
+
+The place queries were another matter. The `around:` corridor — deviation 5's careful radius derivation and all — **does not work at this route length**. 515 coordinates at 2 km spacing: HTTP 504, then a dropped connection. 130 coordinates at 8 km spacing after re-deriving the radii: same failure across two mirrors, for the *single-clause towns query*. The coverage arithmetic was right and irrelevant; the problem was that evaluating a union of hundreds of circles is expensive.
+
+Replaced with **per-chunk bounding boxes** (`chunkBboxes`, tested): eleven ~100 km boxes that hug a diagonal river far more tightly than one 5.5° × 6.5° rectangle, each cached separately. That worked — and the per-chunk caching paid for itself immediately when a session restart killed the build mid-run: all eleven towns chunks were already on disk.
+
+### Deviation 12 — `import.meta.glob` for optional data
+
+`loadElevation` first used the same `await import('./data/elevation.json')` inside a `try/catch` that `pois.js` and `route.js` use. It fails: Vite resolves that specifier when it *transforms* the module, so a missing file is a build error long before any catch block runs — the whole suite went red on a file that had not been generated yet.
+
+Worth flagging beyond this feature: **`route.js` and `pois.js` carry the same pattern with comments claiming it degrades gracefully.** It holds only because their data files always exist. If `pois.json` were ever absent, the app would not boot with a warning — it would fail to build. Not fixed here (out of scope), but it is a latent claim the code does not honour.
