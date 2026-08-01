@@ -325,6 +325,50 @@ body {
   color: #ffcf6f;
 }
 
+/* The picking prompt, over the map it is about (spec §6). z-index matches
+   #map-controls — 1001, above every Leaflet pane AND the .leaflet-top/-bottom corner
+   containers (1000) — and it stops short of #map-controls so the two never overlap.
+
+   `left` is 54px and not 10px because THIS corner is not empty. #map-controls gets away
+   with top: 10px; right: 10px only because Leaflet leaves the top-right corner unused
+   (zoom goes top-left, attribution bottom-right). At 10px this box overlapped
+   .leaflet-control-zoom by 34 x 39.5 px — and, winning on z-index, painted over it:
+   measured in Chromium, elementFromPoint at the zoom control's own centre returned this
+   banner, so + and − were unclickable for as long as a pick was armed. The zoom control
+   is 34px wide at a 10px inset, so 54px clears it by 10px. max-width keeps the same
+   250px of clearance from #map-controls it had before the shift. */
+.banner--pick {
+  position: absolute;
+  top: 10px;
+  left: 54px;
+  max-width: calc(100% - 304px);
+  z-index: 1001;
+  margin: 0;
+  align-items: center;
+  /* An opaque dark scrim, not the translucent tint the other banners use, because this
+     is the one banner that sits over MAP TILES rather than over the app's own dark
+     surface. Measured in Chromium: `rgba(91, 147, 255, 0.14)` composites against an OSM
+     land tile to about #dce2ec, and #d8e4ff text on that is a contrast ratio of roughly
+     1.0:1 — the prompt was there and could not be read. Same treatment .map-btn uses
+     two feet away, for the same reason. */
+  background: rgba(25, 23, 18, 0.88);
+  border-color: rgba(91, 147, 255, 0.5);
+  border-left-color: var(--river);
+  color: #d8e4ff;
+  backdrop-filter: blur(3px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* A refused pick (spec §8). Same box, so the answer arrives where the prompt was — and
+   the same scrim, since it is over the same tiles. Only .banner--pick ever wears this,
+   so it is written to sit on top of it rather than to stand alone. */
+.banner--error {
+  background: rgba(38, 18, 14, 0.9);
+  border-color: rgba(240, 112, 95, 0.55);
+  border-left-color: var(--day);
+  color: #ffd9d2;
+}
+
 /* Shared field styling for every number input. */
 input[type="number"] {
   font-family: var(--sans);
@@ -1389,10 +1433,57 @@ input[type="number"]:disabled {
 
 .strip__scale {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
+  gap: 8px;
   font-size: 10px;
   color: var(--text-faint);
   margin-top: 5px;
+}
+
+/* The two endpoint labels, which ARE the controls that move those ends (spec §6):
+   editing a value where it is displayed needs no new vocabulary, so the text is
+   unchanged and only what it is changed. Stripped back to its own line of the scale so
+   it reads as text first — the dotted underline is what says it can be changed, the
+   same idiom .row-edit uses in the day panel. */
+.strip__end {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line);
+}
+
+.strip__end:hover {
+  color: var(--text);
+  text-decoration-color: var(--river);
+}
+
+.strip__end:focus-visible {
+  outline: 2px solid var(--river);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Armed. Obvious from across the room, because while it is on, a click anywhere on the
+   route means something different from what it usually means. */
+.strip__end[aria-pressed="true"] {
+  color: var(--river);
+  font-weight: 600;
+  text-decoration: underline solid;
+  text-decoration-color: var(--river);
+}
+
+/* Keeps the trip's far end flush with the axis's right edge whether or not the
+   `⚑ reached` flag follows it: an auto margin eats the free space before
+   justify-content can distribute it, so the two states line up the same way. */
+.strip__end--destination {
+  margin-left: auto;
 }
 
 /* Screen-reader only. The handle is a role="slider" whose element is destroyed

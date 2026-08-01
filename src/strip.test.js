@@ -42,6 +42,7 @@ function mount(width = WIDTH) {
     onFocusDay: vi.fn(),
     onMoveBoundary: vi.fn(),
     onAddDay: vi.fn(),
+    onPickEnd: vi.fn(),
   };
   const strip = createStrip({ el, callbacks, measureWidth: () => width });
   return {
@@ -901,6 +902,11 @@ describe('createStrip - focus and add', () => {
   // At right: 0 on the axis the finish marker landed on top of the last block and
   // underneath the last handle. The scale line already names the destination, so
   // it says "reached" there instead and collides with nothing.
+  // CHANGED EXPECTATION (Task 11b): the km used to be inside this span. The scale
+  // line's far end is a CONTROL now (`km 650 · finish`, a button that arms a pick),
+  // and the flag is its neighbour rather than the thing carrying the figure —
+  // turning the flag itself into a button would put a control inside a status. So
+  // the same fact is asserted one element over.
   it('puts the finish marker in the scale line, not on the axis', () => {
     const strip = mount();
     strip.render({ days: days(TOTAL_KM), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
@@ -908,7 +914,8 @@ describe('createStrip - focus and add', () => {
     const finish = el.querySelector('.strip__finish');
     expect(finish.parentElement.classList.contains('strip__scale')).toBe(true);
     expect(el.querySelector('[data-strip-axis] .strip__finish')).toBeNull();
-    expect(finish.textContent).toContain('650');
+    expect(finish.textContent).toContain('reached');
+    expect(el.querySelector('[data-action="set-finish"]').textContent).toContain('650');
   });
 
   it('keeps the plain scale line while the trip is unfinished', () => {
@@ -1105,11 +1112,16 @@ describe('createStrip - endpoint names', () => {
     expect(el.querySelector('.strip__flag').textContent).toContain('Prague');
   });
 
+  // CHANGED EXPECTATION (Task 11b): the name and the word are in two elements now —
+  // the finish CONTROL carries `km 400 · Prague`, the flag beside it says reached.
+  // Queried by the control's own action rather than by position, so this still pins
+  // that the end named as reached is the trip's destination.
   it('says the destination is reached once the plan arrives', () => {
     const strip = mount();
     strip.render({ days: days(400), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
 
-    expect(el.querySelector('.strip__finish').textContent).toContain('Prague reached');
+    expect(el.querySelector('[data-action="set-finish"]').textContent).toBe('km 400 · Prague');
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
   });
 
   it('falls back to neutral words when no names are given', () => {
@@ -1801,11 +1813,18 @@ describe('createStrip - naming the trip’s own ends', () => {
     expect(el.querySelector('.strip__flag').textContent).toContain('Cuxhaven');
   });
 
+  // CHANGED EXPECTATION (Task 11b), same split as above: the finish control names the
+  // end, the flag beside it says reached. The direction claim is unchanged — a
+  // whole-road trip ridden downstream finishes at Cuxhaven — and it is now pinned on
+  // the element that owns that end rather than on a substring.
   it('says the trip’s own destination is reached, by the name it goes by', () => {
     const down = createTrip({ startKm: ROAD_KM, destinationKm: 0, totalKm: ROAD_KM });
     renderTrip(down, tripDays(down, ROAD_KM), named);
 
-    expect(el.querySelector('.strip__finish').textContent).toContain('Cuxhaven reached');
+    expect(el.querySelector('[data-action="set-finish"]').textContent).toBe(
+      'km 1026.5 · Cuxhaven',
+    );
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
   });
 
   it('flags the trip’s destination on the remainder, not the road’s', () => {
@@ -1813,6 +1832,172 @@ describe('createStrip - naming the trip’s own ends', () => {
 
     expect(el.querySelector('.strip__flag').textContent).toContain('finish');
     expect(el.querySelector('.strip__flag').textContent).not.toContain('Prague');
+  });
+});
+
+// Spec §6: the controls live on the endpoint labels the scale line already shows,
+// because editing a value where it is displayed needs no new vocabulary. The visible
+// TEXT is therefore unchanged — every assertion above that reads `km 0 · Cuxhaven` off
+// the scale line still passes, which is the evidence this change is additive.
+//
+// What is new is what those labels ARE: buttons that arm a pick for one end, pressed
+// while armed, and carrying as TEXT the figure the edge stub beside them offers only to
+// a pointer (the debt Task 8 recorded and assigned here).
+describe('createStrip - the trip’s ends as controls', () => {
+  const named = { originName: 'Cuxhaven', destinationName: 'Prague' };
+  const control = (role) => el.querySelector(`[data-action="set-${role}"]`);
+  const label = (role) => control(role).getAttribute('aria-label');
+
+  it('emits the end each control owns', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    control('start').click();
+    control('finish').click();
+
+    // Both calls, in order: one control reporting both ends is the failure, and
+    // `toHaveBeenCalledWith` passes as long as ANY call matches.
+    expect(callbacks.onPickEnd.mock.calls).toEqual([['start'], ['destination']]);
+  });
+
+  // The scale line is not a drag surface, so it gets a plain click listener and none of
+  // the axis's suppressClick machinery — which also means nothing else guards it.
+  //
+  // The error listener is load-bearing, not belt-and-braces: jsdom swallows an
+  // exception thrown inside an event handler, so `.click()` returns normally and a
+  // dropped `if (!control) return` leaves `not.toHaveBeenCalled()` passing. Measured by
+  // mutation — without this the whole test survives that mutant. (Same instrument as
+  // `survives the day list shrinking under a live drag`, for the same reason.)
+  it('arms nothing when the click lands on the line but on neither control', () => {
+    const errors = [];
+    const onError = (e) => errors.push(e.message || String(e.error));
+    window.addEventListener('error', onError);
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    el.querySelector('.strip__scale').click();
+    window.removeEventListener('error', onError);
+
+    expect(errors).toEqual([]);
+    expect(callbacks.onPickEnd).not.toHaveBeenCalled();
+  });
+
+  it('presses the start control, and only it, while the start is armed', () => {
+    renderTrip(UP, tripDays(UP, 80), { ...named, picking: 'start' });
+
+    expect(control('start').getAttribute('aria-pressed')).toBe('true');
+    expect(control('finish').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  // The mirror image, and not a duplicate: without it a hardcoded 'start', or a
+  // truthiness test that presses whichever control renders first, passes above.
+  it('presses the finish control, and only it, while the finish is armed', () => {
+    renderTrip(UP, tripDays(UP, 80), { ...named, picking: 'destination' });
+
+    expect(control('finish').getAttribute('aria-pressed')).toBe('true');
+    expect(control('start').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  // main.js cancels a pick by rendering with `picking: null`, so null is MEANINGFUL
+  // here. Under the `?? state.picking` fallback the other retained fields use, a
+  // cancel would leave the control pressed for ever and no other test would see it.
+  it('releases both controls when a later render cancels the pick', () => {
+    const strip = renderTrip(UP, tripDays(UP, 80), { ...named, picking: 'start' });
+
+    strip.render({
+      days: tripDays(UP, 80),
+      totalKm: ROAD_KM,
+      trip: UP,
+      focusedIndex: 0,
+      breaks: [],
+      ...named,
+      picking: null,
+    });
+
+    expect(control('start').getAttribute('aria-pressed')).toBe('false');
+    expect(control('finish').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  // The resize path: render() with no argument must redraw the state it already holds,
+  // pressed control and endpoint names included. Rebuilding from a bare state would
+  // silently disarm the control the rider is looking at — the same hole the
+  // origin/destination names already have a test for.
+  it('keeps the armed end and the names through an argument-less re-render', () => {
+    const strip = renderTrip(UP, tripDays(UP, 80), { ...named, picking: 'destination' });
+
+    strip.render();
+
+    expect(control('finish').getAttribute('aria-pressed')).toBe('true');
+    expect(control('start').getAttribute('aria-pressed')).toBe('false');
+    expect(label('start')).toContain('Cuxhaven');
+  });
+
+  // The edge stub past an end is aria-hidden and offers its figure to a pointer only.
+  // It belongs on this control as text: the road past an end is exactly what pressing
+  // it can claim. NAME and NUMBER together, in both directions — `roadPast` asked for
+  // the wrong end reads perfectly plausibly, and "contains a km" would pass under it.
+  it('carries the road past each end in the control’s own accessible name', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    expect(label('start')).toContain('149.3 km of road continues to Cuxhaven');
+    expect(label('finish')).toContain('228.9 km of road continues to Prague');
+  });
+
+  // Which road end lies past a trip end follows the DIRECTION, not the trip end's own
+  // role: ridden downstream the start faces Prague and the finish faces Cuxhaven, so
+  // the two clauses trade places against the same two figures.
+  it('faces the other road end on a downstream trip', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80), named);
+
+    expect(label('start')).toContain('228.9 km of road continues to Prague');
+    expect(label('finish')).toContain('149.3 km of road continues to Cuxhaven');
+  });
+
+  it('carries no road clause when the trip already runs the whole road', () => {
+    const whole = createTrip({ startKm: 0, destinationKm: ROAD_KM, totalKm: ROAD_KM });
+    renderTrip(whole, tripDays(whole, 80), named);
+
+    // Appended unconditionally this would read "0 km of road continues to Cuxhaven".
+    expect(label('start')).not.toContain('of road continues');
+    expect(label('finish')).not.toContain('of road continues');
+    // ...and both ends still say which end they are and what they are called.
+    expect(label('start')).toBe('Trip start: km 0, Cuxhaven. Press to set it on the map.');
+    expect(label('finish')).toBe(
+      'Trip finish: km 1026.5, Prague. Press to set it on the map.',
+    );
+  });
+
+  it('shows the label the scale line always showed, and says what pressing it does', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    expect(control('start').tagName).toBe('BUTTON');
+    expect(control('start').textContent).toBe('km 0 · start');
+    expect(control('finish').textContent).toBe('km 648.3 · finish');
+    expect(control('start').getAttribute('title')).toBe('Set where your trip starts');
+    expect(control('finish').getAttribute('title')).toBe('Set where your trip finishes');
+  });
+
+  // The name reaches ELEMENT CONTENT here, where an <img …> really does parse into an
+  // element — so this can fail in both directions: unescaped it injects, and escaped
+  // TWICE (the caller escaping before the control does) it reads `&lt;img` on screen
+  // and the raw-payload assertion fails.
+  it('escapes an end name rather than letting it become markup', () => {
+    const fromOrigin = createTrip({ startKm: 0, destinationKm: 797.6, totalKm: ROAD_KM });
+    renderTrip(fromOrigin, tripDays(fromOrigin, 80), {
+      originName: '<img src=x onerror="alert(1)">',
+    });
+
+    expect(control('start').querySelector('img')).toBeNull();
+    expect(control('start').textContent).toBe('km 0 · <img src=x onerror="alert(1)">');
+  });
+
+  // An arrived trip still has an end a rider may want to move. The flag is the flag's
+  // job; the control stands beside it.
+  it('still offers the finish control on an arrived trip, beside the flag', () => {
+    renderTrip(UP, tripDays(UP, 648.3), named);
+
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
+    expect(control('finish').textContent).toBe('km 648.3 · finish');
+    control('finish').click();
+    expect(callbacks.onPickEnd).toHaveBeenCalledWith('destination');
   });
 });
 

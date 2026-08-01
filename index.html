@@ -41,6 +41,13 @@
         <div id="places"></div>
       </aside>
       <div id="map">
+        <!-- The picking prompt (spec §6/§8): what to click, what was picked, and why a
+             pick was refused. It belongs where the rider is looking and where the click
+             will land, so it lives over the map rather than in #banner — which is the
+             route-data warning main.js rewrites from plan state on every save, and
+             would wipe a prompt parked in it. Before #map-controls in source order so
+             the instruction is read before the camera buttons. -->
+        <div id="pick-banner" class="banner banner--pick" role="status" aria-live="polite" hidden></div>
         <!-- Camera controls, overlaid on the map they act on. Inside #map so they
              ride along with it; main.js keeps their events from reaching Leaflet
              underneath. -->

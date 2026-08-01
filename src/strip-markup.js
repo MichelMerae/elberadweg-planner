@@ -360,6 +360,41 @@ function endName(state, tripEnd) {
 }
 
 /**
+ * One end of the trip, as a control that arms a pick for it (spec §6).
+ *
+ * The visible text is the label the scale line always showed — editing a value where it
+ * is displayed needs no new vocabulary, and it is why every existing scale-line
+ * assertion still passes. What pressing it does lives in `title`, and `aria-pressed`
+ * makes it what it is: a toggle, because a second press cancels.
+ *
+ * **The accessible name is also where the remaining road becomes TEXT.** The edge stub
+ * past this end is `aria-hidden` and its figure was available to a pointer only — the
+ * debt Task 8 recorded and assigned here. It belongs on this control: the road past an
+ * end is exactly what pressing it can claim. The stub keeps the pointer half, so the
+ * two halves say the same sentence to two kinds of reader rather than one of them
+ * saying nothing.
+ *
+ * `name` arrives UNESCAPED and is escaped here, once — twice would put `&amp;` on
+ * screen, and the aria-label would carry the entity too.
+ *
+ * The `--start`/`--destination` modifier is the trip's own ends, as everywhere else in
+ * this file, and is what lets the scale line keep its far end flush with the axis's
+ * right edge now that the arrived flag can follow it.
+ */
+function endControlMarkup(state, tripEnd, kmLabel, name) {
+  const past = roadPast(state, tripEnd);
+  const more = roadContinues(past)
+    ? ` ${round1(past.remainingKm)} km of road continues to ${past.name}.`
+    : '';
+  const role = tripEnd === 'start' ? 'start' : 'finish';
+  const armed = state.picking === tripEnd;
+  const label = `Trip ${role}: km ${kmLabel}, ${name}.${more} Press to set it on the map.`;
+  return `<button type="button" class="strip__end strip__end--${tripEnd}" data-action="set-${role}"
+                  aria-pressed="${armed}" aria-label="${esc(label)}"
+                  title="Set where your trip ${role === 'start' ? 'starts' : 'finishes'}">km ${kmLabel} · ${esc(name)}</button>`;
+}
+
+/**
  * A dimmed cap where the ROAD continues past an end of the trip (spec §3).
  *
  * Drawn OUTSIDE the axis proper, in #strip's side padding, because the axis maps the
@@ -497,7 +532,8 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
 }
 
 /**
- * The scale line under the axis: where the TRIP starts and where it ends.
+ * The scale line under the axis: where the TRIP starts and where it ends — and, since
+ * Task 11b, the two controls that move those ends (spec §6).
  *
  * Both ends are the rider's own, named by endName — on a whole-road trip ridden
  * downstream that means the two road names swap places, because the rider starts at
@@ -506,13 +542,18 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
  *
  * The finish marker lives here rather than on the axis: at right: 0 over a
  * collapsed remainder it sat on top of the last block and underneath the last
- * handle. The scale line already names the destination, so it says "reached"
- * instead.
+ * handle. It says `⚑ reached` and nothing more, because the end it is about is named
+ * by the control it stands beside: turning that flag into the button would put a
+ * control inside a status, and repeating `km 648.3 · Dresden` beside itself would be
+ * the same fact twice on a 10px line.
  */
 export function scaleMarkup(state, layout) {
   const arrived = state.days.length > 0 && tailBox(layout).width <= 0;
-  const origin = esc(endName(state, 'start'));
-  const destination = esc(endName(state, 'destination'));
+  // Deliberately NOT escaped here any more: endControlMarkup escapes the name itself,
+  // once, into two places (its own text and its aria-label). Escaping first would
+  // render `&amp;amp;`.
+  const origin = endName(state, 'start');
+  const destination = endName(state, 'destination');
   // The vertical range, whenever a profile is drawn. Not decoration: this corridor
   // falls from sea level to 184 m over 1026 km, so the profile is exaggerated
   // roughly 500:1, and an unlabelled exaggerated profile invites reading a 30 m
@@ -530,11 +571,14 @@ export function scaleMarkup(state, layout) {
   // km 0 needs no conversion: the left end of the scale IS the rider's start, which is
   // rider km 0 whatever absolute km it sits at. The right end is how far they ride —
   // the trip's length, not the road's.
+  //
+  // The finish control renders either way, arrived or not: a finished trip still has an
+  // end its rider may want to move, and a control that vanished on arrival would be one
+  // more state in which the app can only be argued with.
   return (
-    `<span>km 0 · ${origin}</span>` +
+    endControlMarkup(state, 'start', 0, origin) +
     range +
-    (arrived
-      ? `<span class="strip__finish">⚑ km ${round1(state.trip.lengthKm)} · ${destination} reached</span>`
-      : `<span>km ${round1(state.trip.lengthKm)} · ${destination}</span>`)
+    endControlMarkup(state, 'destination', round1(state.trip.lengthKm), destination) +
+    (arrived ? `<span class="strip__finish">⚑ reached</span>` : '')
   );
 }

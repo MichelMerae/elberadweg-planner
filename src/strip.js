@@ -38,6 +38,9 @@ const KEY_STEP_SHIFT_KM = 5;
  * @param {(index: number, endKm: number, opts: {commit: boolean}) => void} opts.callbacks.onMoveBoundary
  * @param {(endKm: number|null) => void} opts.callbacks.onAddDay - endKm from a
  *   remainder click, or null to append a default-length day.
+ * @param {(tripEnd: 'start'|'destination') => void} [opts.callbacks.onPickEnd] - one of
+ *   the scale line's two end controls was pressed. A TOGGLE: main.js decides whether
+ *   that arms a pick or cancels the one already armed, and re-renders with `picking`.
  * @param {() => number} [opts.measureWidth] - axis width in px; injectable for tests.
  * @param {() => number} [opts.measureHeight] - axis height in px; injectable for tests.
  */
@@ -193,6 +196,11 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       destinationName: next.destinationName ?? state.destinationName,
       // Same argument-less-render reasoning as the names above.
       elevation: next.elevation ?? state.elevation,
+      // null is MEANINGFUL here, so the fallback is `?? null` and not `?? state.picking`:
+      // main.js cancels a pick by rendering with picking: null, and `null ?? state.picking`
+      // would keep the control pressed for ever. An argument-less render still preserves
+      // it, because `next` defaults to `state` — the same shape focusedIndex uses.
+      picking: next.picking ?? null,
       trip,
     };
     const axis = axisOpts();
@@ -480,6 +488,16 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       // the route regardless of where the remainder starts.
       callbacks.onAddDay?.(kmAtClientX(e.clientX));
     }
+  });
+
+  // The scale line is not a drag surface, so it gets its own plain click listener and
+  // none of the axis's suppressClick machinery. Which end was pressed comes from the
+  // control's own action and never from its position on the line: the two are the same
+  // today only because the axis always runs start-then-destination.
+  scaleEl.addEventListener('click', (e) => {
+    const control = e.target.closest('[data-action^="set-"]');
+    if (!control) return;
+    callbacks.onPickEnd?.(control.dataset.action === 'set-start' ? 'start' : 'destination');
   });
 
   return { render };
