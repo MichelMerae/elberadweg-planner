@@ -1032,6 +1032,56 @@ input[type="number"]:disabled {
   user-select: none;
 }
 
+/* The resize band. Dragging it up grows the axis and shrinks the map, which is what buys
+   the elevation profile the pixels to say something — at 46px one of them is ~6m of
+   climb (spec §6b). createStripResize owns the gesture and creates this element as the
+   strip's FIRST child, so it lays out above the summary line, inside #strip's own 10px of
+   top padding: the negative margin reaches back over that padding and over the 24px at
+   the sides, putting a full-width band on the strip's top edge. The 2px bottom margin
+   returns the 8px it took, so the summary line sits exactly where it did before.
+
+   touch-action: none for the same reason .strip__axis carries it — without it a touch
+   drag scrolls the page instead of resizing. #strip already sets user-select: none, so a
+   drag selects nothing. */
+.strip__resize {
+  position: relative;
+  height: 8px;
+  margin: -10px -24px 2px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+/* The affordance: a short grip in the middle, taking .strip__handle's colour and its
+   hover/drag treatment. Not the whole band, which at the strip's full width would be a
+   1400px blue rule competing with the axis it resizes; and faint rather than absent
+   until then, because a grab target nothing marks is one nobody finds. */
+.strip__resize::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 40px;
+  height: 3px;
+  margin-left: -20px;
+  border-radius: 2px;
+  background: var(--river);
+  opacity: 0.3;
+  transition: opacity 0.12s ease;
+}
+
+.strip__resize:hover::after,
+.strip__resize:focus-visible::after,
+.strip__resize--dragging::after {
+  opacity: 1;
+}
+
+/* Inset, where .strip__handle's ring sits 1px outside: this band's own box already
+   reaches the strip's top edge, so an outward ring would be drawn over the map. */
+.strip__resize:focus-visible {
+  outline: 2px solid var(--river);
+  outline-offset: -2px;
+}
+
 .strip__summary {
   display: flex;
   justify-content: space-between;
@@ -1054,7 +1104,12 @@ input[type="number"]:disabled {
    handle element and any capture held on it (see strip.js). */
 .strip__axis {
   position: relative;
-  height: 46px;
+  /* Set on #strip by main.js from the height createStripResize reports, so a resize
+     needs no reach into strip.js's DOM — strip.js measures this box back through its own
+     measureHeight seam, which is what rescales the elevation profile. The fallback is the
+     height the axis had before it was resizable, and it is also the gesture's floor and
+     strip.js's FALLBACK_HEIGHT: three copies of 46, each in the place that needs it. */
+  height: var(--strip-axis-height, 46px);
   overflow: visible;
   touch-action: none;
 }

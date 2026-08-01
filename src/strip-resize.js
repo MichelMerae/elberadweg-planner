@@ -11,7 +11,8 @@
 // and the viewport is measured through a seam, so nothing here needs a layout
 // engine and every bound is drivable from a test.
 //
-// WIRING (Task 15), because two of these are ordering traps:
+// WIRING (done in Task 15; main.js's `wireStripSize`), because three of these are
+// ordering traps:
 //   1. Mount this AFTER createStrip. createStrip assigns `el.innerHTML`, so a
 //      handle added first is silently wiped. Afterwards it only ever replaces the
 //      innerHTML of the three rows it owns, and the handle sits outside them.
@@ -21,10 +22,16 @@
 //      strip container (`el.style.setProperty('--strip-axis-height', px + 'px')`,
 //      with `.strip__axis { height: var(--strip-axis-height, 46px) }`) keeps
 //      main.js out of strip.js's DOM; then call `strip.render()`.
-//   3. main.js's ResizeObserver watches width today. A viewport that shrinks
-//      lowers the 45% ceiling, which nothing here notices on its own — call
-//      `remeasure()` from that observer (or from a window resize) and a stored
-//      height taller than the new maximum repairs itself.
+//   3. And therefore mount this after the caller's FIRST render, not just after
+//      createStrip: onResize is called from the constructor with the height on load, so
+//      a caller that re-renders in onResize renders from inside this factory — and
+//      strip.js's argument-less render() throws until a render with arguments has given
+//      it a trip.
+//   4. A viewport that shrinks lowers the 45% ceiling, which nothing here notices on its
+//      own. Call `remeasure()` from a WINDOW resize listener and a stored height taller
+//      than the new maximum repairs itself. A ResizeObserver on the strip is not enough:
+//      the body is a 100vh grid whose map row is `minmax(0, 1fr)`, so a shorter window is
+//      absorbed by the map and the strip's own box never changes.
 //
 // CSS (Task 15) for `.strip__resize`: a full-width band along the strip's top
 // edge, ~8 px of grabbable height (it is the strip's first child, and #strip's
@@ -60,6 +67,23 @@ const FALLBACK_VIEWPORT_PX = 800;
 const ARROW_STEP_PX = 8;
 const ARROW_STEP_SHIFT_PX = 24;
 
+// How close two presses have to be to count as a double-click. 400 ms is under both
+// Chromium's and Firefox's own ~500 ms interval, so anything a platform would call a
+// double-click qualifies while a deliberate press-pause-press does not.
+//
+// The reset is detected from the PRESSES rather than from a dblclick event because
+// measured in Chromium, `el.setPointerCapture` retargets the pointerup AND both
+// compatibility click events to the CAPTURE element: with the capture held on `el`, the
+// pointerdown lands on the handle and the pointerup, click and dblclick all land on `el`.
+// An element that captures can never hear its own double-click. (Task 14 expected the
+// preventDefault below to be the risk here; it is not — a cancelled pointerdown still
+// produces both click events, at the capture target.) Listening on `el` instead is no
+// answer either: under capture `e.target` IS `el`, which is indistinguishable from a
+// genuine double-click on the strip's own padding, and that would resize the strip when a
+// user double-clicks beside the axis. This also needs no capture at all, so it is the path
+// that works on a touch screen, where a double-tap may produce no dblclick.
+const DOUBLE_PRESS_MS = 400;
+
 /**
  * Mounts the strip's resize handle and owns the height it drags.
  *
@@ -91,6 +115,11 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
   // not. One number, one owner.
   let height = MIN_HEIGHT_PX;
   let dragging = null; // { pointerId, startY, startHeight }
+  // What a second press might pair with: when the last one landed, and whether the gesture
+  // it began actually resized anything. A drag followed by a quick new press is two
+  // gestures, not a double-click (see DOUBLE_PRESS_MS).
+  let lastPressAt = -Infinity;
+  let lastGestureResized = false;
 
   const handleEl = document.createElement('div');
   handleEl.className = 'strip__resize';
@@ -211,15 +240,15 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
       endDrag();
     }
     if (e.button !== 0) return;
+    // The double-click, as the presses see it (see DOUBLE_PRESS_MS). Applied BEFORE the
+    // drag is armed, so a pointer that carries on from the second press pulls from 46 px
+    // rather than from the height it just discarded.
+    const doublePress = e.timeStamp - lastPressAt <= DOUBLE_PRESS_MS && !lastGestureResized;
+    lastPressAt = e.timeStamp;
+    if (doublePress && setHeight(MIN_HEIGHT_PX)) persist();
     dragging = { pointerId: e.pointerId, startY: e.clientY, startHeight: height };
     // No native drag of the element, no focus scroll. #strip already carries
     // user-select: none, so this is not what stops a selection.
-    //
-    // Note for the browser pass: cancelling pointerdown suppresses the
-    // compatibility MOUSE events, but per Pointer Events click/dblclick are
-    // dispatched regardless — which is what the double-click reset below depends
-    // on. Worth an eyeball at a real pointer, since jsdom synthesises dblclick
-    // for us either way.
     e.preventDefault();
     // Capture on `el`, never on the handle — strip.js's reasoning, one layer out.
     // There the first preview's re-render destroyed the handle and took the
@@ -278,11 +307,14 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
       /* already released, or never captured */
     }
     handleEl.classList.remove('strip__resize--dragging');
+    // Recorded as well as acted on: a gesture that resized something cannot be the first
+    // half of a double-click (see DOUBLE_PRESS_MS).
+    lastGestureResized = height !== done.startHeight;
     // Once per gesture, not once per move — a drag across 300 px is one preference
     // change, and the moves in between are not worth a write each. Nothing moved,
     // nothing written: that covers a plain click on the handle and both halves of
     // the double-click below.
-    if (height !== done.startHeight) persist();
+    if (lastGestureResized) persist();
   }
 
   handleEl.addEventListener('pointerdown', startDrag);
@@ -297,8 +329,14 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
   // once dragging is null.
   el.addEventListener('lostpointercapture', endDrag);
 
-  // Back to the height the strip has always had. Persisted, so the reset survives
-  // a reload as deliberately as the resize did.
+  // Back to the height the strip has always had. Persisted, so the reset survives a reload
+  // as deliberately as the resize did.
+  //
+  // The second path to the same place, and the one that only fires where there is NO
+  // pointer capture — jsdom, or a browser that refused it — because a capture retargets
+  // this event to `el` (see DOUBLE_PRESS_MS, which is the path that carries it in
+  // Chromium). Both are idempotent: whichever arrives first lands on 46 and the other
+  // finds nothing left to change.
   handleEl.addEventListener('dblclick', () => {
     if (setHeight(MIN_HEIGHT_PX)) persist();
   });
@@ -311,9 +349,13 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
    *
    * Enter and Home land on the same 46 px, because the floor is also the default.
    * Both are kept: a user pressing either means it, and collapsing them to one key
-   * would only make the other silently do nothing. PageUp/PageDown are NOT here —
-   * the pattern lists them, and a key that swallows the press without moving
-   * anything is worse than a key the page still handles.
+   * would only make the other silently do nothing.
+   *
+   * PageUp/PageDown are NOT here, and the attribution matters: they are SLIDER keys.
+   * The window-splitter pattern's own table is the arrows, Enter, Home and End (plus
+   * F6, which moves between panes rather than resizing one). The decision to omit them
+   * stands either way — Shift+Arrow is already the coarse step they would have been,
+   * and every key claimed here is a key the page no longer gets to scroll with.
    */
   function keyTargetHeight(e) {
     const direction = e.key === 'ArrowUp' ? 1 : e.key === 'ArrowDown' ? -1 : 0;
@@ -324,6 +366,13 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
   }
 
   handleEl.addEventListener('keydown', (e) => {
+    // A pointer in flight is authoritative. startDrag focuses the handle, so mid-drag
+    // every key below is within reach of the hand that is dragging: End would report and
+    // persist 450, and then either the next move overwrites it or — if the release came
+    // first — it sticks. Nothing on screen tells the user which, so the keys stand down
+    // until the pointer is up. Declined rather than swallowed, like every other key this
+    // handle has no business taking.
+    if (dragging) return;
     const target = keyTargetHeight(e);
     if (target === null) return;
     e.preventDefault(); // the arrows, Home and End would all scroll the page

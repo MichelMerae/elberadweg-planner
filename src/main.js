@@ -11,6 +11,7 @@ import { createMap } from './map.js';
 import { createBanner } from './ui.js';
 import { round1, townKey, poiKey } from './ui-util.js';
 import { createStrip } from './strip.js';
+import { createStripResize } from './strip-resize.js';
 import { createDayPanel } from './day-panel.js';
 import { createPlaces } from './places.js';
 import { createPlansBar } from './plans-bar.js';
@@ -180,13 +181,66 @@ async function boot() {
     },
   });
 
-  // Every px in the strip's DOM derives from the axis width at render time, so a
-  // width change (resizing the window, opening devtools) would otherwise leave
-  // blocks and handles drawn at the old scale — and a remainder click, which
-  // measures the axis rect live, would then disagree with them about where a km
-  // sits. No km changes, so re-laying-out the state the strip already holds is
-  // the whole fix; that is what render() with no argument does.
-  new ResizeObserver(() => strip.render()).observe(stripEl);
+  // Everything that re-lays-out the strip from OUTSIDE a render: the drag handle that
+  // resizes it, the observer on its box, and the window listener that lowers its ceiling.
+  // Declared here, beside the strip, and CALLED at the bottom of boot — after the first
+  // renderAll — because that ordering is load-bearing. All three reach `strip.render()`
+  // with no argument, and render() throws without a trip, which only a render WITH
+  // arguments can give it. createStripResize reports the height it loaded from its own
+  // constructor, synchronously, so it cannot be mounted any earlier; the observer's
+  // initial callback is asynchronous and so has never been able to fire first, which is a
+  // guarantee this would rather not depend on. (strip-resize.test.js's live-seam block
+  // pins the constructor half.)
+  function wireStripSize() {
+    // The axis height travels as a custom property on the container: `.strip__axis` reads
+    // it through CSS and strip.js measures the axis back through its own measureHeight
+    // seam, so the elevation profile rescales without main.js reaching into strip.js's
+    // DOM or strip.js learning that a resize handle exists. The floor, 46, lives in
+    // style.css as the var() fallback.
+    const stripResize = createStripResize({
+      el: stripEl,
+      // A UI preference, not plan data: one height for the app, kept out of the plans
+      // blob so it is neither per-plan nor archived with a corridor change (spec §6b).
+      storage: window.localStorage,
+      onResize: (heightPx) => {
+        stripEl.style.setProperty('--strip-axis-height', `${heightPx}px`);
+        strip.render();
+        // The strip and the map are two rows of one `auto minmax(0, 1fr) auto` grid at
+        // height 100vh, so every pixel the strip takes comes off the map — and Leaflet
+        // learns its container's new size only when told. It tracks the WINDOW itself,
+        // which is why this is the only size change that has to say so.
+        map.invalidate();
+      },
+    });
+
+    // Every px in the strip's DOM derives from the axis width at render time, so a
+    // width change (resizing the window, opening devtools) would otherwise leave
+    // blocks and handles drawn at the old scale — and a remainder click, which
+    // measures the axis rect live, would then disagree with them about where a km
+    // sits. No km changes, so re-laying-out the state the strip already holds is
+    // the whole fix; that is what render() with no argument does.
+    //
+    // Keyed on the width even though the observer is notified of both dimensions: the
+    // strip's box grows in height whenever the handle above grows the axis, and that path
+    // has already re-rendered — at one render per pointermove of a resize drag, a second
+    // rebuild here would double the cost of the gesture to redraw an identical axis. A
+    // height change the app did NOT cause (a web font landing and reflowing the summary
+    // line) leaves the axis box, and every px derived from it, exactly as it was.
+    let lastWidth = null;
+    new ResizeObserver((entries) => {
+      const { width } = entries[entries.length - 1].contentRect;
+      if (width === lastWidth) return;
+      lastWidth = width;
+      strip.render();
+    }).observe(stripEl);
+
+    // The strip's ceiling is 45% of the VIEWPORT, and a window that gets shorter lowers
+    // it. The observer above cannot see that happen: the body is a 100vh grid whose middle
+    // row is `minmax(0, 1fr)`, so the map absorbs the loss and the strip's own box never
+    // changes. Without this the ceiling would re-apply only on the next reload, where
+    // createStripResize's load-time repair catches it.
+    window.addEventListener('resize', () => stripResize.remeasure());
+  }
 
   // The right panel: the focused day and nothing else.
   const dayPanel = createDayPanel({
@@ -815,6 +869,8 @@ async function boot() {
   renderPlansBar();
   renderBanner();
   renderAll();
+  // Only now that the strip has been rendered WITH a trip: see wireStripSize.
+  wireStripSize();
   // Tiles/layout can settle a frame late; nudge Leaflet to remeasure.
   requestAnimationFrame(() => map.invalidate());
 }
