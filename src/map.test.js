@@ -113,6 +113,14 @@ function poiMarkers() {
   );
 }
 
+// The one marker the constructor builds, and the only one wearing the start
+// variant — the day pins carry 'day' and the POIs are not pin icons at all.
+function startPin() {
+  return createdMarkers.find((m) =>
+    (m.options.icon?.options?.className || '').includes('pin-icon--start'),
+  );
+}
+
 function tooltipText(marker) {
   return marker.getTooltip()?.getContent();
 }
@@ -537,5 +545,41 @@ describe('createMap - POI markers', () => {
     api.setPoiMarkers(DENSE);
 
     expect(capturedMap.hasLayer(temp)).toBe(false);
+  });
+});
+
+describe('createMap - the start pin', () => {
+  // Where the trip starts is route DATA, not a fact about the map: the pin used to
+  // spell one place name out in this module, which is a line to get wrong quietly
+  // the next time the route changes.
+  it('names the origin in the start pin title', () => {
+    createMap({ routeFeature: ROUTE, originName: 'Cuxhaven' });
+
+    expect(startPin().options.title).toBe('Start — Cuxhaven');
+  });
+
+  // map.js imports nothing but Leaflet and stays mountable on its own, so a caller
+  // that passes no origin gets a pin that claims nothing — not 'Start — undefined',
+  // and not some other trip's start town left behind as a fallback.
+  it('leaves the start pin title bare when no origin name is given', () => {
+    createMap({ routeFeature: ROUTE });
+
+    expect(startPin().options.title).toBe('Start');
+  });
+
+  // The pin's LETTER was a hardcoded "H" for Hamburg. Fixing the tooltip while
+  // leaving the glyph behind would have left the wrong initial on the map — the
+  // more visible of the two — so it is derived from the same name.
+  it('draws the origin initial on the pin', () => {
+    createMap({ routeFeature: ROUTE, originName: 'Cuxhaven' });
+
+    expect(startPin().options.icon.options.html).toContain('C');
+    expect(startPin().options.icon.options.html).not.toContain('H');
+  });
+
+  it('draws a neutral glyph, never a stale initial, with no origin name', () => {
+    createMap({ routeFeature: ROUTE });
+
+    expect(startPin().options.icon.options.html).not.toContain('H');
   });
 });
