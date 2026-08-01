@@ -2197,12 +2197,25 @@ git commit -m "feat(day-panel): finish the trip at this day's end"
 
 ### Standing conventions for all four tasks
 
-- **An assertion that would pass under its own inversion is worthless.** Five have
-  already been found on this branch (a payload that could not escape its `title`
-  context; a memo test that moved both window ends and so pinned neither; a row cap
-  pinned by count only, so keeping the LAST 40 passed; a map cap pinned only against an
-  ascending fixture; an ordering assertion standing in for a conversion assertion).
+- **An assertion that would pass under its own inversion is worthless.** Five are
+  recorded in the ledger, all of them assertions (a payload that could not escape its
+  `title` context; a memo test that moved both window ends and so pinned neither; a row
+  cap pinned by count only, so keeping the LAST 40 passed; a map cap pinned only against
+  an ascending fixture; an ordering assertion standing in for a conversion assertion).
   Every obligation above names the mutation it must kill; run them.
+- **The same failure wears the clothes of a browser verification, so apply the rule
+  there too: before writing one, ask what value the instrument would report if the thing
+  under test were broken. If you cannot answer, the instrument is wrong — not the test.**
+  Task 11's obligation 8 is this feature's example and was caught in review rather than
+  in use: verifying that the elevation memo re-samples when one window end moves, by
+  comparing ASCENT TOTALS, on a corridor whose median weaker-side ratio is 0.947. Two
+  different stretches of the Elbe report nearly the same climb, so a stale memo would
+  have reported "fine". The px-level `d` attribute answers differently when the memo is
+  stale; the climb figure does not. **Every browser bullet in these four tasks should be
+  read that way before it is run** — several assert a NAME and a NUMBER together for
+  exactly this reason (the road-past clause, the two directions of `roadPast`), and the
+  ones that quote a figure verbatim into the ledger are the ones that can be checked
+  afterwards by somebody who was not watching.
 - **Mutation trees go in the session scratchpad, outside the project — and the hazard is
   not `.cache`, it is ANY sibling copy.** Read the ledger's corrected form before you
   run one; the short version, because these four tasks will run five sweeps between
