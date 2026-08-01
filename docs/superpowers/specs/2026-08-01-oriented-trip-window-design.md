@@ -23,11 +23,21 @@ A trip is **an oriented window on the road**: a `startKm`, a `destinationKm`, an
 | Picking a start / finish | **Armed map click** — a control arms the next route click |
 | Precision help | After the click, offer to **snap to the nearest town** |
 | Direction | **Implied by start/destination order**, not a separate flag |
+| Direction changes | **Fixed once days exist.** Both ends are set at trip setup; a flip afterwards is refused |
 | Strip scope | **The trip only**, rescaled, with a stub at each end where the road continues |
 | Displayed km | **Relative to the start** — Hamburg reads km 0 |
 | Stored km | **Absolute route km, unchanged** |
 | Per-day climb | On the strip block's **second label line**, beside the overnight town |
+| Strip height | **User-resizable**, dragged from its top edge, persisted |
 | Existing plans | Default to the whole road, so nothing changes for them |
+
+### Why direction is fixed rather than reversible
+
+Michel's framing, and it removes a whole branch: *"there is no such a case — from the day start it should go just in the direction to the destination, the user should set the start and the destination from the beginning."*
+
+So both ends are chosen at trip setup, before there are days. Days then only ever run start → destination. Changing an end **in the same direction** afterwards is allowed and reflows the days. Changing one so the direction would *flip* is **refused**, with a message pointing at Reset trip. No day-reordering arithmetic, no overnight towns migrating between reversed boundaries, and nothing that can silently discard a plan.
+
+That makes the empty-plan state a real trip-setup step, which it is not today — it currently says "click the strip to pick where day 1 ends", quietly presuming the road's own start.
 
 ### Why an armed click rather than a plain one
 
@@ -117,6 +127,31 @@ The `full` tier already renders two lines. The second gains the climb:
 
 Setting a destination is the same flow. Additionally, a day card gets **`Finish here`**, which sets `destinationKm` to that day's end — the "after planning some days, select this stop as destination" from the original brainstorm.
 
+**A refused flip reads plainly.** Picking a destination behind the start (or a start beyond the destination) while days exist shows *"That would reverse the trip. Reset the trip to ride Dresden → Hamburg instead."* — the direction named, not just refused.
+
+### 6a. Trip setup, for an empty plan
+
+A plan with no days shows a setup step rather than "click the strip":
+
+> **Where are you riding?**
+> Start — *not set* · `Set start`
+> Finish — *not set* · `Set finish`
+
+Both default to the road's ends (Cuxhaven → Prague), so the step can be skipped entirely by anyone happy with the whole road. Once both are set the panel switches to the normal "add your first day" state and reports the trip's length and direction: *"Hamburg → Dresden · 649 km downstream"*.
+
+Direction is named in words because the sign of a subtraction is not something a user should have to infer.
+
+### 6b. A vertically resizable strip
+
+At 46 px the profile is cramped — 1 px is ~6 m of elevation, so a 30 m river terrace is five pixels. The strip gets a drag handle on its **top edge**; dragging up grows the axis and shrinks the map.
+
+- Only the **axis** grows. The summary and scale lines are text and keep their heights.
+- Bounds: 46 px (today's height) to 45% of the viewport. Below the minimum the handles stop being grabbable; above ~45% the map stops being useful.
+- Persisted in `localStorage` under `elberadweg-strip-height` — a UI preference, not plan data, so it is not per-plan and it is not archived with a corridor change.
+- Double-clicking the handle returns it to 46 px.
+- The profile rescales for free: `strip.js` already reads the axis height through an injectable `measureHeight` seam, and `profilePoints` already takes a height. The `ResizeObserver` in `main.js` currently watches width only and must watch both.
+- At taller sizes the axis has room the labels do not currently use. Out of scope here, noted as the obvious follow-up: gridlines at round elevations, and the climb figure on more tiers.
+
 ### 7. Storage
 
 Schema **v4**. Each plan gains `startKm` and `destinationKm`. A v3 plan loads with `startKm: 0` and `destinationKm: totalKm`, which is exactly today's behaviour — **no reset, no data loss, nothing archived.** The `routeId` check from v3 is untouched.
@@ -126,25 +161,26 @@ Schema **v4**. Each plan gains `startKm` and `destinationKm`. A v3 plan loads wi
 - `Math.abs(destinationKm - startKm) >= MIN_DAY_KM`, or the pick is refused with a reason.
 - Both ends clamped to `[0, meta.totalKm]`.
 - A window that shrinks below the planned distance clamps the last day and drops days that no longer fit, reporting how many.
-- Reversing a trip (start and destination swapped) keeps the days' *lengths* and reverses their order, rather than discarding the plan.
+- **A pick that would flip the direction of a plan with days is refused**, naming the direction it would have produced. With no days, a flip is free — that is trip setup.
 
 ## Testing
 
-New: `tripKm` translation including a descending trip; `itinerary` chaining downstream; `boundaries` refusing a sub-`MIN_DAY_KM` window in both directions; `kmToX` monotonic left-to-right for both orderings; `ascentBetween` swapping totals with direction; storage v3 → v4 defaulting; the picking flow's town-snap offer and its cancel path.
+New: `tripKm` translation including a descending trip; `itinerary` chaining downstream; `boundaries` refusing a sub-`MIN_DAY_KM` window in both directions; `kmToX` monotonic left-to-right for both orderings; `ascentBetween` swapping totals with direction; storage v3 → v4 defaulting; the picking flow's town-snap offer, its cancel path and its refused-flip message; the strip's resize bounds, persistence and double-click reset.
 
-Re-read, not just re-run: every existing `boundaries.test.js` and `itinerary.test.js` case, because they encode an ascending km-0 origin as an assumption rather than as a parameter.
+Re-read, not just re-run: every existing `boundaries.test.js` and `itinerary.test.js` case, because they encode an ascending km-0 origin as an assumption rather than as a parameter. A test that passes because both sides moved the same way has told us nothing.
 
 ## Out of scope
 
-Route variants (left/right bank, the Prague spur) — still the largest gap. Accommodation. A second trip on one road. Round trips (start == destination). Per-day gradient colouring.
+Route variants (left/right bank, the Prague spur) — still the largest gap. Accommodation. A second trip on one road. Round trips (`start == destination`). Per-day gradient colouring. Reversing a plan in place, which the fixed-direction decision removes. Elevation gridlines at the taller strip sizes.
 
 ## Sequencing note
 
-This is larger than either feature built on 2026-07-31, and `boundaries.js`/`itinerary.js` are the app's arithmetic core. It splits cleanly:
+This is larger than either feature built on 2026-07-31, and `boundaries.js`/`itinerary.js` are the app's arithmetic core. **One plan, five phases, merged once:**
 
 1. **Oriented model + storage v4** — no UI change; every plan still spans the whole road.
 2. **Display translation** — `tripKm` and its call sites.
 3. **Strip rescale + stubs + per-day climb label.**
-4. **The picking UI** — armed click, town snap, `Finish here`.
+4. **The picking UI** — trip setup, armed click, town snap, `Finish here`, refused flips.
+5. **The resizable strip** — drag handle, bounds, persistence.
 
-Steps 1–3 are invisible to a user on their own, which is an argument for doing all four before merging, and against merging any of them half-done.
+Phases 1–3 are invisible to a user on their own, which argues for finishing all five before merging and against merging any of them half-done. Phase 5 is independent of 1–4 and could be pulled forward if the profile needs to be readable sooner.
