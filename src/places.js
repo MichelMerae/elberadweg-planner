@@ -19,6 +19,11 @@
 // each suits the day's END — distance to it, weighted against the detour off route — and
 // its measure is symmetric, so the ranking already means the same thing in both
 // directions. Best-first is the point of that list; ride order would be a downgrade.
+// Symmetric UP TO TIES, to be exact: equally-ranked towns fall back on the sorted-by-
+// absolute-km order they arrive in, which is direction-blind, so two of them either side
+// of the day's end swap rows depending on the way the rider is going. The eight that
+// survive are the same eight either way — the tie-break cannot change the set — and the
+// ranking is genuinely equal, so this is left alone rather than fixed.
 
 import { esc, round1, townKey, poiKey, favGlyphFor } from './ui-util.js';
 // The one model import, and only for the key builder — a pure function, no store
