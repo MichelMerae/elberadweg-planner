@@ -8,10 +8,13 @@ import { createStripResize } from './strip-resize.js';
 const HEIGHT_KEY = 'elberadweg-strip-height';
 const MIN_HEIGHT = 46;
 
-// 45% of 800 is 360: a round maximum, so a clamp test reads as arithmetic rather
-// than as a fixture.
-const VIEWPORT = 800;
-const MAX_HEIGHT = 360;
+// 45% of 1000 is 450: a round maximum, so a clamp test reads as arithmetic rather
+// than as a fixture. Deliberately NOT the module's own 800 px fallback viewport —
+// at 800 every ceiling below would be the right number for two different reasons,
+// and a broken seam would still pass everywhere except the one test that pins the
+// fallback on purpose.
+const VIEWPORT = 1000;
+const MAX_HEIGHT = 450;
 
 // storage.test.js's fake, with vi.fn() around each method: several tests below
 // are about how MANY writes a gesture spends, not only about what it wrote.
@@ -117,8 +120,12 @@ function dblclick(target) {
   target.dispatchEvent(new window.MouseEvent('dblclick', { bubbles: true, cancelable: true }));
 }
 
+// Returns the event, so a test can ask whether the handle swallowed the press or
+// left it to the page.
 function press(target, key, { shiftKey = false } = {}) {
-  target.dispatchEvent(new window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, key, shiftKey }));
+  const event = new window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, key, shiftKey });
+  target.dispatchEvent(event);
+  return event;
 }
 
 describe('createStripResize - the handle itself', () => {
@@ -144,6 +151,8 @@ describe('createStripResize - the handle itself', () => {
     expect(handle.getAttribute('aria-valuenow')).toBe('120');
     expect(handle.getAttribute('aria-valuemin')).toBe(String(MIN_HEIGHT));
     expect(handle.getAttribute('aria-valuemax')).toBe(String(MAX_HEIGHT));
+    // A bare 120 on a scale nobody stated says very little out loud.
+    expect(handle.getAttribute('aria-valuetext')).toBe('120 pixels');
   });
 
   it('captures the pointer on the strip container and never on the handle', () => {
@@ -164,6 +173,18 @@ describe('createStripResize - the handle itself', () => {
     fire(mounted.el, 'pointerup', { y: 500, pointerId: 7 });
 
     expect(mounted.el.releasePointerCapture).toHaveBeenCalledWith(7);
+  });
+
+  it('focuses the handle on press, so the keys are reachable after a mouse drag', () => {
+    // preventDefault on pointerdown suppresses the compatibility mousedown and with
+    // it the click-focus this element would otherwise get. Without an explicit
+    // focus, every key below could only be reached by Tabbing back to a handle the
+    // user is already holding.
+    const mounted = mount({ stored: '100' });
+
+    fire(mounted.handle, 'pointerdown', { y: 500 });
+
+    expect(document.activeElement).toBe(mounted.handle);
   });
 
   it('marks the handle while a drag is in flight and unmarks it on release', () => {
@@ -265,11 +286,13 @@ describe('createStripResize - bounds', () => {
   });
 
   it('takes the maximum from the viewport seam, not from a constant', () => {
-    const mounted = mount({ stored: '300', viewport: 1000 });
+    // 600 px is neither the harness viewport nor the module's fallback, so 270 can
+    // only have come from the seam.
+    const mounted = mount({ stored: '200', viewport: 600 });
 
     drag(mounted, 500, 0);
 
-    expect(mounted.lastReported()).toBe(450);
+    expect(mounted.lastReported()).toBe(270);
   });
 
   it('never reports an out-of-bounds height mid-drag, only at the end', () => {
@@ -394,6 +417,39 @@ describe('createStripResize - persistence', () => {
     expect(mounted.lastReported()).toBe(140);
   });
 
+  it('ends the drag and persists when the capture is lost', () => {
+    // The exit a real browser takes most often: a native gesture, a dialog, an
+    // alt-tab. strip.js leans on this listener for the same reason.
+    const mounted = mount({ stored: '100' });
+
+    fire(mounted.handle, 'pointerdown', { y: 500 });
+    fire(mounted.el, 'pointermove', { y: 460 });
+    fire(mounted.el, 'lostpointercapture', { y: 460 });
+
+    expect(mounted.lastReported()).toBe(140);
+    expect(mounted.stored()).toBe('140');
+    expect(mounted.handle.classList.contains('strip__resize--dragging')).toBe(false);
+
+    fire(mounted.el, 'pointermove', { y: 300 });
+    expect(mounted.lastReported()).toBe(140);
+  });
+
+  it('stays a no-op when our own release fires lostpointercapture', () => {
+    // endDrag releases the capture itself, and the browser answers with a
+    // lostpointercapture for the pointer that just ended. A second report or a
+    // second write here would be the module answering its own echo.
+    const mounted = mount({ stored: '100' });
+
+    drag(mounted, 500, 460);
+    expect(mounted.writes()).toBe(1);
+    mounted.onResize.mockClear();
+
+    fire(mounted.el, 'lostpointercapture', { y: 460 });
+
+    expect(mounted.writes()).toBe(1);
+    expect(mounted.onResize).not.toHaveBeenCalled();
+  });
+
   it('survives a storage that cannot be written', () => {
     const mounted = mount({ storage: createUnwritableStorage({ [HEIGHT_KEY]: '100' }) });
 
@@ -424,6 +480,24 @@ describe('createStripResize - a second pointer', () => {
 
     expect(mounted.lastReported()).toBe(160);
     expect(mounted.stored()).toBe('160');
+  });
+
+  it('re-anchors when the same pointer presses again after a lost release', () => {
+    // The stale drag anchored at y 500 and 100 px. A press that resumed from that
+    // anchor would jump the strip by everything the cursor travelled while nothing
+    // was held — here it would report 410 rather than 150.
+    const mounted = mount({ stored: '100' });
+
+    fire(mounted.handle, 'pointerdown', { y: 500 });
+    fire(mounted.el, 'pointermove', { y: 460 }); // 140 px, and then the release goes missing
+
+    fire(mounted.handle, 'pointerdown', { y: 200 });
+    fire(mounted.el, 'pointermove', { y: 190 });
+
+    expect(mounted.lastReported()).toBe(150); // 10 px up from the NEW anchor
+    // The abandoned drag was still a resize the user watched happen, so ending it
+    // wrote it — and the new gesture will write its own on release.
+    expect(mounted.stored()).toBe('140');
   });
 });
 
@@ -554,14 +628,50 @@ describe('createStripResize - keyboard', () => {
     expect(mounted.lastReported()).toBe(MIN_HEIGHT);
   });
 
-  it('leaves other keys to the page', () => {
+  it('resets to 46 px on Enter, the double-click by keyboard', () => {
+    const mounted = mount({ stored: '300' });
+
+    press(mounted.handle, 'Enter');
+
+    expect(mounted.lastReported()).toBe(MIN_HEIGHT);
+    expect(mounted.stored()).toBe(String(MIN_HEIGHT));
+  });
+
+  it('jumps to the ceiling on End and the floor on Home', () => {
+    const mounted = mount({ stored: '100' });
+
+    press(mounted.handle, 'End');
+    expect(mounted.lastReported()).toBe(MAX_HEIGHT);
+    expect(mounted.stored()).toBe(String(MAX_HEIGHT));
+
+    press(mounted.handle, 'Home');
+    expect(mounted.lastReported()).toBe(MIN_HEIGHT);
+    expect(mounted.stored()).toBe(String(MIN_HEIGHT));
+  });
+
+  it('takes End from the current viewport, not from a remembered ceiling', () => {
+    const mounted = mount({ stored: '100' });
+    mounted.setViewport(600);
+
+    press(mounted.handle, 'End');
+
+    expect(mounted.lastReported()).toBe(270);
+  });
+
+  it('leaves keys it does not own to the page, and swallows the ones it does', () => {
+    // A key that reports nothing must also not preventDefault: swallowing
+    // PageDown to do nothing is worse than letting the page scroll.
     const mounted = mount({ stored: '100' });
     mounted.onResize.mockClear();
 
-    press(mounted.handle, 'ArrowLeft');
-    press(mounted.handle, 'Enter');
-
+    for (const key of ['ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Escape', ' ', 'Tab']) {
+      expect(press(mounted.handle, key).defaultPrevented).toBe(false);
+    }
     expect(mounted.onResize).not.toHaveBeenCalled();
+
+    for (const key of ['ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter']) {
+      expect(press(mounted.handle, key).defaultPrevented).toBe(true);
+    }
   });
 
   it('keeps aria-valuenow in step with the height it reports', () => {
@@ -572,6 +682,7 @@ describe('createStripResize - keyboard', () => {
     press(mounted.handle, 'ArrowUp');
 
     expect(mounted.handle.getAttribute('aria-valuenow')).toBe('108');
+    expect(mounted.handle.getAttribute('aria-valuetext')).toBe('108 pixels');
   });
 });
 

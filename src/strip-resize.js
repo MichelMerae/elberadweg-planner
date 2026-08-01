@@ -28,7 +28,7 @@
 //
 // CSS (Task 15) for `.strip__resize`: a full-width band along the strip's top
 // edge, ~8 px of grabbable height (it is the strip's first child, and #strip's
-// 10px/24px padding is what a negative margin would have to reach back over),
+// `10px 24px 9px` padding is what a negative margin would have to reach back over),
 // `cursor: ns-resize`, and `touch-action: none` — without which a touch drag
 // scrolls the page instead of resizing, the same reason .strip__axis carries it.
 // A hover/`:focus-visible` affordance and a `.strip__resize--dragging` state
@@ -131,6 +131,11 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
     handleEl.setAttribute('aria-valuenow', String(height));
     handleEl.setAttribute('aria-valuemin', String(min));
     handleEl.setAttribute('aria-valuemax', String(max));
+    // A bare "120" reads as a position on a scale nobody stated. This handle is
+    // created once and never rebuilt, so unlike strip.js's boundary sliders — which
+    // are destroyed by the render that follows every change and need a live region
+    // to speak at all — what it says here is actually announced.
+    handleEl.setAttribute('aria-valuetext', `${height} pixels`);
   }
 
   /**
@@ -193,10 +198,19 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
   // --- The drag -----------------------------------------------------------
 
   function startDrag(e) {
-    // A second pointer — a resting palm, a second finger — must not take over a
-    // drag in flight; strip.js keeps its boundary drags to the pointer that
-    // started them for the same reason.
-    if (dragging || e.button !== 0) return;
+    if (dragging) {
+      // A second pointer — a resting palm, a second finger — must not take over a
+      // drag in flight; strip.js keeps its boundary drags to the pointer that
+      // started them for the same reason.
+      if (e.pointerId !== dragging.pointerId) return;
+      // The SAME pointer pressing again is proof the previous gesture is over: its
+      // release went missing (capture lost to a native gesture, a dialog, a window
+      // switch). Ending the stale drag rather than ignoring the press means the new
+      // one anchors on the CURRENT height, instead of resuming from a startY the
+      // user let go of a minute ago and jumping the strip on the first move.
+      endDrag();
+    }
+    if (e.button !== 0) return;
     dragging = { pointerId: e.pointerId, startY: e.clientY, startHeight: height };
     // No native drag of the element, no focus scroll. #strip already carries
     // user-select: none, so this is not what stops a selection.
@@ -221,6 +235,15 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
       /* no capture available, or a pointerId that is already gone */
     }
     handleEl.classList.add('strip__resize--dragging');
+    // The preventDefault above suppresses the compatibility mousedown, and with it
+    // the click-focus a press would normally have given this element — so without
+    // this the arrow keys and the reset below are unreachable after a mouse drag
+    // until the user Tabs back to a handle they are already holding. strip.js
+    // focuses its boundary handle at the end of startDrag for the same reason.
+    // preventScroll: the strip sits at the bottom of a height:100vh,
+    // overflow:hidden body, and scrolling that to "reveal" the handle shoves the
+    // whole app off screen.
+    handleEl.focus({ preventScroll: true });
   }
 
   function moveDrag(e) {
@@ -280,16 +303,35 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
     if (setHeight(MIN_HEIGHT_PX)) persist();
   });
 
-  handleEl.addEventListener('keydown', (e) => {
+  /**
+   * The height a keypress asks for, or null for a key this handle has no business
+   * taking. The arrows nudge; Enter is the double-click's keyboard equivalent, and
+   * Home/End are what a splitter user reaches for (ARIA APG's window-splitter
+   * pattern, the same pattern role="separator" claims).
+   *
+   * Enter and Home land on the same 46 px, because the floor is also the default.
+   * Both are kept: a user pressing either means it, and collapsing them to one key
+   * would only make the other silently do nothing. PageUp/PageDown are NOT here —
+   * the pattern lists them, and a key that swallows the press without moving
+   * anything is worse than a key the page still handles.
+   */
+  function keyTargetHeight(e) {
     const direction = e.key === 'ArrowUp' ? 1 : e.key === 'ArrowDown' ? -1 : 0;
-    if (!direction) return;
-    e.preventDefault(); // arrows would scroll the page
-    const step = e.shiftKey ? ARROW_STEP_SHIFT_PX : ARROW_STEP_PX;
+    if (direction) return height + direction * (e.shiftKey ? ARROW_STEP_SHIFT_PX : ARROW_STEP_PX);
+    if (e.key === 'Enter' || e.key === 'Home') return MIN_HEIGHT_PX;
+    if (e.key === 'End') return bounds().max;
+    return null;
+  }
+
+  handleEl.addEventListener('keydown', (e) => {
+    const target = keyTargetHeight(e);
+    if (target === null) return;
+    e.preventDefault(); // the arrows, Home and End would all scroll the page
     // Persisted per press: a keypress is a whole gesture, with no release to wait
     // for. Held-down repeats write once per repeat, which is a handful of
     // localStorage writes of a five-character string — cheaper than the axis
     // rebuild each one already pays for.
-    if (setHeight(height + direction * step)) persist();
+    if (setHeight(target)) persist();
   });
 
   // No destroy: nothing in this codebase has one (createStrip, createMap and
@@ -297,6 +339,10 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
   // mounted once onto an element that lives as long as the page. Adding one here
   // alone would be a seam nobody holds the other end of.
   return {
+    // No production caller yet: onResize is how the height travels, and this is here
+    // for the caller that needs to ask rather than be told (map sizing, a debug
+    // readout). Not a live seam — don't read the strip's height through it on the
+    // assumption something keeps it warm.
     height: () => height,
     /**
      * Re-clamps the current height against the CURRENT bounds, reporting and
@@ -304,6 +350,12 @@ export function createStripResize({ el, storage, onResize, measureViewport } = {
      * this module measures the viewport only when the pointer moves — so a window
      * that shrinks, a rotated phone or a split screen can leave the strip taller
      * than the map can afford until someone asks.
+     *
+     * The repair is PERMANENT, because it is persisted: shrinking the window once
+     * discards a taller preference for good, and growing it back leaves the strip
+     * where the shrink put it. Deliberate, and the same trade the load-time repair
+     * makes — a stored height the current viewport cannot honour is a height this
+     * module would rather forget than keep re-clamping behind the user's back.
      */
     remeasure: () => {
       if (setHeight(height)) persist();
