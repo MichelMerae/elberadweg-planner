@@ -705,22 +705,1488 @@ export function kmToX(km, { startKm = 0, endKm, width } = {}) {
 
 ## Phase 4 — picking
 
+> **Expanded from outcomes into steps at the start of Task 10**, as the Self-Review's
+> placeholder scan required, against the code phases 1–3 actually produced rather than
+> the shape this plan guessed at. Three things the expansion had to settle, all recorded
+> here because they are the reason the steps below are not the placeholder's steps:
+>
+> 1. **`main.js` has no test file.** Every guard the placeholder left in a click handler
+>    would have been unverifiable. So the guard chain moved into `trip.js`
+>    (`proposeEnd`) and the day-trimming into `itinerary.js` (`fitDaysToLength`), both
+>    pure and both unit-tested; `main.js` keeps only wiring and wording, which the
+>    browser pass verifies and the ledger quotes.
+> 2. **A window can shrink a plan, so Tasks 11 and 12 could not split the way the
+>    placeholder split them.** The moment a control can move an end, the guards and the
+>    reflow must both exist or the branch carries a state that strands days. Task 11
+>    therefore lands the controls **and** the full guard chain **and** the reflow; Task
+>    12 lands what the spec adds on top — the town snap, the picked names, and the
+>    direction named in the refusal. Each task leaves the app correct.
+> 3. **A picked NAME is derived, never stored** (see Task 12, Step 1). No schema bump,
+>    and no second source for a fact the km already carry.
+
 ### Task 10: Picking mode on the map
 
-- [ ] `createMap` gains `setPickingMode('start'|'destination'|null)` and an `onPickPoint` callback; a `.map--picking` class sets the crosshair cursor; a route click while armed fires `onPickPoint` **instead of** `onRouteClick`, so a custom stop is never created by a picking click. Test both paths.
+**Files:**
+- Modify: `src/map.js`, `src/style.css`, `src/main.js`
+- Test: `src/map.test.js`
 
-### Task 11: Trip setup and the two controls
+Two changes that belong in one task and in this order: the map learns to be *armed*
+for a pick, and its start pin stops being a fact about the road. The pin second,
+because Task 11 makes the start user-movable and a pin nailed to
+`routeFeature.geometry.coordinates[0]` is then visibly wrong on every window a rider
+builds — and on a downstream whole-road trip it already is, sitting at the rider's
+DESTINATION with the origin's name on it.
 
-- [ ] The scale-line endpoints become buttons (`Set start`, `Set finish`). Empty-plan panel becomes the setup step from spec §6a, naming the direction in words. Both ends default to the road's ends so the step is skippable.
+- [ ] **Step 1: Write the failing picking tests** (`src/map.test.js`)
 
-### Task 12: Town snapping and refused flips
+```js
+describe('createMap - picking mode', () => {
+  function clickAt(lat, lng) {
+    capturedMap.fire('click', { latlng: L.latLng(lat, lng) });
+  }
 
-- [ ] After a pick, if a town lies within 3 km, offer it by name and km; one press snaps. A pick that would flip direction with days present is refused with the message from spec §6 — test the message names the direction.
-- [ ] **Guard order:** the `MIN_DAY_KM` length guard (spec §8) runs **before** `wouldReverse`. A pick at or on top of the other end is refused as *too short*, never as a reversal — `wouldReverse` conflates a zero-length window with a flip on downstream trips, so it must never see one. Also validate the pick is a finite km before either guard; `wouldReverse` throws on non-finite ends by design (Task 1 quality review).
+  it('sends a click to onRouteClick when nothing is armed', () => {
+    const onRouteClick = vi.fn();
+    const onPickPoint = vi.fn();
+    createMap({ routeFeature: ROUTE, onRouteClick, onPickPoint });
+
+    clickAt(53.3, 10.5);
+
+    expect(onRouteClick).toHaveBeenCalledWith([10.5, 53.3]);
+    expect(onPickPoint).not.toHaveBeenCalled();
+  });
+
+  // The exclusivity IS the feature: a route click already means "add a custom stop to
+  // the focused day", so an armed click that also did that would drop a 📌 on the plan
+  // every time the rider chose where to begin.
+  it('sends an armed click to onPickPoint INSTEAD, never to onRouteClick', () => {
+    const onRouteClick = vi.fn();
+    const onPickPoint = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onRouteClick, onPickPoint });
+
+    api.setPickingMode('start');
+    clickAt(53.3, 10.5);
+
+    expect(onPickPoint).toHaveBeenCalledWith([10.5, 53.3], 'start');
+    expect(onRouteClick).not.toHaveBeenCalled();
+  });
+
+  it('reports the end it was armed for, not a fixed one', () => {
+    const onPickPoint = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onPickPoint });
+
+    api.setPickingMode('destination');
+    clickAt(53.3, 10.5);
+
+    expect(onPickPoint).toHaveBeenCalledWith([10.5, 53.3], 'destination');
+  });
+
+  // main.js owns the mode (it holds the prompt, the two controls' pressed state and
+  // the Escape path), so nothing here disarms itself — and a mode that could be armed
+  // and not cleared would leave every later click picking instead of adding stops.
+  it('stays armed until it is disarmed, and then routes clicks normally again', () => {
+    const onRouteClick = vi.fn();
+    const onPickPoint = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onRouteClick, onPickPoint });
+
+    api.setPickingMode('start');
+    clickAt(53.3, 10.5);
+    clickAt(53.0, 11.4);
+    expect(onPickPoint).toHaveBeenCalledTimes(2);
+    expect(onRouteClick).not.toHaveBeenCalled();
+
+    api.setPickingMode(null);
+    clickAt(52.5, 12.3);
+    expect(onPickPoint).toHaveBeenCalledTimes(2);
+    expect(onRouteClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks the container while armed and unmarks it after', () => {
+    const api = createMap({ routeFeature: ROUTE });
+    const container = capturedMap.getContainer();
+
+    api.setPickingMode('start');
+    expect(container.classList.contains('map--picking')).toBe(true);
+    api.setPickingMode(null);
+    expect(container.classList.contains('map--picking')).toBe(false);
+  });
+});
+```
+
+**Kills:** the exclusivity test kills two independent `if`s in place of the branch (both
+callbacks fire); the `'destination'` test kills a hardcoded `'start'` in the report; the
+stays-armed test kills a self-clearing one-shot inside `map.js` (the second armed click
+would reach `onRouteClick`) **and** a `setPickingMode` that cannot clear; the container
+test kills `classList.add` without the matching remove. Note the shape of all five:
+each asserts what did **not** happen as well as what did, because a mutant that fires
+both callbacks passes every "was called" assertion on its own.
+
+- [ ] **Step 2: Implement picking mode** (`src/map.js`)
+
+```js
+  // Which end of the trip the next route click resolves, or null.
+  //
+  // main.js owns this mode; this is a plain setter and a plain report. A one-shot that
+  // cleared itself here would be a second owner of the same fact, and the two would
+  // disagree the first time a pick was REFUSED — the control would go unpressed while
+  // the map still believed it was armed, or the reverse.
+  let pickingMode = null;
+
+  function setPickingMode(mode) {
+    pickingMode = mode ?? null;
+    map.getContainer().classList.toggle('map--picking', pickingMode !== null);
+  }
+```
+
+and the click listener, which stops being registered conditionally (either callback may
+be absent; the branch is what matters):
+
+```js
+  // One handler, two exclusive destinations — see setPickingMode. While a pick is armed
+  // a route click means the pick and NOTHING else.
+  map.on('click', (e) => {
+    const lngLat = [e.latlng.lng, e.latlng.lat];
+    if (pickingMode) {
+      if (typeof onPickPoint === 'function') onPickPoint(lngLat, pickingMode);
+      return;
+    }
+    if (typeof onRouteClick === 'function') onRouteClick(lngLat);
+  });
+```
+
+`setPickingMode` joins the returned control surface, and `onPickPoint` joins
+`createMap`'s options and its JSDoc.
+
+- [ ] **Step 3: The crosshair, and the cascade trap under it** (`src/style.css`)
+
+```css
+/* Armed for a pick (spec §6): the cursor is the only thing on the map that says the
+   next click means something different.
+
+   The id is load-bearing, not habit. Leaflet's own `.leaflet-grab` sits on this very
+   element and `.leaflet-interactive` on the route line, both single-class selectors —
+   and leaflet.css is imported from src/map.js, which the module graph reaches AFTER
+   main.js's own `import './style.css'`. Equal specificity, later sheet: a plain
+   `.map--picking` would lose, silently, to the grab cursor it is trying to replace. */
+#map.map--picking,
+#map.map--picking .leaflet-interactive {
+  cursor: crosshair;
+}
+
+/* Nothing on the map may eat an armed click. A POI dot, a ⭐ or a day pin sitting over
+   the route would otherwise swallow the pick and the rider would press again, harder,
+   at the same place. */
+#map.map--picking .leaflet-marker-pane {
+  pointer-events: none;
+}
+```
+
+- [ ] **Step 4: Write the failing start-pin tests** — the three existing ones move to
+      the setter, plus three new
+
+`createMap - the start pin` currently builds its pin at construction from
+`originName`; all three cases keep their assertions and change how the pin is made.
+**Record the change in the ledger**: `originName` leaves `createMap`'s options
+entirely, so the module holds no place name and no km of its own.
+
+```js
+describe('createMap - the start pin follows the trip', () => {
+  const HAMBURG = [9.99, 53.55];
+  const PRAGUE = [13.74, 51.05];
+
+  it('draws no start pin until it is told where the rider starts', () => {
+    createMap({ routeFeature: ROUTE });
+
+    expect(startPin()).toBeUndefined();
+  });
+
+  it('names the rider’s own start, which downstream is the road’s far end', () => {
+    const api = createMap({ routeFeature: ROUTE });
+
+    api.setStartPin({ coord: PRAGUE, name: 'Prague' });
+
+    expect(startPin().options.title).toBe('Start — Prague');
+    expect(startPin().options.icon.options.html).toContain('P');
+    expect(startPin().getLatLng().lng).toBeCloseTo(13.74, 6);
+  });
+
+  it('claims nothing for a start that has no name', () => {
+    const api = createMap({ routeFeature: ROUTE });
+
+    api.setStartPin({ coord: HAMBURG, name: null });
+
+    expect(startPin().options.title).toBe('Start');
+    expect(startPin().options.icon.options.html).not.toContain('H'); // no stale initial
+  });
+
+  // The pin MOVES rather than multiplying. Every render calls this, so a missing
+  // clearLayers leaves one pin per render standing on the map — each with the name it
+  // had at the time, which is a trip's whole history drawn at once.
+  it('keeps exactly one pin across renders, at the newest position', () => {
+    const api = createMap({ routeFeature: ROUTE });
+
+    api.setStartPin({ coord: PRAGUE, name: 'Prague' });
+    api.setStartPin({ coord: HAMBURG, name: 'Hamburg' });
+
+    const pins = createdMarkers.filter((m) =>
+      (m.options.icon?.options?.className || '').includes('pin-icon--start'),
+    );
+    const live = pins.filter((m) => capturedMap.hasLayer(m) || m._map);
+    expect(live).toHaveLength(1);
+    expect(live[0].options.title).toBe('Start — Hamburg');
+  });
+});
+```
+
+**Kills:** the no-pin-yet test kills a leftover construction-time pin (there would be
+one before any setter call, at the ROAD's origin); the Prague test kills a pin still
+built from `coordinates[0]` (wrong coord) and a title/glyph that ignores its argument;
+the one-pin test kills the missing `clearLayers()`. `createdMarkers` collects every
+marker ever built (the file's init hook never forgets one), which is why that last test
+filters to the ones still on a map rather than counting the array — an assertion on
+`createdMarkers.length` alone would pass under the mutant it exists to catch.
+
+- [ ] **Step 5: Implement the start pin as a setter** (`src/map.js`)
+
+Delete the construction-time block at `map.js:398-413` (`const startCoord = …` and its
+`L.marker(...).addTo(map)`), drop `originName` from the destructured options and the
+JSDoc, and add a layer group beside the other four:
+
+```js
+  const startPinLayer = L.layerGroup().addTo(map);
+
+  /**
+   * The pin for where the RIDER starts, at `coord` ([lng, lat]) with `name` as the
+   * place it sits in — both from main.js, which is the only module that knows the
+   * trip's window and the corridor's names.
+   *
+   * It used to be built once, at construction, from the route's first coordinate: the
+   * ROAD's origin, which on a downstream trip is the rider's destination and on any
+   * offset trip is 149 km of road they never ride. The pin is trip state, so it is
+   * rebuilt with every render, in its own layer group — the same clear-and-rebuild
+   * discipline setDayPins uses. No draggable marker lives in this group, so clearing
+   * it cannot disturb an in-flight pin drag the way rebuilding the day pins would.
+   *
+   * `title` is a DOM property, not markup, so an OSM place name needs no escaping here
+   * — unlike every tooltip in this file, which Leaflet renders as HTML.
+   */
+  function setStartPin({ coord, name } = {}) {
+    startPinLayer.clearLayers();
+    if (!coord) return;
+    L.marker(toLatLng(coord), {
+      icon: numberedPinIcon(name ? name.trim().charAt(0).toUpperCase() : '•', 'start'),
+      zIndexOffset: 400,
+      title: name ? `Start — ${name}` : 'Start',
+    }).addTo(startPinLayer);
+  }
+```
+
+- [ ] **Step 6: Wire both into `main.js`**
+
+`createMap`'s call loses `originName: ORIGIN_NAME` and gains nothing else yet —
+**`onPickPoint` has no handler until Task 11, and the mode has no way to be armed, so
+picking is exercised by unit tests only in this task.** Stated rather than left to be
+found: the browser proof for picking lands with the control that arms it.
+
+The pin needs a name for the rider's own start, which is the first half of a helper
+Task 12 finishes:
+
+```js
+  // What to call one end of the trip: the RIDER's ends, not the road's — on a
+  // downstream trip the start IS the road's destination.
+  //
+  // Derived from the km, never stored. Spec's own definition is "a startKm, a
+  // destinationKm, and nothing else", and a stored name would be a second source for
+  // something the km already say. Task 12 adds the town half; until then an end that
+  // is not a road end has no name, and every consumer already has a word for that.
+  //
+  // The road-end test is rounded to 0.1 km because that is the gate strip-markup's
+  // `roadContinues` uses to decide whether an end is a road end (and so whether to
+  // draw a stub past it). Two questions — "what is this end called" and "is there
+  // road past it" — sharing one comparison. Change one, change the other, or the app
+  // will name one end two ways on one screen.
+  function nameForTripEnd(tripEnd) {
+    const km = tripEnd === 'start' ? trip.startKm : trip.destinationKm;
+    if (round1(km) <= 0) return ORIGIN_NAME;
+    if (round1(totalKm - km) <= 0) return DESTINATION_NAME;
+    return null;
+  }
+
+  function renderStartPin() {
+    map.setStartPin({ coord: pointAtKm(routeIndex, trip.startKm), name: nameForTripEnd('start') });
+  }
+```
+
+`renderAll` calls it inside the `if (!dragging)` block: the trip's start cannot move
+during a boundary drag, and the pins that can are rebuilt below it either way.
+
+`fromNameFor(0)` stops naming the road: `return nameForTripEnd('start') ?? 'your start';`
+— one line, and it fixes today's lie (`from Cuxhaven · km 0 → 648.3` on a plan starting
+in Hamburg, and `from Cuxhaven` on a whole-road plan ridden from Prague). The ledger
+assigned this to Task 12; the helper it needs arrives here, and leaving a known-wrong
+line on the branch for one commit is worse than the overlap. Task 12 gives the same
+helper towns, which is the half that needs the 3 km lookup.
+
+- [ ] **Step 7: Run, verify in the browser, commit**
+
+Run: `npx vitest run --exclude '**/.cache/**'` — map 26 → ~34.
+
+**Persisted:** nothing. The picking mode is transient by design (a reload cancels it,
+which is right); the pin is derived from the window storage already carries.
+
+**Browser verification** (playwright over `vite preview`, the seeded-plan scripts from
+Tasks 6/8 in the session scratchpad, zero console errors):
+- whole road → the pin sits at Cuxhaven's coordinate, glyph `C`, title `Start — Cuxhaven`
+  (the identity checkpoint: the pin has not moved for the default plan);
+- offset forward 149.3 → 797.6 → the pin has moved 149 km up the road to the rider's
+  start, glyph `•`, title `Start` (no town lookup yet);
+- the same window downstream 797.6 → 149.3 → the pin is at the **Prague** end, glyph
+  `P`, title `Start — Prague` — the pin at the far end of the road from where it used
+  to be is the whole point of this step;
+- exactly one `.pin-icon--start` in the DOM after adding days, dragging a boundary and
+  switching plans;
+- `getComputedStyle` on the container reports `crosshair` after `setPickingMode('start')`
+  is driven from the page (the cascade trap in Step 3 is invisible to jsdom, and a lost
+  crosshair is exactly the class of failure this plan keeps recording).
+
+```bash
+git add src/map.js src/map.test.js src/style.css src/main.js
+git commit -m "feat(map): arm a route click for a pick, and let the start pin follow the trip"
+```
+
+---
+
+### Task 11: Trip setup, the two controls, and the guards under them
+
+**Files:**
+- Modify: `src/trip.js`, `src/itinerary.js`, `src/ui-util.js`, `src/ui.js`,
+  `src/strip.js`, `src/strip-markup.js`, `src/day-panel.js`, `src/main.js`,
+  `src/style.css`, `index.html`
+- Test: `src/trip.test.js`, `src/itinerary.test.js`, `src/ui.test.js`,
+  `src/strip.test.js`, `src/day-panel.test.js`
+
+Three commits, in this order, the way Tasks 7 and 8 landed: the model that makes a pick
+safe, then the controls that make one, then the wiring that applies it.
+
+#### 11a — the model
+
+- [ ] **Step 1: Write the failing `proposeEnd` tests** (`src/trip.test.js`)
+
+The guard ORDER is the point of this function, so it is what the tests are built round.
+
+```js
+import { createTrip, wouldReverse, proposeEnd } from './trip.js';
+
+describe('proposeEnd', () => {
+  const UP = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: 1026.5 });
+  const DOWN = createTrip({ startKm: 797.6, destinationKm: 149.3, totalKm: 1026.5 });
+  const GUARDS = { dayCount: 3, minLengthKm: 5 };
+
+  it('answers a good pick with the trip it makes', () => {
+    const out = proposeEnd(UP, 'start', 200, GUARDS);
+    expect(out.ok).toBe(true);
+    expect(out.trip.startKm).toBe(200);
+    expect(out.trip.destinationKm).toBe(797.6); // the other end untouched
+    expect(out.trip.totalKm).toBe(1026.5);      // and the road it is measured on
+  });
+
+  it('moves the end it was asked for and never the other one', () => {
+    const out = proposeEnd(UP, 'destination', 600, GUARDS);
+    expect(out.trip.startKm).toBe(149.3);
+    expect(out.trip.destinationKm).toBe(600);
+  });
+
+  it('pulls a pick past the end of the road onto it', () => {
+    expect(proposeEnd(UP, 'destination', 2000, GUARDS).trip.destinationKm).toBe(1026.5);
+  });
+
+  // THE ORDER TEST. A pick landing on the trip's other end makes a ZERO-length window,
+  // and createTrip calls an equal-ended window forward — so on a downstream trip
+  // wouldReverse asked first answers "reversal" and sends the rider to Reset trip over
+  // a window they only need to nudge.
+  it('refuses a zero-length pick as too short, not as a reversal, downstream', () => {
+    const out = proposeEnd(DOWN, 'destination', 797.6, GUARDS);
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBe('too-short');
+  });
+
+  it('refuses a window under the minimum in both directions', () => {
+    expect(proposeEnd(UP, 'destination', 152, GUARDS).reason).toBe('too-short');   // 2.7 km
+    expect(proposeEnd(DOWN, 'destination', 795, GUARDS).reason).toBe('too-short'); // 2.6 km
+  });
+
+  it('refuses a flip once there are days, and reports the window it would have made', () => {
+    const out = proposeEnd(UP, 'destination', 100, GUARDS);
+    expect(out.reason).toBe('would-reverse');
+    expect(out).toMatchObject({ startKm: 149.3, destinationKm: 100 });
+  });
+
+  it('refuses a start pushed past the destination too', () => {
+    expect(proposeEnd(UP, 'start', 900, GUARDS).reason).toBe('would-reverse');
+  });
+
+  // Spec §8: with no days a flip is free — that is trip setup, not a mistake.
+  it('allows a flip while the plan has no days', () => {
+    const out = proposeEnd(UP, 'destination', 100, { dayCount: 0, minLengthKm: 5 });
+    expect(out.ok).toBe(true);
+    expect(out.trip.direction).toBe(-1);
+  });
+
+  it('refuses a pick that is not a number instead of letting wouldReverse throw', () => {
+    expect(proposeEnd(UP, 'start', NaN, GUARDS)).toMatchObject({ ok: false, reason: 'not-a-number' });
+    expect(() => proposeEnd(UP, 'start', undefined, GUARDS)).not.toThrow();
+  });
+
+  it('throws on an end it does not recognise rather than moving the other one', () => {
+    expect(() => proposeEnd(UP, 'finish', 600, GUARDS)).toThrow(/start.*destination/);
+  });
+
+  it('throws when nobody said how short is too short', () => {
+    expect(() => proposeEnd(UP, 'start', 200, { dayCount: 0 })).toThrow(/minLengthKm/);
+  });
+});
+```
+
+**Kills:** the order test kills the two guards swapped, and it is the single most
+important assertion in phase 4 — it is also why the fixture is DOWNSTREAM, since on a
+forward trip a zero-length window keeps direction `+1` and the swap is invisible. The
+both-directions test kills a signed length comparison (`destinationKm - startKm <
+minLengthKm` is negative downstream, so every short downstream pick would pass). The
+no-days test kills a `dayCount` the guard ignores; the flip tests kill dropping the
+reversal guard. The `not.toThrow()` kills removing the finite check (`wouldReverse`
+throws by design). The good-pick tests are what give the refusal tests discriminating
+power — without them a mutant that refused everything would pass all five refusals.
+
+- [ ] **Step 2: Implement `proposeEnd`** (`src/trip.js`, beside `wouldReverse`)
+
+```js
+/**
+ * A proposed new end for a trip, answered: the trip it would make, or the reason it is
+ * refused. Spec §8's three guards, in the ONE order that gives each refusal its own
+ * reason — which is why this is a function and not three lines in a click handler.
+ *
+ * 1. **Finite.** `wouldReverse` throws on a non-finite end by design (it used to fail
+ *    OPEN downstream, waving a NaN pick through the very guard that exists to refuse
+ *    it), so a pick that is not a number must never reach it.
+ * 2. **Long enough.** A pick landing on the trip's other end makes a zero-length
+ *    window, and an equal-ended window is FORWARD here — so downstream `wouldReverse`
+ *    would call that a reversal and point the rider at Reset trip. Length first, and
+ *    the refusal says what is actually wrong: too short.
+ * 3. **Not a flip, once there are days.** With no days a flip is trip setup.
+ *
+ * @param {object} trip - the trip being changed, from createTrip().
+ * @param {'start'|'destination'} tripEnd - which end the pick moves. Exactly one, ever:
+ *   each control owns one end, which is also what keeps the strip's elevation memo key
+ *   honest — both of its ends are pinned by a test that moves one at a time.
+ * @param {number} km - the picked ABSOLUTE route km.
+ * @param {{dayCount?: number, minLengthKm: number}} opts - `minLengthKm` is required and
+ *   validated: MIN_DAY_KM belongs to boundaries.js, which this module deliberately does
+ *   not import, and a defaulted guard is a guard a caller can forget.
+ * @returns {{ok: true, trip: object}
+ *   | {ok: false, reason: 'not-a-number', km: number}
+ *   | {ok: false, reason: 'too-short', lengthKm: number, minLengthKm: number}
+ *   | {ok: false, reason: 'would-reverse', startKm: number, destinationKm: number}}
+ */
+export function proposeEnd(trip, tripEnd, km, { dayCount = 0, minLengthKm } = {}) {
+  if (tripEnd !== 'start' && tripEnd !== 'destination') {
+    throw new Error(`proposeEnd needs tripEnd 'start' or 'destination', got: ${tripEnd}`);
+  }
+  if (!Number.isFinite(minLengthKm)) {
+    throw new Error(`proposeEnd needs a finite minLengthKm, got: ${minLengthKm}`);
+  }
+  if (!Number.isFinite(km)) return { ok: false, reason: 'not-a-number', km };
+
+  const ends =
+    tripEnd === 'start'
+      ? { startKm: km, destinationKm: trip.destinationKm }
+      : { startKm: trip.startKm, destinationKm: km };
+  // Built before the length is judged, so the length judged is the one the trip would
+  // really have: createTrip pulls both ends onto the road.
+  const next = createTrip({ ...ends, totalKm: trip.totalKm });
+  if (next.lengthKm < minLengthKm) {
+    return { ok: false, reason: 'too-short', lengthKm: next.lengthKm, minLengthKm };
+  }
+  if (dayCount > 0 && wouldReverse(trip, ends)) {
+    return { ok: false, reason: 'would-reverse', ...ends };
+  }
+  return { ok: true, trip: next };
+}
+```
+
+- [ ] **Step 3: Write the failing `fitDaysToLength` tests** (`src/itinerary.test.js`)
+
+```js
+import { createItinerary, breakKey, fitDaysToLength } from './itinerary.js';
+
+describe('fitDaysToLength', () => {
+  const FIVE = [80, 80, 80, 80, 80].map((targetKm) => ({ targetKm, townChoice: null }));
+
+  it('leaves a plan that still fits alone', () => {
+    const out = fitDaysToLength(FIVE, 400);
+    expect(out.days.map((d) => d.targetKm)).toEqual([80, 80, 80, 80, 80]);
+    expect(out.dropped).toBe(0);
+  });
+
+  it('clamps the day that straddles the finish, drops the rest, and counts them', () => {
+    const out = fitDaysToLength(FIVE, 180);
+    expect(out.days.map((d) => d.targetKm)).toEqual([80, 80, 20]);
+    expect(out.dropped).toBe(2);
+  });
+
+  it('drops a day with nothing left to ride rather than storing a zero', () => {
+    const out = fitDaysToLength(FIVE, 160);
+    expect(out.days.map((d) => d.targetKm)).toEqual([80, 80]);
+    expect(out.dropped).toBe(3);
+  });
+
+  // hydrate REFUSES a non-positive targetKm by dropping the whole plan, so a 0.04 km
+  // day is not a small day — it is the loss of every day in the plan on the next
+  // reload. What is left is rounded to the grid the plan stores lengths on before it
+  // is believed.
+  it('rounds what is left before believing it, so no 0.04 km day is stored', () => {
+    const out = fitDaysToLength(FIVE, 160.04);
+    expect(out.days.map((d) => d.targetKm)).toEqual([80, 80]);
+    expect(out.dropped).toBe(3);
+  });
+
+  it('keeps the overnight town of the day it clamps', () => {
+    const days = [{ targetKm: 80, townChoice: { name: 'Hitzacker', routeDistanceKm: 229.3 } }];
+    const out = fitDaysToLength(days, 60);
+    expect(out.days[0]).toEqual({ targetKm: 60, townChoice: { name: 'Hitzacker', routeDistanceKm: 229.3 } });
+  });
+
+  it('drops everything for a window with no room at all', () => {
+    expect(fitDaysToLength(FIVE, 0)).toEqual({ days: [], dropped: 5 });
+  });
+});
+```
+
+**Kills:** the straddle test kills "return the entries unchanged" (both halves), "drop
+the straddler instead of clamping it" (`[80, 80]`, dropped 3), "clamp to `lengthKm`
+rather than to what is LEFT" (`[80, 80, 180]`) and a `dropped` hardcoded at 0. The
+160 test kills `room < 0` in place of `room <= 0` (a stored 0 km day). The 160.04 test
+kills the missing `round1` on the remaining room. The town test kills dropping
+`townChoice` while clamping — the day panel already has a sentence for a town that no
+longer sits on the boundary, and losing the choice silently is the worse of the two.
+
+- [ ] **Step 4: Implement `fitDaysToLength`** (`src/itinerary.js`, module level beside
+      `breakKey`)
+
+```js
+/**
+ * Day entries trimmed to a window `lengthKm` long, and how many no longer fit.
+ *
+ * Spec §8: a window that shrinks below the planned distance "clamps the last day and
+ * drops days that no longer fit, reporting how many". Both halves are one walk, so
+ * they are one function — a caller recomputing the count from two array lengths would
+ * be right only by luck.
+ *
+ * Lengths only: no trip, no absolute km, no direction, because a length is the same
+ * number whichever way the trip runs. The entries are the STORED shape
+ * (`{targetKm, townChoice}`) — what hydrate takes and what persistPlan writes.
+ *
+ * Deliberately does NOT floor a clamped day at MIN_DAY_KM: it cannot be reached with a
+ * window shorter than that (proposeEnd refuses those), and flooring would extend a day
+ * past the finish it was just trimmed to.
+ */
+export function fitDaysToLength(entries, lengthKm) {
+  const days = [];
+  let ridden = 0;
+  for (const entry of entries) {
+    // Rounded to the 0.1 km grid the plan stores lengths on, so "nothing left" and
+    // "0.04 km left" are the same answer. A day of 0 km is what hydrate refuses, and
+    // it drops the WHOLE plan rather than that one day.
+    const room = round1(lengthKm - ridden);
+    if (room <= 0) break;
+    const targetKm = Math.min(entry.targetKm, room);
+    days.push({ targetKm, townChoice: entry.townChoice ?? null });
+    ridden = round1(ridden + targetKm);
+  }
+  return { days, dropped: entries.length - days.length };
+}
+```
+
+- [ ] **Step 5: Run and commit 11a**
+
+Run: `npx vitest run --exclude '**/.cache/**' src/trip.test.js src/itinerary.test.js`
+— trip 16 → ~27, itinerary 124 → ~130.
+
+```bash
+git add src/trip.js src/trip.test.js src/itinerary.js src/itinerary.test.js
+git commit -m "feat(trip): answer a proposed trip end with the trip it makes or the reason it cannot"
+```
+
+#### 11b — the two controls
+
+- [ ] **Step 6: The trip headline, in words** (`src/ui-util.js`)
+
+```js
+// Which way along the road the km run. The corridor is a river and its km ascend
+// towards the source, so an ascending trip rides upstream — the one place that
+// assumption is written down. A corridor that is not a river would name its own two
+// words in route.meta.json; nothing needs that yet.
+const DIRECTION_WORD = { 1: 'upstream', '-1': 'downstream' };
+
+/**
+ * The trip in one line: `Hamburg → Dresden · 648.3 km upstream`.
+ *
+ * The direction is in WORDS because the sign of a subtraction is not something a rider
+ * should have to infer (spec §6a) — and the same sentence serves the empty-plan setup
+ * step and the confirmation after a pick, so the two cannot describe one trip
+ * differently. Names are the caller's (main.js resolves them); an unnamed end reads as
+ * its role, which is all anything knows about it.
+ */
+export function tripHeadline(trip, { startName, destinationName } = {}) {
+  const from = esc(startName ?? 'your start');
+  const to = esc(destinationName ?? 'your finish');
+  return `${from} → ${to} · ${round1(trip.lengthKm)} km ${DIRECTION_WORD[trip.direction]}`;
+}
+```
+
+> **Open question for the controller:** spec §6a's own example sentence is *"Hamburg →
+> Dresden · 649 km **downstream**"*, but Hamburg → Dresden is 149.3 → 797.6, i.e.
+> ascending km — and §1's model comment says `+1 upstream, -1 downstream`, while the
+> Problem section says guidebooks run "source-to-sea", which is descending km. Two of
+> the three agree that Hamburg → Dresden is **upstream**; §6a's example is the odd one
+> out and reads like a slip. This plan implements `+1 = upstream`, so the app will say
+> *"Hamburg → Dresden · 648.3 km upstream"*. **Recommendation: correct §6a's example
+> when the spec's outcome section is appended (Task 16).** If the controller wants the
+> spec's word kept as written, only `DIRECTION_WORD` changes — but then the app tells
+> Michel he is riding downstream to Dresden, which is up the Elbe.
+
+- [ ] **Step 7: The picking prompt** (`index.html`, `src/ui.js`, `src/ui.test.js`,
+      `src/style.css`)
+
+`index.html`, inside `#map` alongside `#map-controls` — the prompt belongs where the
+rider is looking and where the click will land:
+
+```html
+        <div id="pick-banner" class="banner banner--pick" role="status" aria-live="polite" hidden></div>
+```
+
+`src/ui.js`:
+
+```js
+/**
+ * The picking line above the map: what to click, what was picked, and the one
+ * refinement a pick can offer (spec §6.3's "Start at Hamburg instead?").
+ *
+ * Not createBanner, deliberately. That one is a dismissable WARNING about the route
+ * data, and main.js's renderBanner shows or hides it from plan state on every save — a
+ * prompt parked in it would be wiped by the first persist. This one is owned entirely
+ * by the picking flow: role="status" so it is announced, no × (a dismiss that left the
+ * mode armed would be a lie — Escape and the control itself are the way out), and an
+ * optional action button, which is the only interactive thing the flow needs.
+ */
+export function createPickBanner({ el }) {
+  function hide() {
+    el.hidden = true;
+    el.innerHTML = '';
+    el.classList.remove('banner--error');
+  }
+
+  function show(text, { tone = 'hint', action = null } = {}) {
+    el.classList.toggle('banner--error', tone === 'error');
+    el.innerHTML =
+      `<span>${esc(text)}</span>` +
+      (action
+        ? `<button type="button" class="btn btn--sm btn--primary" data-action="pick-action">${esc(action.label)}</button>`
+        : '');
+    el.hidden = false;
+    // Spent before the callback runs: the offer is taken, and whatever the callback
+    // does next reports itself in this same line.
+    el.querySelector('[data-action="pick-action"]')?.addEventListener('click', () => {
+      hide();
+      action.onPress();
+    });
+  }
+
+  return { show, hide };
+}
+```
+
+Tests (`src/ui.test.js`), each naming its mutant:
+
+- shows the text and unhides — kills a `show` that forgets `hidden = false`.
+- **escapes the text and the action label**, with `<img src=x onerror="alert(1)">` and
+  `querySelector('img')` null: both interpolate into ELEMENT CONTENT, where that
+  payload really does parse into an element, so the assertion can fail. (Contrast the
+  stub-title case in Task 8's fix round, where the same payload inside `title="…"`
+  proved nothing.) Town names reach the action label from OSM, so this is the live path.
+- the action button calls `onPress` exactly once, and the banner is **already hidden
+  when it runs** (`onPress` records `el.hidden`) — kills hiding after the callback,
+  which leaves a spent offer on screen over whatever the callback just said.
+- `hide()` empties as well as hides — `.banner` carries its own padding and border, so
+  a hidden-but-populated banner reappears as a stray box (same reason createBanner's
+  own test asserts it).
+- `tone: 'error'` adds the class and a later `tone: 'hint'` removes it — kills
+  `classList.add` without the toggle, which would leave every later hint red.
+- no action → no button — kills always rendering one (`undefined` as its label).
+
+`src/style.css`:
+
+```css
+/* The picking prompt, over the map it is about. z-index matches #map-controls, and it
+   stops short of them so the two never overlap. */
+.banner--pick {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  max-width: calc(100% - 260px);
+  z-index: 1001;
+  margin: 0;
+  align-items: center;
+  background: rgba(91, 147, 255, 0.14);
+  border-color: rgba(91, 147, 255, 0.4);
+  border-left-color: var(--river);
+  color: #d8e4ff;
+}
+
+/* A refused pick (spec §8). Same box, so the answer arrives where the prompt was. */
+.banner--error {
+  background: rgba(240, 112, 95, 0.14);
+  border-color: rgba(240, 112, 95, 0.45);
+  border-left-color: var(--day);
+  color: #ffd9d2;
+}
+```
+
+- [ ] **Step 8: The scale line's ends become controls** (`src/strip-markup.js`,
+      `src/strip.js`, `src/style.css`, `src/strip.test.js`)
+
+Spec §6: the controls live on the endpoint labels the strip already shows, because
+editing a value where it is displayed needs no new vocabulary. So the **text does not
+change** — `km 0 · Cuxhaven` becomes the label of a button carrying exactly that text.
+Which is also why every existing scale-line assertion in `strip.test.js`
+(`toContain('km 0 · Cuxhaven')`, `'km 0 · start'`, `'km 0 · Prague'`, …) stays green:
+`textContent` is unaffected. That is the evidence the change is additive; say so in the
+ledger rather than leaving the reader to wonder which tests moved.
+
+```js
+/**
+ * One end of the trip, as a control that arms a pick for it (spec §6).
+ *
+ * The visible text is the label the scale line always showed. What pressing it does
+ * lives in `title`, and `aria-pressed` makes it what it is: a toggle, because a second
+ * press cancels.
+ *
+ * **The accessible name is also where the remaining road becomes TEXT.** The edge stub
+ * past this end is `aria-hidden` and its figure was available to a pointer only — the
+ * debt Task 8 recorded and assigned here. It belongs on this control: the road past an
+ * end is exactly what pressing it can claim. The stub keeps the pointer half, so the
+ * two halves say the same sentence to two kinds of reader rather than one of them
+ * saying nothing.
+ */
+function endControlMarkup(state, tripEnd, kmLabel, name) {
+  const past = roadPast(state, tripEnd);
+  const more = roadContinues(past)
+    ? ` ${round1(past.remainingKm)} km of road continues to ${past.name}.`
+    : '';
+  const role = tripEnd === 'start' ? 'start' : 'finish';
+  const armed = state.picking === tripEnd;
+  const label = `Trip ${role}: km ${kmLabel}, ${name}.${more} Press to set it on the map.`;
+  return `<button type="button" class="strip__end" data-action="set-${role}"
+                  aria-pressed="${armed}" aria-label="${esc(label)}"
+                  title="Set where your trip ${role === 'start' ? 'starts' : 'finishes'}">km ${kmLabel} · ${esc(name)}</button>`;
+}
+```
+
+`scaleMarkup` swaps its two `<span>`s for `endControlMarkup(state, 'start', 0, origin)`
+and `endControlMarkup(state, 'destination', round1(state.trip.lengthKm), destination)`.
+**The arrived case keeps its own `⚑ … reached` span** — that end is the flag, and
+turning the flag into a button would put a control inside a status. So on an arrived
+trip the finish control is the flag's neighbour, not the flag. (Simplest form: render
+the control either way and let the `⚑ reached` span follow it; the scale line is a
+flex row with room for both at 10px.)
+
+`strip.js` gains the state and the listener:
+
+```js
+      // null is MEANINGFUL here, so the fallback is `?? null` and not `?? state.picking`:
+      // main.js cancels a pick by rendering with picking: null, and `null ?? state.picking`
+      // would keep the control pressed for ever. An argument-less render still preserves
+      // it, because `next` defaults to `state` — the same shape focusedIndex uses.
+      picking: next.picking ?? null,
+      endNames: next.endNames ?? state.endNames,
+```
+
+```js
+  // The scale line is not a drag surface, so it gets its own plain click listener and
+  // none of the axis's suppressClick machinery.
+  scaleEl.addEventListener('click', (e) => {
+    const control = e.target.closest('[data-action^="set-"]');
+    if (!control) return;
+    callbacks.onPickEnd?.(control.dataset.action === 'set-start' ? 'start' : 'destination');
+  });
+```
+
+Test obligations (`src/strip.test.js`), each with its mutant:
+
+- pressing the left label emits `onPickEnd('start')`, the right one `'destination'` —
+  kills both controls reporting one end, and kills reading the DOM order instead of the
+  action.
+- `picking: 'start'` renders `aria-pressed="true"` on the start control **and `"false"`
+  on the finish control** — kills pressing both, and kills a truthiness bug that presses
+  whichever renders first.
+- a second render with `picking: null` clears both — kills the `?? state.picking`
+  fallback trap named above, which no other test can see.
+- an argument-less `render()` (the resize path) keeps the pressed state and the names —
+  kills a bare-state rebuild, the same hole the origin/destination names already have a
+  test for.
+- **the start control's accessible name carries the road behind the rider, on an
+  offset-forward window**: contains `149.3` and `Cuxhaven`; **and downstream it carries
+  228.9 and Prague** — two tests, one per direction, each asserting the NUMBER and the
+  NAME. Kills dropping the road clause, and kills `roadPast` asked for the wrong end
+  (which reads perfectly plausibly, and is the bug `roadPast`'s own doc comment warns
+  about). A test asserting only "contains km" would pass under the swap.
+- a whole-road trip's controls carry **no** road clause — kills appending it
+  unconditionally, which would read "0 km of road continues to Cuxhaven".
+- the existing scale-line `textContent` assertions still pass, unchanged.
+
+`style.css` for `.strip__end`: `appearance: none; background: none; border: 0; padding: 0;
+font: inherit; color: inherit; cursor: pointer;` plus a dotted underline so it reads as
+editable, `:focus-visible` matching the app's other controls, and
+`[aria-pressed="true"]` in `--river` with a solid underline so the armed end is obvious
+from across the room.
+
+- [ ] **Step 9: The empty plan becomes trip setup** (`src/day-panel.js`,
+      `src/style.css`, `src/day-panel.test.js`)
+
+```js
+    if (!day) {
+      el.innerHTML = `
+        <div class="day-panel day-panel--empty">
+          <h2 class="day-panel__title">Where are you riding?</h2>
+          <dl class="trip-setup">
+            <div class="trip-setup__row">
+              <dt>Start</dt>
+              <dd>${esc(startName ?? 'anywhere on the road')}<span class="day-panel__hint">km ${round1(trip.startKm)} of the road</span></dd>
+              <button type="button" class="btn btn--sm" data-action="set-start"
+                      aria-pressed="${picking === 'start'}">Set start</button>
+            </div>
+            <div class="trip-setup__row">
+              <dt>Finish</dt>
+              <dd>${esc(destinationName ?? 'anywhere on the road')}<span class="day-panel__hint">km ${round1(trip.destinationKm)} of the road</span></dd>
+              <button type="button" class="btn btn--sm" data-action="set-finish"
+                      aria-pressed="${picking === 'destination'}">Set finish</button>
+            </div>
+          </dl>
+          <p class="trip-setup__headline">${tripHeadline(trip, { startName, destinationName })}</p>
+          <p class="day-panel__hint">Both ends default to the whole road, so you can skip this and
+            just add a day. Click the strip below to pick where day 1 ends — or add one here and
+            drag its boundary afterwards.</p>
+          <div class="day-panel__actions">
+            <button type="button" class="btn btn--sm btn--primary" data-action="add-day">+ add a first day</button>
+          </div>
+        </div>`;
+      renderCustomStopPrompt(null, null, trip, callbacks, promptEl);
+      // The setup step has controls now, and pressing one re-renders. Without this a
+      // keyboard user has to Tab back to `Set start` to press it a second time — which
+      // is the documented way to cancel.
+      restoreFocus(focusTarget);
+      return;
+    }
+```
+
+`render`'s signature gains `startName = null, destinationName = null, picking = null`,
+and the click listener gains the two actions above the `if (!current.day) return;`
+guard (there is no focused day when this panel is the only thing on screen — the same
+reason `add-day` already sits there):
+
+```js
+    if (e.target.closest('[data-action="set-start"]')) return callbacks.onPickEnd?.('start');
+    if (e.target.closest('[data-action="set-finish"]')) return callbacks.onPickEnd?.('destination');
+```
+
+> **Open question for the controller:** spec §6a's mock shows *"Start — not set"*, but
+> the paragraph under it says both ends default to the road's ends so the step can be
+> skipped, and storage gives every plan a real window. There is no state in which an
+> end is "not set", so this step shows the ends it actually has, named. **The two-state
+> design in §6a (setup step, then "the panel switches to the normal add-your-first-day
+> state") collapses into one state for the same reason**, and the setup step keeps the
+> `+ add a first day` button throughout. **Recommendation: adopt this and correct §6a
+> when the outcome is appended.** An app that says "not set" about a window it is
+> already using and drawing would be lying about its own state, which is the failure
+> this whole branch has been recording.
+
+Test obligations (`src/day-panel.test.js`):
+
+- the empty panel names both ends, their km and the headline; `upstream` for an
+  ascending trip and `downstream` for a descending one — **two tests over the same
+  fixture with the ends swapped**, because a single one would pass under a hardcoded
+  word. This is also the only direct test of `tripHeadline`.
+- unnamed ends read as `anywhere on the road` / `your start` rather than `undefined` or
+  `null` — kills interpolating a missing name.
+- `Set start` emits `onPickEnd('start')` and `Set finish` emits `'destination'` — kills
+  one action for both.
+- `picking: 'destination'` presses the finish button and not the start one.
+- focus survives a re-render on the pressed control — kills the missing `restoreFocus`.
+- **the existing empty-state expectation changes**: `expect(el.textContent).toContain('No days yet')`
+  becomes the setup step's own text. Record it in the ledger as a deliberate
+  expectation change, with the reason (spec §6a replaces that state).
+
+- [ ] **Step 10: Commit 11b**
+
+```bash
+git add src/ui-util.js src/ui.js src/ui.test.js src/strip.js src/strip-markup.js \
+        src/strip.test.js src/day-panel.js src/day-panel.test.js src/style.css index.html
+git commit -m "feat(strip): the trip's own ends become the controls that set them"
+```
+
+#### 11c — wiring: a pick becomes a window
+
+- [ ] **Step 11: `main.js`**
+
+```js
+  // Which end the next route click resolves, or null. The app owns it: the two controls'
+  // pressed state, the prompt and the Escape path all read it, and the map only reflects
+  // it (see map.js's setPickingMode).
+  let picking = null;
+
+  function handlePickEnd(tripEnd) {
+    // A second press on the armed control cancels — spec §6, and the reason both
+    // controls are toggles rather than plain buttons.
+    picking = picking === tripEnd ? null : tripEnd;
+    map.setPickingMode(picking);
+    if (picking) {
+      pickBanner.show(
+        `Click the route where your trip ${picking === 'start' ? 'starts' : 'finishes'} · Esc to cancel`,
+      );
+    } else {
+      pickBanner.hide();
+    }
+    // The pressed state is RENDERED, not toggled in place: the strip rebuilds its scale
+    // line and the day panel its setup step on every render, so a class set by hand here
+    // would survive exactly until the next one.
+    renderAll();
+  }
+
+  function handlePickPoint(lngLat, tripEnd) {
+    picking = null;
+    map.setPickingMode(null);
+    applyPickedEnd(tripEnd, round1(snap(route, lngLat).distanceKm));
+  }
+
+  // The one path from a picked km to a new window: the guards, the reflow, the save and
+  // the sentence saying what happened. Three callers — a map pick, the snap offer
+  // (Task 12) and Finish here (Task 13) — so a guard added here covers all three.
+  function applyPickedEnd(tripEnd, km) {
+    const decided = proposeEnd(trip, tripEnd, km, {
+      dayCount: itinerary.getDays().length,
+      minLengthKm: MIN_DAY_KM,
+    });
+    if (!decided.ok) return refusePick(tripEnd, decided);
+    const dropped = setTripWindow(decided.trip);
+    persistPlan();
+    renderAll();
+    reportPick(tripEnd, km, dropped);
+  }
+
+  // The same three steps loadPlanIntoModel takes, with the days coming from memory
+  // rather than from storage. A trip is fixed at construction — which is what lets every
+  // day chain off the window without re-passing it — so a new window means a new
+  // itinerary, replayed from the lengths the plan already has, trimmed to what still
+  // fits (spec §8). Returns how many days did not.
+  //
+  // Breaks ride along untouched: they are absolute km and plan-level, so a window change
+  // invalidates none of them (spec's "changing your start does not invalidate a single
+  // favorite"). One consequence worth knowing: a break now outside the window keeps its
+  // km and its row is simply not drawn — the strip filters glyphs to the window — and it
+  // comes back if the window widens again.
+  function setTripWindow(nextTrip) {
+    const entries = itinerary
+      .getDays()
+      .map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice }));
+    const breaks = itinerary.getBreaks();
+    const fitted = fitDaysToLength(entries, nextTrip.lengthKm);
+    trip = nextTrip;
+    itinerary = createItinerary({ trip });
+    itinerary.hydrate({ days: fitted.days, breaks });
+    // A boundary gesture in flight belongs to the itinerary that just left — the same
+    // reason a plan switch bumps this (see handleMoveBoundary).
+    planGeneration += 1;
+    customStopDraft = null; // its day may be gone, and its km may be off the trip
+    lastFramedStretch = null; // every day's stretch moved
+    return fitted.dropped;
+  }
+```
+
+The two message paths, and one line of honesty about them: **the guards are unit-tested
+in `trip.test.js`; their WORDING is `main.js`'s, which has no test harness, so it is
+verified in the browser and the exact sentences are quoted into the ledger.**
+
+```js
+  function reportPick(tripEnd, km, dropped) {
+    const dropText = dropped
+      ? ` · ${dropped} ${dropped === 1 ? 'day' : 'days'} no longer ${dropped === 1 ? 'fits' : 'fit'} and ${dropped === 1 ? 'was' : 'were'} dropped`
+      : '';
+    // The trip itself is the confirmation, in the same sentence the setup step uses: a
+    // rider who has just moved an end wants to know what the trip IS now, and "km 0" —
+    // which is what a start always becomes — would tell them nothing.
+    pickBanner.show(`${tripHeadline(trip, endNames())}${dropText}`);
+  }
+
+  function refusePick(tripEnd, decided) {
+    const role = tripEnd === 'start' ? 'start' : 'finish';
+    if (decided.reason === 'too-short') {
+      pickBanner.show(
+        `That ${role} would leave a trip of ${round1(decided.lengthKm)} km — a trip needs at least ${MIN_DAY_KM} km.`,
+        { tone: 'error' },
+      );
+      return;
+    }
+    if (decided.reason === 'would-reverse') {
+      // Spec §6's sentence, with the direction NAMED rather than merely refused. Task 12
+      // gives endLabel the town half; a whole-road trip is already named by both road
+      // ends, so the common case reads right from here.
+      pickBanner.show(
+        `That would reverse the trip. Reset the trip to ride ${endLabel(decided.startKm)} → ${endLabel(decided.destinationKm)} instead.`,
+        { tone: 'error' },
+      );
+      return;
+    }
+    // 'not-a-number' is a bug upstream, not a choice a rider made.
+    console.warn('planner-app: ignored a pick with no finite km', decided);
+  }
+```
+
+`endLabel(km)` names a km for a message: `nameAtKm(km)` (Task 10's `nameForTripEnd`
+logic, applied to an arbitrary km) and, failing that, **not a km at all** — `'your
+start'`, `'your finish'` or `'the point you picked'` depending on which of the current
+trip's ends it is. **Deliberately never an absolute km:** it would be the only absolute
+km on screen, which spec §2 names as worse than all-absolute because nothing marks it
+as different. The unnamed case reads a little awkwardly ("ride your finish → the point
+you picked"), and that is the trade taken.
+
+`renderStrip` and `renderDayPanel` gain `picking` and the two names (Task 12 makes the
+names find towns; until then they are the road's ends or null):
+
+```js
+  function endNames() {
+    return { startName: nameForTripEnd('start'), destinationName: nameForTripEnd('destination') };
+  }
+```
+
+`createMap` gains `onPickPoint: handlePickPoint`; `createPickBanner` is mounted on
+`#pick-banner`; the `#map-controls` event guard is extended to cover the prompt, and
+that is not cosmetic — **the prompt sits inside the Leaflet container, so without it
+pressing its action button would also be a map click**, which either picks a km under
+the button or drops a custom stop on the focused day. Extract the existing loop into a
+helper applied to both elements, keeping the `click` handler's `stopPropagation` as
+well.
+
+Escape:
+
+```js
+  // Escape cancels a pick. Owned at the document because when a pick is armed the
+  // pointer is over the MAP, and nothing there holds focus to hang a handler on. The two
+  // editors that own Esc for themselves — the day panel's break-note editor and its
+  // custom-stop prompt — both stopPropagation, so this cannot steal theirs.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !picking) return;
+    handlePickEnd(picking); // the toggle IS the cancel; one path, one place
+  });
+```
+
+- [ ] **Step 12: Run the whole suite, verify in the browser, commit 11c**
+
+Run: `npx vitest run --exclude '**/.cache/**'` and `npx vite build`.
+
+**Persisted:** the window, through the path storage already has — `persistPlan` names
+`trip.startKm` / `trip.destinationKm` on every save, so a pick is durable the moment it
+is applied. **Nothing new is persisted, and no schema change:** the trimmed day lengths
+go through the same `days` array, and the picking mode is transient (a reload cancels
+it, which is right). The one thing to check in storage is that a pick which drops days
+writes the SHORTER list — a persist that wrote the pre-trim lengths would restore the
+dropped days on reload.
+
+**Browser verification** (real chromium, production build, zero console errors):
+1. **Arming.** `Set start` on the scale line presses (`aria-pressed="true"`), the cursor
+   over the route is a crosshair, and the prompt reads *"Click the route where your trip
+   starts · Esc to cancel"*. Escape cancels: pressed state gone, cursor back, prompt
+   gone, **window unchanged in storage**. A second press on the control does the same.
+2. **A pick that works.** On the default whole-road plan with three 80 km days, arm
+   `Set start`, click near Hamburg → the strip rescales, the scale line reads `km 0 · start`,
+   day 1 starts at the click, the start pin has moved there, and the prompt reads the
+   headline. Reload → the window survives.
+3. **A pick that drops days.** With five 80 km days, `Set finish` clicked ~180 km along
+   → three days remain (80 / 80 / 20) and the prompt says two days were dropped. Reload
+   → still three days.
+4. **A pick refused as too short**, and **a pick refused as a reversal**: quote both
+   sentences verbatim into the ledger, and confirm the window and the days are
+   untouched afterwards (the refusal path must not persist).
+5. **A picking click creates no custom stop.** Arm, click on the route inside the
+   focused day, and confirm the day gains no 📌 — the exclusivity from Task 10, end to
+   end. Then click the same place unarmed and confirm the stop prompt DOES appear.
+6. **Pressing the prompt's own button is not a pick** (Task 12 supplies the button; if
+   11c has no action button yet, defer this one and say so).
+7. **The setup step.** A fresh plan (no days) shows both ends, their km, the headline
+   and `+ add a first day`; `Set finish` there arms the same mode; setting both ends in
+   either order leaves a coherent trip; and on an empty plan a **flip is allowed** —
+   set start to Dresden and finish to Hamburg and confirm the strip runs Dresden →
+   Hamburg with `downstream` in the headline.
+8. **The elevation profile changes when only ONE end moves** — the memo key's per-end
+   paths, which Task 8's fix round pinned with two tests precisely because these two
+   controls are each half of it.
+
+```bash
+git add src/main.js
+git commit -m "feat: pick a start and a finish on the map"
+```
+
+---
+
+### Task 12: Town snapping, and the ends by name
+
+**Files:**
+- Modify: `src/towns.js`, `src/strip-markup.js`, `src/main.js`
+- Test: `src/towns.test.js`, `src/strip.test.js`
+
+What Task 11 left neutral, this task names. Everything here rests on one decision, so it
+comes first.
+
+- [ ] **Step 1: One lookup, two tolerances** (`src/towns.js`, `src/towns.test.js`)
+
+**A picked name is DERIVED from the km, never stored.** Spec's own definition of a trip
+is "a `startKm`, a `destinationKm`, and nothing else"; a stored name would be a second
+source for something the km already say, and this branch's ledger is a list of what
+happens when one fact has two owners. So: **no new persisted field, no schema bump, no
+migration.** A start that sits where a town sits is named by that town; move it 3 km and
+the name goes, because that is the truth.
+
+```js
+/**
+ * The town sitting closest to `km` along the route, within `withinKm`, or null.
+ *
+ * Two callers, two tolerances, one rule: main.js offers a 3 km snap after a pick (spec
+ * §6.3) and NAMES a trip end with the same lookup at 0.05 km — "the town this end IS"
+ * is "the town near enough to be the same place", and 0.05 is the half-step of the
+ * 0.1 km grid every stored km sits on.
+ *
+ * Ranked by distance ALONG the route, tie-broken by the perpendicular offset, and
+ * deliberately not by townsNear's offset-weighted score: that ranking answers "where
+ * could I sleep near the end of this day", where a detour is worth trading against
+ * being early; this one answers "what is this point called", where the closest name
+ * wins outright.
+ *
+ * Symmetric in km, so it needs no trip and no direction — the same reason townsNear
+ * needs none (places.js's header names that exception). `townsInRange` is NOT used
+ * here: it is ascending-only and would need poisInRange's direction treatment first.
+ */
+export function nearestTown(towns, km, { withinKm = 3 } = {}) { … }
+```
+
+Implement with `lowerBound`/`upperBound` over the window, exactly as `townsNear` does,
+then a single min-scan.
+
+Tests (`src/towns.test.js`, over the file's existing `TOWNS` fixture):
+
+- **picks the closest ALONG the route, which is where it differs from `townsNear`.** Km
+  50 is the fixture's own disagreement case: `townsNear`'s weighted score ranks
+  `Craghill` first (54, offset 1 → 5.5) ahead of `Brambury` (51, offset 4 → 7), while
+  distance alone ranks Brambury first (1 against 4). So
+  `expect(nearestTown(TOWNS, 50).name).toBe('Brambury')` is the one assertion that kills
+  a `nearestTown` implemented by reusing `townsNear` — and the fixture already carries
+  the comment explaining why those two towns are there.
+- answers null outside the window: `nearestTown(TOWNS, 66, { withinKm: 3 })` is null,
+  while `withinKm: 6` finds `Elmswick` (61) — kills a hardcoded radius and kills
+  ignoring `withinKm` altogether.
+- the naming tolerance: `nearestTown(TOWNS, 28.04, { withinKm: 0.05 })` is `Oakdale`
+  and `nearestTown(TOWNS, 28.06, { withinKm: 0.05 })` is null — both sides of the edge,
+  and the second is the one that catches a `<=`-for-`<` slip in the window.
+- a tie along the route goes to the smaller offset — needs two fixture towns at one km,
+  so add a pair to the fixture (recording the fixture change) or assert it over a local
+  array. Kills a tie-break that takes whichever comes first, which would make the name
+  depend on the data build's ordering.
+- a non-finite km answers null rather than scanning — kills the missing guard, which
+  would make `lowerBound(towns, NaN)` decide the answer.
+
+- [ ] **Step 2: A picked name reaches the strip** (`src/strip-markup.js`,
+      `src/strip.test.js`)
+
+```js
+function endName(state, tripEnd) {
+  // The name main.js resolved for this end — a town the rider's end sits in, or the
+  // road's own name when the end is a road end. It wins because it is the answer to
+  // exactly this question, computed where the town data lives.
+  const named = state.endNames?.[tripEnd];
+  if (named) return named;
+  const past = roadPast(state, tripEnd);
+  if (!roadContinues(past)) return past.name;
+  return tripEnd === 'start' ? ORIGIN_FALLBACK : DESTINATION_FALLBACK;
+}
+```
+
+Additive: with no `endNames` (which is how most of `strip.test.js` renders) every
+existing case behaves exactly as before, including the pinned `startKm: 0.04` pair. The
+road-end branch below it is what stops a town 40 m from Cuxhaven renaming the road's
+origin — main.js's helper answers `Cuxhaven` there for the same reason, and its comment
+names this gate.
+
+Test obligations (`src/strip.test.js`):
+
+- with `endNames: { start: 'Hamburg', destination: 'Dresden' }` on the 149.3 → 797.6
+  window, **all three sites read the picked names**: the scale line (`km 0 · Hamburg`,
+  `km 648.3 · Dresden`), the summary (`488.3 km to Dresden`) and the remainder's flag
+  (`⚑ Dresden`). Kills converting the scale line only — which is the shape of the bug
+  Task 8's ledger entry describes ("0 km to **Prague**" while the scale line had
+  stopped saying it).
+- an end with no name still reads `start` / `finish` — kills interpolating `null`.
+- the whole-road cases are unchanged — kills a picked name that outranks the road's own
+  name at a road end.
+
+- [ ] **Step 3: The names, and the offer** (`src/main.js`)
+
+`nameForTripEnd` gains the town half, and a general form for an arbitrary km:
+
+```js
+  const NAME_TOLERANCE_KM = 0.05; // the 0.1 km grid's half-step: "near enough to BE there"
+  const SNAP_OFFER_KM = 3; // spec §6.3. At whole-route zoom a click is worth ±2 km.
+
+  function nameAtKm(km) {
+    if (round1(km) <= 0) return ORIGIN_NAME;
+    if (round1(totalKm - km) <= 0) return DESTINATION_NAME;
+    return nearestTown(towns, km, { withinKm: NAME_TOLERANCE_KM })?.name ?? null;
+  }
+
+  function nameForTripEnd(tripEnd) {
+    return nameAtKm(tripEnd === 'start' ? trip.startKm : trip.destinationKm);
+  }
+```
+
+That one line lights up everything Task 11 left neutral, because every consumer already
+goes through the helper: the strip's scale line, summary and flag; the map's start pin;
+day 1's `from X`; the places panel's `X km from …`; the setup step; the headline in the
+prompt; and `endLabel`'s named case in the refusal.
+
+`reportPick` gains the offer:
+
+```js
+    // Spec §6.3: at whole-route zoom one pixel is ~0.7 km, so a click is worth ±2 km.
+    // Name the town within SNAP_OFFER_KM and let one press take it.
+    const town = offerSnap ? nearestTown(towns, km, { withinKm: SNAP_OFFER_KM }) : null;
+    const gap = town ? round1(trip.tripKm(town.routeDistanceKm) - trip.tripKm(km)) : 0;
+    if (town && gap !== 0) {
+      pickBanner.show(
+        `${tripHeadline(trip, endNames())}${dropText} · ${town.name} is ${Math.abs(gap)} km ` +
+          `${gap < 0 ? 'behind' : 'past'} your ${role} — use it instead?`,
+        { action: { label: `Use ${town.name}`, onPress: () => applyPickedEnd(tripEnd, round1(town.routeDistanceKm), { offerSnap: false }) } },
+      );
+      return;
+    }
+```
+
+Three things about that, each deliberate:
+
+- **The offer measures in RIDER km, not the spec's absolute `(km 149.3)`.** Spec §6.3
+  writes *"Start at Hamburg (km 149.3) instead?"*, and 149.3 is an absolute route km — on
+  a trip starting at Hamburg the strip reads `km 0 · Hamburg`, so that figure would be
+  the only absolute km on screen. Spec §2 names that as worse than all-absolute,
+  "because nothing marks it as different". The offset from the pick says the same thing
+  in the rider's own units, and it is the number that actually helps: *"Hamburg is 2.8
+  km behind your start"*.
+- **The offer takes the same path as any other pick** (`applyPickedEnd`), so a snap that
+  would flip or shorten the trip is refused by the same guards with the same words.
+  `offerSnap: false` on that second call is what stops a snap that lands 0.4 km from
+  another town offering that one next.
+- **The offer survives re-renders and is cancelled by anything that starts a new pick**,
+  because the prompt is written by explicit calls rather than by `renderAll`. Escape
+  hides it (extend the Escape handler's second branch), and pressing it spends it (the
+  banner hides before the callback runs, from Task 11's `createPickBanner`).
+
+`handleResetTrip` needs one line of thought and no change: it deliberately keeps the
+window ("reset empties the plan you made for a trip, it does not undo the trip"), which
+is exactly what the refused-flip message points at — and after a reset the plan has no
+days, so the flip the rider wanted is then free. **Confirm that end to end in the
+browser**; it is the escape hatch the refusal promises, and nothing tests the promise.
+
+- [ ] **Step 4: Run, verify in the browser, commit**
+
+Run: `npx vitest run --exclude '**/.cache/**'` — towns 15 → ~21, strip +4.
+
+**Persisted:** nothing new. This is the whole point of Step 1 — say so in the ledger,
+because "where does the picked name live" is the first question a reviewer will ask.
+
+**Browser verification** (real chromium, production build, zero console errors):
+- **the snap.** Arm `Set start`, click ~2.8 km short of Hamburg → the prompt names
+  Hamburg and its offset, `Use Hamburg` presses once, and afterwards the scale line reads
+  `km 0 · Hamburg`, the start pin's title is `Start — Hamburg` with an `H` glyph, day 1's
+  panel header reads `from Hamburg · km 0 → 80`, and the left panel's rows read `… km
+  from Hamburg`. **That last one is the lie the ledger has been tracking since Task 5**
+  (`from Cuxhaven` on a plan starting in Hamburg) — quote the before and after.
+- **a pick with no town within 3 km** offers nothing and reads `km 0 · start`, with day
+  1 reading `from your start`. The absence is as important as the presence: an offer for
+  a town 12 km away would move the start somewhere the rider did not click.
+- **pressing `Use Hamburg` is not a map click** — the guard from Task 11 Step 11. Confirm
+  the focused day gains no 📌 and the start lands on Hamburg exactly.
+- **the refusal names the direction:** on a Hamburg → Dresden plan with days, arm `Set
+  finish` and click near Cuxhaven → *"That would reverse the trip. Reset the trip to ride
+  Hamburg → Cuxhaven instead."* Then Reset trip and repeat the same pick → now allowed,
+  and the strip runs downstream. Quote both sentences.
+- **downstream naming:** on a 797.6 → 149.3 window the scale line reads `km 0 · Dresden`
+  … `km 648.3 · Hamburg`, the summary counts down to Hamburg, the flag says Hamburg, and
+  the start pin is at Dresden. The mirror of the forward case is the feature.
+- **the stub figure is now text:** read the start control's `aria-label` in all three
+  configurations and confirm it carries the same distance and name the stub's title does
+  (149.3 km to Cuxhaven forward, 228.9 km to Prague downstream, and no clause at all on
+  the whole road).
+
+```bash
+git add src/towns.js src/towns.test.js src/strip-markup.js src/strip.test.js src/main.js
+git commit -m "feat: name the trip's ends after the towns they sit in, and offer the nearest one after a pick"
+```
+
+---
 
 ### Task 13: `Finish here` on a day card
 
-- [ ] Sets `destinationKm` to that day's end; drops later days, reporting how many.
+**Files:**
+- Modify: `src/day-panel.js`, `src/main.js`
+- Test: `src/day-panel.test.js`
+
+The "after planning some days, select this stop as destination" from the original
+brainstorm (spec §6). Small, because Tasks 11 and 12 built everything under it: this is
+one button and one call into `applyPickedEnd`.
+
+- [ ] **Step 1: Write the failing tests** (`src/day-panel.test.js`)
+
+```js
+describe('createDayPanel - Finish here', () => {
+  it('offers to finish the trip at this day’s end', () => {
+    const onFinishHere = vi.fn();
+    const panel = mountPanel({ onFinishHere });
+    panel.render({ day: DAY_1_OF_3, trip: UP, dayCount: 3 });
+
+    el.querySelector('[data-action="finish-here"]').click();
+
+    expect(onFinishHere).toHaveBeenCalledWith(0);
+  });
+
+  it('names the day whose end it would use, not the focused index', () => {
+    const onFinishHere = vi.fn();
+    const panel = mountPanel({ onFinishHere });
+    panel.render({ day: DAY_2_OF_3, trip: UP, dayCount: 3 });
+
+    el.querySelector('[data-action="finish-here"]').click();
+
+    expect(onFinishHere).toHaveBeenCalledWith(1);
+  });
+
+  // A day already ending at the finish has nothing to offer, and a button that does
+  // nothing is worse than no button.
+  it('is disabled on a day that already ends at the trip’s finish', () => {
+    const panel = mountPanel({});
+    panel.render({ day: LAST_DAY_AT_DESTINATION, trip: UP, dayCount: 3 });
+
+    expect(el.querySelector('[data-action="finish-here"]').disabled).toBe(true);
+  });
+
+  it('is enabled on the last day when the plan stops short of the finish', () => {
+    const panel = mountPanel({});
+    panel.render({ day: LAST_DAY_SHORT_OF_DESTINATION, trip: UP, dayCount: 3 });
+
+    expect(el.querySelector('[data-action="finish-here"]').disabled).toBe(false);
+  });
+
+  it('is enabled on a downstream day that ends short of the finish', () => {
+    const panel = mountPanel({});
+    panel.render({ day: DOWNSTREAM_DAY_1, trip: DOWN, dayCount: 2 });
+
+    expect(el.querySelector('[data-action="finish-here"]').disabled).toBe(false);
+  });
+});
+```
+
+**Kills:** the two emit tests kill a hardcoded index and a button wired to the wrong
+callback. The disabled pair kills both halves of the predicate — a button always
+enabled (which offers a no-op on the last day of a completed plan) and one always
+disabled (which is the feature missing). The downstream case kills an absolute-km
+comparison: `day.endKm === trip.destinationKm` happens to work, but
+`day.endKm >= trip.destinationKm` — the shape someone writes without thinking — is true
+for **every** downstream day, disabling the button across the whole plan.
+
+- [ ] **Step 2: Implement** (`src/day-panel.js`)
+
+In `.day-panel__actions`, before `Split day`:
+
+```js
+        // Rider km on both sides, and the predicate is "does this day already end where
+        // the trip does". In absolute km the comparison inverts downstream; in rider km
+        // the day's end and the trip's length are two distances from one origin, which
+        // is the same question whichever way the trip runs.
+        const atFinish = round1(trip.tripKm(day.endKm)) >= round1(trip.lengthKm);
+```
+
+```html
+          <button type="button" class="btn btn--sm" data-action="finish-here" ${atFinish ? 'disabled' : ''}
+                  title="${atFinish ? 'This day already ends at your finish' : `Finish the trip at km ${round1(trip.tripKm(day.endKm))}, dropping any later days`}">Finish here</button>
+```
+
+plus `if (e.target.closest('[data-action="finish-here"]')) return callbacks.onFinishHere?.(index);`
+in the click listener, below the `current.day` guard with the other day actions.
+
+- [ ] **Step 3: Wire it** (`src/main.js`)
+
+```js
+  // Spec §6: after planning a few days, make one of them the destination. The day's own
+  // end is already a legal position on the trip, so the only guard that can bite is the
+  // length one — a first day of 3 km cannot become a 3 km trip. It goes through
+  // applyPickedEnd anyway, because a second copy of the guards is how the two drift.
+  function handleFinishHere(index) {
+    const day = itinerary.getDays()[index];
+    if (!day) return;
+    applyPickedEnd('destination', round1(day.endKm));
+  }
+```
+
+`fitDaysToLength` does the dropping for free: the new `lengthKm` is exactly the plan's
+reach through that day, so every later day finds no room and `reportPick` says how many
+went. **No new persistence, no new state** — the window is written by the `persistPlan`
+inside `applyPickedEnd`, and the trimmed day list with it.
+
+One consequence to state rather than discover: **`Finish here` on a day whose overnight
+town sits past its boundary keeps that town**, because `fitDaysToLength` keeps the
+straddling day's choice and this day is not even clamped. The day panel's existing snap
+note explains any mismatch.
+
+- [ ] **Step 4: Run, verify in the browser, commit**
+
+Run: `npx vitest run --exclude '**/.cache/**'` — day-panel +5.
+
+**Browser verification:** on a five-day whole-road plan, `Finish here` on day 3 →
+`destinationKm` becomes day 3's end, days 4 and 5 are gone, the prompt says two days
+were dropped, the strip rescales to the new window with a `road continues … to Prague`
+cap at the right-hand end that was not there before, the scale line names day 3's
+overnight town if it has one, and the button is then **disabled** on the new last day.
+Reload → three days and the new window. Then the same on a downstream plan, where the
+new cap appears at the right-hand end and names **Cuxhaven**.
+
+```bash
+git add src/day-panel.js src/day-panel.test.js src/main.js
+git commit -m "feat(day-panel): finish the trip at this day's end"
+```
+
+---
+
+### Standing conventions for all four tasks
+
+- **An assertion that would pass under its own inversion is worthless.** Five have
+  already been found on this branch (a payload that could not escape its `title`
+  context; a memo test that moved both window ends and so pinned neither; a row cap
+  pinned by count only, so keeping the LAST 40 passed; a map cap pinned only against an
+  ascending fixture; an ordering assertion standing in for a conversion assertion).
+  Every obligation above names the mutation it must kill; run them.
+- **Mutation trees go in the session scratchpad, outside the project.** `vitest` 4 here
+  does **not** exclude `.cache/`, two agents have already polluted each other's
+  discovery through it, and a `vitest run src/strip.test.js` in a worktree with a copy
+  reported 247 tests for a 126-test file. Keep the tree outside the worktree and pass
+  `--exclude '**/.cache/**'` on every count you record.
+- **One mutation at a time.** Batching is what made Task 8's `Math.abs` gap hard to
+  attribute.
+- **Record every changed expectation.** Three are expected across these tasks: the
+  three `createMap - the start pin` cases (construction → setter), the day panel's
+  empty-state `'No days yet'`, and nothing else — if a fourth appears, stop and check
+  whether the change or the test is wrong.
 
 ---
 
