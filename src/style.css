@@ -143,8 +143,19 @@ body {
 
 /* Nothing on the map may eat an armed click. A POI dot, a ⭐ or a day pin sitting over
    the route would otherwise swallow the pick and the rider would press again, harder,
-   at the same place. */
-#map.map--picking .leaflet-marker-pane {
+   at the same place.
+
+   The SECOND selector is the one that does the work, and the pane alone did not.
+   `pointer-events` inherits, but an explicit value on a descendant beats an inherited
+   one whatever the parent's specificity — and leaflet.css sets
+   `.leaflet-marker-icon.leaflet-interactive { pointer-events: auto }` on every marker
+   element. Measured in Chromium against the pane-only rule: with a pick armed,
+   `elementFromPoint` over a POI dot on the route still returned the dot, the click was
+   handled as a POI select (which pans the map), and the pick simply never happened —
+   the exact failure the paragraph above describes, silently. Naming the icons puts the
+   `none` where the `auto` is, at 1-3-0 against leaflet's 0-2-0. */
+#map.map--picking .leaflet-marker-pane,
+#map.map--picking .leaflet-marker-pane .leaflet-marker-icon {
   pointer-events: none;
 }
 
@@ -1511,6 +1522,61 @@ input[type="number"]:disabled {
 }
 .day-panel--empty .day-panel__hint {
   max-width: 30ch;
+}
+
+/* --- Trip setup (a plan with no days yet) ---------------------------------
+   The two rows are the same object .day-panel__field is — a label, a value, and a
+   control on the right — so they draw the same box rather than a second one that only
+   almost matches. Reusing the idiom is also what makes them work at all: the km line
+   inside each row is a .day-panel__hint, whose `flex: 1 0 100%` puts it on its own line
+   ONLY inside a flex container. As a plain <dl> the step rendered three stacked blocks
+   per row, a browser 40px indent under each <dd>, and the two texts run together —
+   "anywhere on the roadkm 149.3 of the road". */
+.trip-setup {
+  margin: 6px 0 14px;
+}
+
+.trip-setup__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Fixed, so "Start" and "Finish" put their two values on the same column. */
+.trip-setup__row dt {
+  flex: 0 0 44px;
+}
+
+/* The flex container the hint wraps inside, and the one place the <dd>'s own 40px
+   browser indent is cancelled. */
+.trip-setup__row dd {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* baseline-aligned with the value, and never squeezed by a long town name. */
+.trip-setup__row button {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+/* The same sentence the prompt shows after a pick, so the step and the confirmation
+   cannot describe one trip two ways. */
+.trip-setup__headline {
+  font-size: 13px;
+  color: var(--river);
+  margin: 0 0 10px;
 }
 
 .day-panel__head {

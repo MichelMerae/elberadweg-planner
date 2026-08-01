@@ -2,14 +2,14 @@ import './style.css';
 import { loadRoute, createRouteIndex, pointAtKm, stretchCoords, snap } from './route.js';
 import { loadTowns, townsNear } from './towns.js';
 import { loadPois, poisInRange } from './pois.js';
-import { createTrip } from './trip.js';
-import { createItinerary, breakKey } from './itinerary.js';
+import { createTrip, proposeEnd } from './trip.js';
+import { createItinerary, breakKey, fitDaysToLength } from './itinerary.js';
 import { ARRIVED_EPSILON_KM, MIN_DAY_KM } from './boundaries.js';
 import { createPlanStore } from './storage.js';
 import { createFavorites, favKey } from './favorites.js';
 import { createMap } from './map.js';
-import { createBanner } from './ui.js';
-import { round1, townKey, poiKey } from './ui-util.js';
+import { createBanner, createPickBanner } from './ui.js';
+import { round1, townKey, poiKey, tripHeadline } from './ui-util.js';
 import { createStrip } from './strip.js';
 import { createStripResize } from './strip-resize.js';
 import { createDayPanel } from './day-panel.js';
@@ -105,6 +105,13 @@ async function boot() {
   // focused day. Not persisted.
   let customStopDraft = null;
 
+  // Which end of the trip the next route click resolves ('start' | 'destination'), or
+  // null. The app owns it: the two controls' pressed state, the prompt and the Escape
+  // path all read it, and the map only REFLECTS it (see map.js's setPickingMode, which
+  // is deliberately a plain setter so there is one owner of the fact). Not persisted —
+  // a reload cancels a pick, which is right.
+  let picking = null;
+
   // Which plan the itinerary currently holds: hydrateActivePlan bumps it, so a
   // boundary gesture can tell whether the plan it started in is still loaded.
   // gestureGeneration is the generation the open gesture began in, or null when no
@@ -140,12 +147,14 @@ async function boot() {
   // edit) leave the user's own zoom where it is.
   let lastFramedStretch = null;
 
-  // onPickPoint has no handler until Task 11, and nothing can arm the mode yet, so
-  // picking is exercised by map.test.js only for now — the browser proof lands with
-  // the control that arms it.
+  // onRouteClick and onPickPoint are EXCLUSIVE: map.js routes a click to one or the
+  // other depending on whether setPickingMode has the map armed, because a route click
+  // already means "add a custom stop to the focused day" and a mode that meant both
+  // would be a mode that meant neither.
   const map = createMap({
     routeFeature: route,
     onRouteClick: handleRouteClick,
+    onPickPoint: handlePickPoint,
     onPoiClick: handleSelectPoi,
     // Map-marker hover highlights the matching row in the left panel.
     onPoiHover: (poi) => places.highlightPoiRow(poi ? poiKey(poi) : null),
@@ -180,6 +189,9 @@ async function boot() {
       onFocusDay: handleFocusDay,
       onMoveBoundary: handleMoveBoundary,
       onAddDay: handleAddDay,
+      // The scale line's own two ends are the controls that move them. Same handler as
+      // the day panel's setup step: one picking flow, two places to reach it.
+      onPickEnd: handlePickEnd,
     },
   });
 
@@ -260,6 +272,10 @@ async function boot() {
       onEditBreak: handleEditBreak,
       onAddCustomStop: handleAddCustomStop,
       onCancelCustomStop: handleCancelCustomStop,
+      // The trip-setup step's Set start / Set finish. Same two data-actions the strip
+      // uses and the same handler behind them; each module's listener is scoped to its
+      // own root, so the shared names never collide.
+      onPickEnd: handlePickEnd,
     },
   });
 
@@ -280,14 +296,30 @@ async function boot() {
 
   const mapControlsEl = document.getElementById('map-controls');
 
-  // The buttons sit inside the Leaflet container, so every event they see also
-  // reaches the map: a click would draft a custom stop on the focused day and a
-  // press would start a pan. Leaflet's own disableClickPropagation is behind
-  // map.js's import, so guard from the outside.
-  ['mousedown', 'touchstart', 'dblclick'].forEach((type) =>
-    mapControlsEl.addEventListener(type, (e) => e.stopPropagation()),
-  );
+  // The picking prompt (spec §6/§8): what to click, what a pick made, and why one was
+  // refused. Its own banner, not renderBanner's — that one is rewritten from plan state
+  // on every save and would wipe a prompt parked in it (see createPickBanner).
+  const pickBanner = createPickBanner({ el: document.getElementById('pick-banner') });
 
+  // Anything overlaid on the map sits INSIDE the Leaflet container, so every event it
+  // sees also reaches the map: a click would draft a custom stop on the focused day and
+  // a press would start a pan. Leaflet's own disableClickPropagation is behind map.js's
+  // import, so guard from the outside.
+  //
+  // The prompt needs this as much as the camera buttons do, and while a pick is armed it
+  // needs it MORE: an unshielded click on the prompt — on its text, or on the action
+  // button Task 12 puts there — is a route click, so the trip end would land at whatever
+  // km happens to lie under the prompt.
+  function shieldFromMap(el) {
+    ['mousedown', 'touchstart', 'dblclick', 'click'].forEach((type) =>
+      el.addEventListener(type, (e) => e.stopPropagation()),
+    );
+  }
+  shieldFromMap(mapControlsEl);
+  shieldFromMap(document.getElementById('pick-banner'));
+
+  // Keeps its own stopPropagation: this handler is the camera buttons' behaviour and
+  // must not depend on a shield registered elsewhere still being there.
   mapControlsEl.addEventListener('click', (e) => {
     e.stopPropagation();
     const action = e.target.closest('[data-action]')?.dataset.action;
@@ -369,6 +401,13 @@ async function boot() {
     customStopDraft = null;
     focusedDayIndex = null;
     lastFramedStretch = null; // a different stretch — frame it
+    // A pick CONFIRMATION describes the trip it was made on, and this is a different
+    // trip: left up, "your start → Prague · 877.5 km upstream" would sit over a plan
+    // whose summary reads "0 / 1026.5 km planned". An ARMED prompt survives on purpose —
+    // the mode belongs to the app rather than to the plan, and "click the route where
+    // your trip starts" is still true of whichever plan is now loaded. (The pick banner
+    // has no × by design, so nothing else would ever clear it.)
+    if (!picking) pickBanner.hide();
     renderBanner();
     renderAll();
   }
@@ -412,10 +451,35 @@ async function boot() {
   // road past it" — sharing one comparison. Change one, change the other, or the app
   // will name one end two ways on one screen.
   function nameForTripEnd(tripEnd) {
-    const km = tripEnd === 'start' ? trip.startKm : trip.destinationKm;
+    return nameAtKm(tripEnd === 'start' ? trip.startKm : trip.destinationKm);
+  }
+
+  // The same question asked of an arbitrary km rather than of a trip end, which is what
+  // a refusal message needs: the km it is talking about is one the rider just PROPOSED,
+  // and no end of the current trip sits there. Task 12 gives this the towns.
+  function nameAtKm(km) {
     if (round1(km) <= 0) return ORIGIN_NAME;
     if (round1(totalKm - km) <= 0) return DESTINATION_NAME;
     return null;
+  }
+
+  // The two names in the shape tripHeadline and the day panel both take. Derived
+  // together so a caller cannot pass one end's name for the other's.
+  function endNames() {
+    return { startName: nameForTripEnd('start'), destinationName: nameForTripEnd('destination') };
+  }
+
+  // How a MESSAGE names a km: the road end it sits on, and failing that not a km at all
+  // but the role it plays in the trip being proposed. Deliberately never an absolute km
+  // — it would be the only absolute km on screen, which spec §2 names as worse than
+  // all-absolute because nothing marks it as different. The unnamed case reads a little
+  // awkwardly ("ride your finish → the point you picked"), and that is the trade taken.
+  function endLabel(km) {
+    const named = nameAtKm(km);
+    if (named) return named;
+    if (km === trip.startKm) return 'your start';
+    if (km === trip.destinationKm) return 'your finish';
+    return 'the point you picked';
   }
 
   // "from X" for a day: the previous day's overnight town, the rider's own start for
@@ -445,6 +509,10 @@ async function boot() {
       originName: ORIGIN_NAME,
       destinationName: DESTINATION_NAME,
       elevation,
+      // Which of the scale line's two end controls is drawn pressed. The strip RENDERS
+      // the mode; it never owns it, which is why a cancel arrives here as picking: null
+      // rather than as a call that unpresses a button in place.
+      picking,
     });
   }
 
@@ -464,6 +532,11 @@ async function boot() {
       // time and read backwards on a downstream trip.
       draftOnDay: !!(day && customStopDraft && itinerary.dayOwnsKm(day.index, customStopDraft.km)),
       climb: day && elevation ? ascentBetween(elevation, day.startKm, day.endKm) : null,
+      // The trip-setup step (an empty plan) names both of the trip's own ends and arms
+      // the same mode the strip's controls do. The names are the RIDER's ends, so on a
+      // downstream trip startName is the road's destination — nameForTripEnd's whole job.
+      ...endNames(),
+      picking,
     });
   }
 
@@ -822,6 +895,148 @@ async function boot() {
     customStopDraft = null;
     renderAll();
   }
+
+  // --- Picking a trip end ------------------------------------------------
+
+  // One of the four end controls was pressed — the scale line's two or the setup step's
+  // two, which are the same two controls in two places.
+  function handlePickEnd(tripEnd) {
+    // A second press on the armed control cancels — spec §6, and the reason both
+    // controls are toggles rather than plain buttons. Pressing the OTHER one re-arms:
+    // exactly one end is ever being picked.
+    picking = picking === tripEnd ? null : tripEnd;
+    map.setPickingMode(picking);
+    if (picking) {
+      pickBanner.show(
+        `Click the route where your trip ${picking === 'start' ? 'starts' : 'finishes'} · Esc to cancel`,
+      );
+    } else {
+      pickBanner.hide();
+    }
+    // The pressed state is RENDERED, not toggled in place: the strip rebuilds its scale
+    // line and the day panel its setup step on every render, so a class set by hand here
+    // would survive exactly until the next one.
+    renderAll();
+  }
+
+  // An armed click on the route. map.js hands over the raw lng/lat and the end it was
+  // armed for; snapping to the route and to the 0.1 km grid is ours, the same way a day
+  // pin's drag is snapped.
+  function handlePickPoint(lngLat, tripEnd) {
+    picking = null;
+    map.setPickingMode(null);
+    applyPickedEnd(tripEnd, round1(snap(route, lngLat).distanceKm));
+  }
+
+  // The one path from a picked km to a new window: the guards, the reflow, the save and
+  // the sentence saying what happened. Three callers — a map pick, the snap offer
+  // (Task 12) and Finish here (Task 13) — so a guard added here covers all three.
+  function applyPickedEnd(tripEnd, km) {
+    const decided = proposeEnd(trip, tripEnd, km, {
+      dayCount: itinerary.getDays().length,
+      minLengthKm: MIN_DAY_KM,
+    });
+    if (!decided.ok) {
+      // A refused pick still disarmed the mode, and the pressed state is RENDERED — so
+      // the refusal has to re-render too, or the control stays lit above a map that is
+      // no longer armed and the next route click quietly drafts a custom stop instead.
+      renderAll();
+      refusePick(tripEnd, decided);
+      return;
+    }
+    const dropped = setTripWindow(decided.trip);
+    persistPlan();
+    renderAll();
+    reportPick(tripEnd, km, dropped);
+  }
+
+  // The same three steps loadPlanIntoModel takes, with the days coming from memory
+  // rather than from storage. A trip is fixed at construction — which is what lets every
+  // day chain off the window without re-passing it — so a new window means a new
+  // itinerary, replayed from the lengths the plan already has, trimmed to what still
+  // fits (spec §8). Returns how many days did not.
+  //
+  // Breaks ride along untouched: they are absolute km and plan-level, so a window change
+  // invalidates none of them (spec's "changing your start does not invalidate a single
+  // favorite"). One consequence worth knowing: a break now outside the window keeps its
+  // km and its row is simply not drawn — the strip filters glyphs to the window — and it
+  // comes back if the window widens again.
+  function setTripWindow(nextTrip) {
+    const entries = itinerary
+      .getDays()
+      .map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice }));
+    const breaks = itinerary.getBreaks();
+    const fitted = fitDaysToLength(entries, nextTrip.lengthKm);
+    trip = nextTrip;
+    itinerary = createItinerary({ trip });
+    itinerary.hydrate({ days: fitted.days, breaks });
+    // A boundary gesture in flight belongs to the itinerary that just left — the same
+    // reason a plan switch bumps this (see handleMoveBoundary).
+    planGeneration += 1;
+    customStopDraft = null; // its day may be gone, and its km may be off the trip
+    lastFramedStretch = null; // every day's stretch moved
+    return fitted.dropped;
+  }
+
+  function reportPick(tripEnd, km, dropped) {
+    const dropText = dropped
+      ? ` · ${dropped} ${dropped === 1 ? 'day' : 'days'} no longer ${dropped === 1 ? 'fits' : 'fit'} and ${dropped === 1 ? 'was' : 'were'} dropped`
+      : '';
+    // The trip itself is the confirmation, in the same sentence the setup step uses: a
+    // rider who has just moved an end wants to know what the trip IS now, and "km 0" —
+    // which is what a start always becomes — would tell them nothing.
+    pickBanner.show(`${tripHeadline(trip, endNames())}${dropText}`);
+  }
+
+  // The guards are unit-tested in trip.test.js; their WORDING is this file's, and this
+  // file has no test harness — so these two sentences are verified in the browser and
+  // quoted verbatim into the ledger.
+  function refusePick(tripEnd, decided) {
+    const role = tripEnd === 'start' ? 'start' : 'finish';
+    if (decided.reason === 'too-short') {
+      pickBanner.show(
+        `That ${role} would leave a trip of ${round1(decided.lengthKm)} km — a trip needs at least ${MIN_DAY_KM} km.`,
+        { tone: 'error' },
+      );
+      return;
+    }
+    if (decided.reason === 'would-reverse') {
+      // Spec §6's sentence, with the direction NAMED rather than merely refused. Task 12
+      // gives endLabel the town half, and until it does this sentence reads awkwardly on
+      // purpose — which is worth spelling out, because the plan claimed the opposite
+      // ("a whole-road trip is already named by both road ends, so the common case reads
+      // right from here") and that is not reachable:
+      //
+      //   A proposal whose BOTH ends are road ends is never a reversal. Take the
+      //   unchanged end U and the picked km P. If U = 0 the proposal's direction is
+      //   forced the same way the current trip's already is, and likewise for U = totalKm
+      //   — check all four (move start / move destination) × (U = 0 / U = totalKm) and
+      //   every one comes out same-direction, or zero-length and refused as too-short
+      //   first. So a whole-road trip cannot produce this refusal at all, and any
+      //   reversal that does has at most ONE end on a road end: the picked one.
+      //
+      // Verified in the browser at every shape: "…ride the point you picked → your
+      // finish instead", "…ride your start → the point you picked instead", and — from a
+      // downstream trip whose start is picked off the end of the line at Cuxhaven —
+      // "…ride Cuxhaven → your finish instead".
+      pickBanner.show(
+        `That would reverse the trip. Reset the trip to ride ${endLabel(decided.startKm)} → ${endLabel(decided.destinationKm)} instead.`,
+        { tone: 'error' },
+      );
+      return;
+    }
+    // 'not-a-number' is a bug upstream, not a choice a rider made.
+    console.warn('planner-app: ignored a pick with no finite km', decided);
+  }
+
+  // Escape cancels a pick. Owned at the document because when a pick is armed the
+  // pointer is over the MAP, and nothing there holds focus to hang a handler on. The two
+  // editors that own Esc for themselves — the day panel's break-note editor and its
+  // custom-stop prompt — both stopPropagation, so this cannot steal theirs.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !picking) return;
+    handlePickEnd(picking); // the toggle IS the cancel; one path, one place
+  });
 
   // --- Plan callbacks ----------------------------------------------------
 
