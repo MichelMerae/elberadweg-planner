@@ -1081,9 +1081,10 @@ input[type="number"]:disabled {
 .strip__elevation-fill {
   fill: var(--terrain);
   /* Low enough that a day block's own fill, its focus ring and its label all stay
-     legible through it. The profile is context for the days, not a layer competing
-     with them. */
-  fill-opacity: 0.13;
+     legible through it — the profile is context for the days, not a layer competing
+     with them — but not so low it disappears. At 0.13 the 800 flat km read as empty
+     axis; 0.18 gives the ground a floor without touching the labels. */
+  fill-opacity: 0.18;
 }
 
 .strip__elevation-line {

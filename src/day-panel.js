@@ -119,8 +119,10 @@ function draftForDay(draft, day) {
 function climbMarkup(climb) {
   if (!climb || !Number.isFinite(climb.ascentM)) return '';
   const title =
-    'Approximate: sampled every 250 m from a 90 m elevation model, counting only ' +
-    'rises and falls of more than 5 m. Good for comparing days, not for quoting.';
+    'Approximate: sampled every 250 m from a 90 m surface model, counting only rises ' +
+    'and falls of more than 5 m. A surface model measures the top of what stands on ' +
+    'the ground, so buildings and tree cover add climb the road does not have. Good ' +
+    'for comparing one day against another, not for quoting.';
   return `<div class="day-panel__climb" title="${esc(title)}">
             <span class="day-panel__climb-up">↑ ${Math.round(climb.ascentM)} m</span>
             <span class="day-panel__climb-down">↓ ${Math.round(climb.descentM)} m</span>
