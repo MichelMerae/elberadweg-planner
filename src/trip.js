@@ -113,3 +113,55 @@ export function wouldReverse(trip, { startKm = trip.startKm, destinationKm = tri
   }
   return createTrip({ startKm, destinationKm }).direction !== trip.direction;
 }
+
+/**
+ * A proposed new end for a trip, answered: the trip it would make, or the reason it is
+ * refused. Spec §8's three guards, in the ONE order that gives each refusal its own
+ * reason — which is why this is a function and not three lines in a click handler.
+ *
+ * 1. **Finite.** `wouldReverse` throws on a non-finite end by design (it used to fail
+ *    OPEN downstream, waving a NaN pick through the very guard that exists to refuse
+ *    it), so a pick that is not a number must never reach it.
+ * 2. **Long enough.** A pick landing on the trip's other end makes a zero-length
+ *    window, and an equal-ended window is FORWARD here — so downstream `wouldReverse`
+ *    would call that a reversal and point the rider at Reset trip. Length first, and
+ *    the refusal says what is actually wrong: too short.
+ * 3. **Not a flip, once there are days.** With no days a flip is trip setup.
+ *
+ * @param {object} trip - the trip being changed, from createTrip().
+ * @param {'start'|'destination'} tripEnd - which end the pick moves. Exactly one, ever:
+ *   each control owns one end, which is also what keeps the strip's elevation memo key
+ *   honest — both of its ends are pinned by a test that moves one at a time.
+ * @param {number} km - the picked ABSOLUTE route km.
+ * @param {{dayCount?: number, minLengthKm: number}} opts - `minLengthKm` is required and
+ *   validated: MIN_DAY_KM belongs to boundaries.js, which this module deliberately does
+ *   not import, and a defaulted guard is a guard a caller can forget.
+ * @returns {{ok: true, trip: object}
+ *   | {ok: false, reason: 'not-a-number', km: number}
+ *   | {ok: false, reason: 'too-short', lengthKm: number, minLengthKm: number}
+ *   | {ok: false, reason: 'would-reverse', startKm: number, destinationKm: number}}
+ */
+export function proposeEnd(trip, tripEnd, km, { dayCount = 0, minLengthKm } = {}) {
+  if (tripEnd !== 'start' && tripEnd !== 'destination') {
+    throw new Error(`proposeEnd needs tripEnd 'start' or 'destination', got: ${tripEnd}`);
+  }
+  if (!Number.isFinite(minLengthKm)) {
+    throw new Error(`proposeEnd needs a finite minLengthKm, got: ${minLengthKm}`);
+  }
+  if (!Number.isFinite(km)) return { ok: false, reason: 'not-a-number', km };
+
+  const ends =
+    tripEnd === 'start'
+      ? { startKm: km, destinationKm: trip.destinationKm }
+      : { startKm: trip.startKm, destinationKm: km };
+  // Built before the length is judged, so the length judged is the one the trip would
+  // really have: createTrip pulls both ends onto the road.
+  const next = createTrip({ ...ends, totalKm: trip.totalKm });
+  if (next.lengthKm < minLengthKm) {
+    return { ok: false, reason: 'too-short', lengthKm: next.lengthKm, minLengthKm };
+  }
+  if (dayCount > 0 && wouldReverse(trip, ends)) {
+    return { ok: false, reason: 'would-reverse', ...ends };
+  }
+  return { ok: true, trip: next };
+}

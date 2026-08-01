@@ -33,6 +33,38 @@ export function breakKey(b) {
   return `${b.name}@${b.routeDistanceKm}`;
 }
 
+/**
+ * Day entries trimmed to a window `lengthKm` long, and how many no longer fit.
+ *
+ * Spec §8: a window that shrinks below the planned distance "clamps the last day and
+ * drops days that no longer fit, reporting how many". Both halves are one walk, so
+ * they are one function — a caller recomputing the count from two array lengths would
+ * be right only by luck.
+ *
+ * Lengths only: no trip, no absolute km, no direction, because a length is the same
+ * number whichever way the trip runs. The entries are the STORED shape
+ * (`{targetKm, townChoice}`) — what hydrate takes and what persistPlan writes.
+ *
+ * Deliberately does NOT floor a clamped day at MIN_DAY_KM: it cannot be reached with a
+ * window shorter than that (proposeEnd refuses those), and flooring would extend a day
+ * past the finish it was just trimmed to.
+ */
+export function fitDaysToLength(entries, lengthKm) {
+  const days = [];
+  let ridden = 0;
+  for (const entry of entries) {
+    // Rounded to the 0.1 km grid the plan stores lengths on, so "nothing left" and
+    // "0.04 km left" are the same answer. A day of 0 km is what hydrate refuses, and
+    // it drops the WHOLE plan rather than that one day.
+    const room = round1(lengthKm - ridden);
+    if (room <= 0) break;
+    const targetKm = Math.min(entry.targetKm, room);
+    days.push({ targetKm, townChoice: entry.townChoice ?? null });
+    ridden = round1(ridden + targetKm);
+  }
+  return { days, dropped: entries.length - days.length };
+}
+
 function isValidBreak(place) {
   return (
     !!place &&

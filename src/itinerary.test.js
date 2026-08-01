@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createItinerary, breakKey } from './itinerary.js';
+import { createItinerary, breakKey, fitDaysToLength } from './itinerary.js';
 import { createTrip } from './trip.js';
 import { MIN_DAY_KM } from './boundaries.js';
 
@@ -818,6 +818,48 @@ describe('createItinerary - hydrate', () => {
 describe('breakKey', () => {
   it('composes name@routeDistanceKm', () => {
     expect(breakKey({ name: 'Café X', routeDistanceKm: 42 })).toBe('Café X@42');
+  });
+});
+
+describe('fitDaysToLength', () => {
+  const FIVE = [80, 80, 80, 80, 80].map((targetKm) => ({ targetKm, townChoice: null }));
+
+  it('leaves a plan that still fits alone', () => {
+    const out = fitDaysToLength(FIVE, 400);
+    expect(out.days.map((d) => d.targetKm)).toEqual([80, 80, 80, 80, 80]);
+    expect(out.dropped).toBe(0);
+  });
+
+  it('clamps the day that straddles the finish, drops the rest, and counts them', () => {
+    const out = fitDaysToLength(FIVE, 180);
+    expect(out.days.map((d) => d.targetKm)).toEqual([80, 80, 20]);
+    expect(out.dropped).toBe(2);
+  });
+
+  it('drops a day with nothing left to ride rather than storing a zero', () => {
+    const out = fitDaysToLength(FIVE, 160);
+    expect(out.days.map((d) => d.targetKm)).toEqual([80, 80]);
+    expect(out.dropped).toBe(3);
+  });
+
+  // hydrate REFUSES a non-positive targetKm by dropping the whole plan, so a 0.04 km
+  // day is not a small day — it is the loss of every day in the plan on the next
+  // reload. What is left is rounded to the grid the plan stores lengths on before it
+  // is believed.
+  it('rounds what is left before believing it, so no 0.04 km day is stored', () => {
+    const out = fitDaysToLength(FIVE, 160.04);
+    expect(out.days.map((d) => d.targetKm)).toEqual([80, 80]);
+    expect(out.dropped).toBe(3);
+  });
+
+  it('keeps the overnight town of the day it clamps', () => {
+    const days = [{ targetKm: 80, townChoice: { name: 'Hitzacker', routeDistanceKm: 229.3 } }];
+    const out = fitDaysToLength(days, 60);
+    expect(out.days[0]).toEqual({ targetKm: 60, townChoice: { name: 'Hitzacker', routeDistanceKm: 229.3 } });
+  });
+
+  it('drops everything for a window with no room at all', () => {
+    expect(fitDaysToLength(FIVE, 0)).toEqual({ days: [], dropped: 5 });
   });
 });
 

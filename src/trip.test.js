@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createTrip, wouldReverse } from './trip.js';
+import { createTrip, wouldReverse, proposeEnd } from './trip.js';
 
 describe('createTrip', () => {
   const up = createTrip({ startKm: 149.3, destinationKm: 797.6 });   // Hamburg -> Dresden
@@ -179,5 +179,105 @@ describe('wouldReverse', () => {
     const bounded = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: 1026.5 });
     expect(wouldReverse(bounded, { destinationKm: 100 })).toBe(true);
     expect(wouldReverse(bounded, { destinationKm: 600 })).toBe(false);
+  });
+});
+
+describe('proposeEnd', () => {
+  const UP = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: 1026.5 });
+  const DOWN = createTrip({ startKm: 797.6, destinationKm: 149.3, totalKm: 1026.5 });
+  const GUARDS = { dayCount: 3, minLengthKm: 5 };
+
+  it('answers a good pick with the trip it makes', () => {
+    const out = proposeEnd(UP, 'start', 200, GUARDS);
+    expect(out.ok).toBe(true);
+    expect(out.trip.startKm).toBe(200);
+    expect(out.trip.destinationKm).toBe(797.6); // the other end untouched
+    expect(out.trip.totalKm).toBe(1026.5); // and the road it is measured on
+  });
+
+  it('moves the end it was asked for and never the other one', () => {
+    const out = proposeEnd(UP, 'destination', 600, GUARDS);
+    expect(out.trip.startKm).toBe(149.3);
+    expect(out.trip.destinationKm).toBe(600);
+  });
+
+  // The refusals below are only worth anything if a good DOWNSTREAM pick is answered
+  // too: without this a length compared as a signed subtraction — negative for every
+  // downstream window — would refuse the whole direction this feature exists for and
+  // still pass all four too-short assertions.
+  it('answers a good downstream pick with the trip it makes', () => {
+    const out = proposeEnd(DOWN, 'destination', 200, GUARDS);
+    expect(out.ok).toBe(true);
+    expect(out.trip.startKm).toBe(797.6);
+    expect(out.trip.destinationKm).toBe(200);
+    expect(out.trip.direction).toBe(-1);
+  });
+
+  it('pulls a pick past the end of the road onto it', () => {
+    expect(proposeEnd(UP, 'destination', 2000, GUARDS).trip.destinationKm).toBe(1026.5);
+  });
+
+  // THE ORDER TEST. A pick landing on the trip's other end makes a ZERO-length window,
+  // and createTrip calls an equal-ended window forward — so on a downstream trip
+  // wouldReverse asked first answers "reversal" and sends the rider to Reset trip over
+  // a window they only need to nudge.
+  it('refuses a zero-length pick as too short, not as a reversal, downstream', () => {
+    const out = proposeEnd(DOWN, 'destination', 797.6, GUARDS);
+    expect(out.ok).toBe(false);
+    expect(out.reason).toBe('too-short');
+  });
+
+  it('refuses a window under the minimum in both directions', () => {
+    expect(proposeEnd(UP, 'destination', 152, GUARDS).reason).toBe('too-short'); // 2.7 km
+    expect(proposeEnd(DOWN, 'destination', 795, GUARDS).reason).toBe('too-short'); // 2.6 km
+  });
+
+  // The minimum is what a window is allowed to BE, not what it has to exceed: a window
+  // exactly MIN_DAY_KM long holds exactly one legal day.
+  it('allows a window exactly the minimum length', () => {
+    const clean = createTrip({ startKm: 100, destinationKm: 200, totalKm: 1026.5 });
+    expect(proposeEnd(clean, 'destination', 105, GUARDS).ok).toBe(true);
+  });
+
+  it('refuses a flip once there are days, and reports the window it would have made', () => {
+    const out = proposeEnd(UP, 'destination', 100, GUARDS);
+    expect(out.reason).toBe('would-reverse');
+    expect(out).toMatchObject({ startKm: 149.3, destinationKm: 100 });
+  });
+
+  it('refuses a start pushed past the destination too', () => {
+    expect(proposeEnd(UP, 'start', 900, GUARDS).reason).toBe('would-reverse');
+  });
+
+  // Spec §8: with no days a flip is free — that is trip setup, not a mistake.
+  it('allows a flip while the plan has no days', () => {
+    const out = proposeEnd(UP, 'destination', 100, { dayCount: 0, minLengthKm: 5 });
+    expect(out.ok).toBe(true);
+    expect(out.trip.direction).toBe(-1);
+  });
+
+  // The ledger's Task 4 hazard one layer up: a `?? 0` on the road length would clamp
+  // both ends into [0, 0] and refuse a perfectly good pick as too short. A trip that
+  // was never told a road length still has to answer a pick.
+  it('proposes on a trip with no road length without inventing one', () => {
+    const unbounded = createTrip({ startKm: 149.3, destinationKm: 797.6 });
+    const out = proposeEnd(unbounded, 'destination', 600, GUARDS);
+    expect(out.ok).toBe(true);
+    expect(out.trip.destinationKm).toBe(600);
+    expect(out.trip.totalKm).toBeNull();
+  });
+
+  it('refuses a pick that is not a number instead of letting wouldReverse throw', () => {
+    expect(proposeEnd(UP, 'start', NaN, GUARDS)).toMatchObject({ ok: false, reason: 'not-a-number' });
+    expect(() => proposeEnd(UP, 'start', undefined, GUARDS)).not.toThrow();
+  });
+
+  it('throws on an end it does not recognise rather than moving the other one', () => {
+    expect(() => proposeEnd(UP, 'finish', 600, GUARDS)).toThrow(/start.*destination/);
+  });
+
+  it('throws when nobody said how short is too short', () => {
+    expect(() => proposeEnd(UP, 'start', 200, { dayCount: 0 })).toThrow(/minLengthKm/);
+    expect(() => proposeEnd(UP, 'start', 200)).toThrow(/minLengthKm/);
   });
 });
