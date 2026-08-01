@@ -1848,7 +1848,13 @@ dropped days on reload.
    Hamburg with `downstream` in the headline.
 8. **The elevation profile changes when only ONE end moves** — the memo key's per-end
    paths, which Task 8's fix round pinned with two tests precisely because these two
-   controls are each half of it.
+   controls are each half of it. **Observe the drawn path, not a climb figure:** read
+   the first and last `y` of `.strip__elevation-line`'s `d` (Task 8's browser bullets
+   quote them as `42.9 → 28.4` and its mirror), because moving one end changes which km
+   are SAMPLED. Ascent totals are the wrong instrument here — the spec's own §4 example
+   was corrected at `584a88c` for claiming this corridor trades 487 m each way when its
+   median weaker-side ratio is 0.947, so two different stretches of the Elbe can report
+   nearly the same climb and a stale memo would pass unnoticed.
 
 ```bash
 git add src/main.js
@@ -2197,11 +2203,36 @@ git commit -m "feat(day-panel): finish the trip at this day's end"
   pinned by count only, so keeping the LAST 40 passed; a map cap pinned only against an
   ascending fixture; an ordering assertion standing in for a conversion assertion).
   Every obligation above names the mutation it must kill; run them.
-- **Mutation trees go in the session scratchpad, outside the project.** `vitest` 4 here
-  does **not** exclude `.cache/`, two agents have already polluted each other's
-  discovery through it, and a `vitest run src/strip.test.js` in a worktree with a copy
-  reported 247 tests for a 126-test file. Keep the tree outside the worktree and pass
-  `--exclude '**/.cache/**'` on every count you record.
+- **Mutation trees go in the session scratchpad, outside the project — and the hazard is
+  not `.cache`, it is ANY sibling copy.** Read the ledger's corrected form before you
+  run one; the short version, because these four tasks will run five sweeps between
+  them:
+  - `vitest` 4 here does not exclude `.cache/`, and it does not exclude anything else
+    either. A `.verify-*` tree beside `src/` produced **40 files / 1646 tests** *with*
+    `--exclude '**/.cache/**'` already applied, and `vitest run src/strip.test.js`
+    reported **247 tests for a 126-test file** while two agents' trees existed. Naming
+    the copy differently does not help.
+  - **The damage is one-directional, which is why "outside the project" is the rule and
+    not a preference.** Your in-worktree copy lands in every *other* agent's full-suite
+    discovery, manufacturing failures and inflated counts that neither party owns and
+    that you cannot see. The `--exclude` flags only ever protect the person who
+    remembers to type them — keep typing them on any count you record, but do not
+    mistake them for protection.
+  - Outside the project `vite` will not resolve, so the tree needs a `node_modules`
+    junction — and **unlink the junction before deleting the tree**
+    (`[System.IO.Directory]::Delete(path, false)`; `cmd /c rmdir` tripped over path
+    escaping here). A recursive delete otherwise follows it into the shared
+    `node_modules` and destroys it under every concurrent agent. Check the real
+    `node_modules` is intact afterwards.
+- **Browser probes and screenshots go in the scratchpad too.** Phase 4 has a browser
+  pass in every task, each wanting a seeding script (`smoke-oriented.mjs` /
+  `smoke-lists.mjs` / `smoke-climb.mjs` are the ones to extend, all in the session
+  scratchpad). Do not leave them in the worktree root: `probe-dblclick.mjs`,
+  `probe-target.mjs`, `smoke-resize.mjs` and four `resize-*.png` are sitting there
+  untracked as this is written. They miss vitest discovery (not `*.test.js`), so the
+  cost is smaller than a mutation tree's — but every concurrent agent reads them in
+  `git status`, and an untracked file beside `src/` is one `git add -A` away from being
+  committed by somebody who did not make it.
 - **One mutation at a time.** Batching is what made Task 8's `Math.abs` gap hard to
   attribute.
 - **Record every changed expectation.** Three are expected across these tasks: the
