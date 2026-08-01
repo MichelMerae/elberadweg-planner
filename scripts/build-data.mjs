@@ -40,7 +40,7 @@ import {
   findJunction,
   joinSegments,
   doublingBackReport,
-  corridorPoints,
+  chunkBboxes,
 } from './lib/route-assembly.mjs';
 
 // ---------------------------------------------------------------------------
@@ -50,8 +50,9 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, '..', 'src', 'data');
 const rawCachePath = (key) => join(DATA_DIR, `route.raw.${key}.json`); // gitignored
-const TOWNS_RAW_CACHE = join(tmpdir(), 'elberadweg-towns.raw.osm.json'); // not committed
-const POIS_RAW_CACHE = join(tmpdir(), 'elberadweg-pois.raw.osm.json'); // not committed
+// Place queries cache PER CHUNK (see fetchByChunks), so a run interrupted at chunk
+// 7 of 11 resumes rather than re-fetching everything. Paths are built at the call
+// site; nothing global to declare here.
 
 const ROUTE_JSON = join(DATA_DIR, 'route.json');
 const ROUTE_META_JSON = join(DATA_DIR, 'route.meta.json');
@@ -174,48 +175,69 @@ const DOUBLING_BACK_MAX_PERCENT = 5;
 // at Magdeburg). The budget tolerates those and catches a new one.
 const INTERNAL_GAP_BUDGET_KM = 8;
 
-// Corridor sampling for the towns/POI queries.
+// Place queries go out as per-chunk bounding boxes along the route.
 //
-// Circles of radius r centred every s km along a line cover a band of half-width
-// sqrt(r² - (s/2)²), so spacing and radius trade off freely at constant coverage.
-// That trade matters: at s = 2 km this route needs 515 `around` coordinates, and
-// Overpass answered with HTTP 504 and then a dropped connection — even for the
-// single-clause towns query. Coordinate count is what it chokes on, so spacing goes
-// up and the radii go up with it. At s = 8 km: r = 7 km covers 5.74 km (towns need
-// 5) and r = 5.2 km covers 3.32 km (sights need 3), in 129 coordinates instead of
-// 515. The wider band returns more to filter out, which is cheap; the filter is an
-// exact offsetKm test either way.
-const CORRIDOR_SPACING_KM = 8;
-const TOWN_AROUND_M = 7000;
-const POI_AROUND_M = 5200;
+// Two other shapes were tried and measured. ONE box for the whole corridor spans
+// ~5.5° × 6.5° and contains Berlin, Hannover, Leipzig and Nuremberg's latitude
+// band. An `around:` coordinate corridor — the obvious fix — Overpass would not
+// serve: 515 coordinates at 2 km spacing returned HTTP 504 then a dropped
+// connection, and 130 coordinates at 8 km spacing failed identically across two
+// mirrors, for the SINGLE-clause towns query. Evaluating a union of hundreds of
+// circles is expensive; a bounding box is what a spatial index is fast at.
+const CHUNK_KM = 100;
 
-// The corridor half-widths the app actually filters to, and therefore the coverage
-// the radii above must deliver. Asserted at startup rather than trusted: getting
-// this wrong loses places silently, in a band along the whole route, and nothing
-// downstream would ever report it.
+// Padding must be at least the corridor half-width each filter keeps, or places
+// that pass the filter were never in the query. Asserted below rather than trusted:
+// getting it wrong loses places silently, in a band along the whole route, and
+// nothing downstream would ever report it.
 const TOWN_MAX_OFFSET_KM = 5;
+const TOWN_PAD_KM = 6;
+const POI_PAD_KM = 4;
 
-function assertCorridorCoverage() {
-  const half = (radiusM) => Math.sqrt((radiusM / 1000) ** 2 - (CORRIDOR_SPACING_KM / 2) ** 2);
+function assertChunkPadding() {
   const checks = [
-    { what: 'towns', radiusM: TOWN_AROUND_M, needKm: TOWN_MAX_OFFSET_KM },
-    { what: 'food', radiusM: POI_AROUND_M, needKm: POI_MAX_OFFSET.food },
-    { what: 'sights', radiusM: POI_AROUND_M, needKm: POI_MAX_OFFSET.sight },
+    { what: 'towns', padKm: TOWN_PAD_KM, needKm: TOWN_MAX_OFFSET_KM },
+    { what: 'food', padKm: POI_PAD_KM, needKm: POI_MAX_OFFSET.food },
+    { what: 'sights', padKm: POI_PAD_KM, needKm: POI_MAX_OFFSET.sight },
   ];
-  for (const { what, radiusM, needKm } of checks) {
-    const covered = half(radiusM);
-    if (!(covered >= needKm)) {
+  for (const { what, padKm, needKm } of checks) {
+    if (!(padKm >= needKm)) {
       throw new Error(
-        `corridor coverage for ${what} is ${covered.toFixed(2)} km but the filter keeps ` +
-          `${needKm} km: raise the radius or lower CORRIDOR_SPACING_KM, or the query silently ` +
-          `misses places along the whole route`,
+        `chunk padding for ${what} is ${padKm} km but the filter keeps ${needKm} km — ` +
+          `the query would silently miss places along the whole route`,
       );
     }
-    console.log(
-      `[corridor] ${what}: radius ${(radiusM / 1000).toFixed(1)} km at ${CORRIDOR_SPACING_KM} km ` +
-        `spacing covers ${covered.toFixed(2)} km (need ${needKm})`,
-    );
+    console.log(`[chunks] ${what}: pad ${padKm} km covers the ${needKm} km filter`);
   }
+}
+
+/**
+ * Fetch one Overpass clause set across every chunk box, concatenating the elements.
+ *
+ * Chunk boxes overlap by their padding, so the same element arrives more than once;
+ * dedupe by type+id before anything downstream counts or filters it.
+ */
+async function fetchByChunks(boxes, buildQuery, label, cachePath) {
+  const seen = new Set();
+  const elements = [];
+  for (const [i, box] of boxes.entries()) {
+    const bbox =
+      `${box.south.toFixed(4)},${box.west.toFixed(4)},` +
+      `${box.north.toFixed(4)},${box.east.toFixed(4)}`;
+    const osm = await fetchCached(
+      buildQuery(bbox),
+      cachePath(i),
+      `${label} ${i + 1}/${boxes.length} (km ${box.startKm.toFixed(0)}–${box.endKm.toFixed(0)})`,
+    );
+    for (const el of osm.elements || []) {
+      const key = `${el.type}/${el.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      elements.push(el);
+    }
+  }
+  console.log(`[fetch] ${label}: ${elements.length} unique elements across ${boxes.length} chunks`);
+  return elements;
 }
 
 const SIMPLIFY_TOLERANCE = 0.00008;
@@ -775,28 +797,19 @@ function validate(line, joined, segments) {
 // Towns
 // ---------------------------------------------------------------------------
 
-/**
- * An Overpass `around:` clause for the whole route corridor.
- *
- * Replaces a bounding box that would span ~5.5° × 6.5° and contain Berlin,
- * Hannover, Leipzig and Nuremberg's latitude band — an enormous fetch the
- * off-route filter then discards, if it does not time out first.
- */
-function aroundClause(points, radiusM) {
-  const coords = points.map(([lng, lat]) => `${lat.toFixed(5)},${lng.toFixed(5)}`).join(',');
-  return `around:${radiusM},${coords}`;
-}
-
-async function buildTowns(trimmed, corridor) {
-  const query =
-    `[out:json][timeout:600];` +
-    `( node["place"~"^(city|town|village)$"](${aroundClause(corridor, TOWN_AROUND_M)}); );` +
-    `out body;`;
-
-  const osm = await fetchCached(query, TOWNS_RAW_CACHE, 'towns');
+async function buildTowns(trimmed, boxes) {
+  const elements = await fetchByChunks(
+    boxes,
+    (bbox) =>
+      `[out:json][timeout:180];` +
+      `( node["place"~"^(city|town|village)$"](${bbox}); );` +
+      `out body;`,
+    'towns',
+    (i) => join(tmpdir(), `elberadweg-towns.chunk${i}.json`),
+  );
 
   const towns = [];
-  for (const el of osm.elements) {
+  for (const el of elements) {
     if (el.type !== 'node' || !el.tags?.name) continue;
     const snap = turf.nearestPointOnLine(trimmed, turf.point([el.lon, el.lat]), {
       units: 'kilometers',
@@ -897,26 +910,28 @@ function dedupePois(pois) {
   return kept;
 }
 
-async function buildPois(trimmed, corridor) {
-  const a = aroundClause(corridor, POI_AROUND_M);
-  const query =
-    `[out:json][timeout:900];` +
-    `(` +
-    `nwr["amenity"~"^(cafe|restaurant|fast_food|ice_cream|biergarten)$"](${a});` +
-    `nwr["shop"="bakery"](${a});` +
-    `nwr["tourism"="viewpoint"](${a});` +
-    `nwr["natural"="waterfall"](${a});` +
-    `nwr["historic"~"^(castle|monument|ruins|fort|city_gate|tower)$"](${a});` +
-    `nwr["man_made"="lighthouse"](${a});` +
-    `nwr["man_made"="tower"]["tower:type"="observation"](${a});` +
-    `nwr["man_made"="bridge"]["name"](${a});` +
-    `);` +
-    `out center;`;
-
-  const osm = await fetchCached(query, POIS_RAW_CACHE, 'pois');
+async function buildPois(trimmed, boxes) {
+  const elements = await fetchByChunks(
+    boxes,
+    (b) =>
+      `[out:json][timeout:180];` +
+      `(` +
+      `nwr["amenity"~"^(cafe|restaurant|fast_food|ice_cream|biergarten)$"](${b});` +
+      `nwr["shop"="bakery"](${b});` +
+      `nwr["tourism"="viewpoint"](${b});` +
+      `nwr["natural"="waterfall"](${b});` +
+      `nwr["historic"~"^(castle|monument|ruins|fort|city_gate|tower)$"](${b});` +
+      `nwr["man_made"="lighthouse"](${b});` +
+      `nwr["man_made"="tower"]["tower:type"="observation"](${b});` +
+      `nwr["man_made"="bridge"]["name"](${b});` +
+      `);` +
+      `out center;`,
+    'pois',
+    (i) => join(tmpdir(), `elberadweg-pois.chunk${i}.json`),
+  );
 
   const pois = [];
-  for (const el of osm.elements) {
+  for (const el of elements) {
     const tags = el.tags;
     if (!tags) continue;
     const cls = classifyPoi(tags);
@@ -1051,18 +1066,21 @@ async function main() {
   console.log(`[write] ${ROUTE_JSON}`);
   console.log(`[write] ${ROUTE_META_JSON}`);
 
-  // 7. The corridor both place queries are built on.
-  assertCorridorCoverage();
-  const corridor = corridorPoints(trimmed, CORRIDOR_SPACING_KM);
-  console.log(`[corridor] ${corridor.length} sample points at ${CORRIDOR_SPACING_KM} km spacing`);
+  // 7. The chunk boxes both place queries are built on. Towns need a wider pad
+  //    than POIs, so each gets its own set rather than sharing the wider one.
+  assertChunkPadding();
+  const coords = trimmed.geometry.coordinates;
+  const townBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: TOWN_PAD_KM });
+  const poiBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: POI_PAD_KM });
+  console.log(`[chunks] ${townBoxes.length} boxes of ~${CHUNK_KM} km`);
 
   // 8. Towns.
-  const towns = await buildTowns(trimmed, corridor);
+  const towns = await buildTowns(trimmed, townBoxes);
   writeFileSync(TOWNS_JSON, JSON.stringify(towns, null, 2));
   console.log(`[write] ${TOWNS_JSON} (${towns.length} towns)`);
 
   // 9. POIs (food stops & sights).
-  const pois = await buildPois(trimmed, corridor);
+  const pois = await buildPois(trimmed, poiBoxes);
   validatePois(pois);
   writeFileSync(POIS_JSON, JSON.stringify(pois, null, 2));
   console.log(`[write] ${POIS_JSON} (${pois.length} POIs)`);

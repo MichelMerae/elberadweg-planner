@@ -275,8 +275,88 @@ export function doublingBackReport(
 }
 
 /**
+ * Split a line into consecutive chunks and return a padded bounding box for each.
+ *
+ * This is how the place queries reach Overpass, and it replaced an `around:`
+ * coordinate-list corridor that Overpass would not serve. Measured: at 2 km
+ * spacing (515 coordinates) the single-clause towns query returned HTTP 504 and
+ * then dropped the connection; at 8 km spacing (130 coordinates) it failed the
+ * same way across two mirrors. A union of hundreds of circles is expensive to
+ * evaluate, whereas a bounding box is exactly what a spatial index is fast at.
+ *
+ * One box for the whole route is not an option either — this corridor's bbox spans
+ * ~5.5° × 6.5° and contains Berlin, Hannover, Leipzig and Nuremberg's latitude
+ * band. Per-chunk boxes hug a diagonal river far more tightly: eleven ~100 km
+ * chunks cover a small fraction of the area of the one big rectangle.
+ *
+ * `padKm` must be at least the corridor half-width the caller filters to, or
+ * places inside the filter fall outside the query. Padding is converted per chunk
+ * using that chunk's own mean latitude, because a degree of longitude is 66 km at
+ * 53°N and 71 km at 50°N.
+ *
+ * @returns {Array<{south:number, west:number, north:number, east:number,
+ *                  startKm:number, endKm:number}>}
+ */
+export function chunkBboxes(coords, { chunkKm = 100, padKm = 6 } = {}) {
+  if (!Array.isArray(coords) || coords.length < 2) return [];
+  const along = cumulativeAlongM(coords);
+  const totalM = along[along.length - 1];
+  const chunkM = chunkKm * 1000;
+  const boxes = [];
+
+  let startIndex = 0;
+  while (startIndex < coords.length - 1) {
+    const startM = along[startIndex];
+    let endIndex = startIndex;
+    while (endIndex < coords.length - 1 && along[endIndex] - startM < chunkM) endIndex++;
+
+    let minLng = Infinity;
+    let minLat = Infinity;
+    let maxLng = -Infinity;
+    let maxLat = -Infinity;
+    for (let i = startIndex; i <= endIndex; i++) {
+      const [lng, lat] = coords[i];
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+
+    const meanLat = (minLat + maxLat) / 2;
+    const padLat = padKm / 110.574;
+    const padLng = padKm / (111.32 * Math.cos((meanLat * Math.PI) / 180));
+
+    boxes.push({
+      south: minLat - padLat,
+      west: minLng - padLng,
+      north: maxLat + padLat,
+      east: maxLng + padLng,
+      startKm: startM / 1000,
+      endKm: along[endIndex] / 1000,
+    });
+
+    if (endIndex >= coords.length - 1) break;
+    startIndex = endIndex;
+  }
+
+  // A trailing chunk shorter than chunkKm is still a chunk; the loop above ends on
+  // the last vertex either way, so the union always covers the whole line.
+  if (boxes.length && boxes[boxes.length - 1].endKm < totalM / 1000 - 0.001) {
+    throw new Error(
+      `chunkBboxes covered only ${boxes[boxes.length - 1].endKm.toFixed(1)} km of ` +
+        `${(totalM / 1000).toFixed(1)} km — places past that point would never be queried`,
+    );
+  }
+  return boxes;
+}
+
+/**
  * Sample a line every `spacingKm`, plus its final coordinate, for use as an
  * Overpass `around:` coordinate list.
+ *
+ * NOTE: kept for `corridorPoints`-based tooling, but the place queries use
+ * `chunkBboxes` instead — see that function for the measurements that forced the
+ * change.
  *
  * Why this exists: the Cuxhaven → Prague bounding box spans roughly 5.5° × 6.5°
  * and contains Berlin, Hannover, Leipzig and Nuremberg's latitude band. Querying

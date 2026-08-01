@@ -6,6 +6,7 @@ import {
   findJunction,
   joinSegments,
   doublingBackReport,
+  chunkBboxes,
   corridorPoints,
 } from './route-assembly.mjs';
 
@@ -323,6 +324,83 @@ describe('doublingBackReport', () => {
   it('reports zero for an empty or single-point line rather than dividing by zero', () => {
     expect(doublingBackReport([]).percent).toBe(0);
     expect(doublingBackReport([[0, 0]]).percent).toBe(0);
+  });
+});
+
+describe('chunkBboxes', () => {
+  // A ~333 km diagonal: 3 degrees of latitude at a constant longitude drift.
+  const diagonal = [];
+  for (let i = 0; i <= 300; i++) diagonal.push([9 + i * 0.01, 53 - i * 0.01]);
+
+  it('covers the whole line, ending at the last vertex', () => {
+    const boxes = chunkBboxes(diagonal, { chunkKm: 100 });
+    const totalKm = cumulativeAlongM(diagonal).at(-1) / 1000;
+    expect(boxes.at(-1).endKm).toBeCloseTo(totalKm, 3);
+    expect(boxes[0].startKm).toBe(0);
+  });
+
+  it('splits into roughly chunkKm pieces', () => {
+    const boxes = chunkBboxes(diagonal, { chunkKm: 100 });
+    const totalKm = cumulativeAlongM(diagonal).at(-1) / 1000;
+    expect(boxes.length).toBe(Math.ceil(totalKm / 100));
+  });
+
+  it('leaves no gap between consecutive chunks', () => {
+    const boxes = chunkBboxes(diagonal, { chunkKm: 50 });
+    for (let i = 1; i < boxes.length; i++) {
+      expect(boxes[i].startKm).toBeCloseTo(boxes[i - 1].endKm, 6);
+    }
+  });
+
+  it('contains every vertex of its own stretch, padding included', () => {
+    const boxes = chunkBboxes(diagonal, { chunkKm: 100, padKm: 6 });
+    const along = cumulativeAlongM(diagonal);
+    for (const [i, [lng, lat]] of diagonal.entries()) {
+      const km = along[i] / 1000;
+      const box = boxes.find((b) => km >= b.startKm - 1e-6 && km <= b.endKm + 1e-6);
+      expect(box).toBeDefined();
+      expect(lat).toBeGreaterThan(box.south);
+      expect(lat).toBeLessThan(box.north);
+      expect(lng).toBeGreaterThan(box.west);
+      expect(lng).toBeLessThan(box.east);
+    }
+  });
+
+  it('pads by at least padKm in both directions', () => {
+    const boxes = chunkBboxes(diagonal, { chunkKm: 100, padKm: 6 });
+    const box = boxes[0];
+    // Latitude padding is a fixed 6 km either side.
+    expect((box.north - box.south) * 110.574).toBeGreaterThan(12);
+    // A degree of longitude is shorter than a degree of latitude at 50-53N, so the
+    // longitude padding must be WIDER in degrees to cover the same 6 km.
+    const padLngDeg = 6 / (111.32 * Math.cos((53 * Math.PI) / 180));
+    expect(padLngDeg).toBeGreaterThan(6 / 110.574);
+  });
+
+  it('is far tighter than one box for the whole line', () => {
+    const boxes = chunkBboxes(diagonal, { chunkKm: 100 });
+    const area = (b) => (b.north - b.south) * (b.east - b.west);
+    const chunked = boxes.reduce((sum, b) => sum + area(b), 0);
+    const whole = area({
+      south: Math.min(...diagonal.map((c) => c[1])) - 0.05,
+      north: Math.max(...diagonal.map((c) => c[1])) + 0.05,
+      west: Math.min(...diagonal.map((c) => c[0])) - 0.08,
+      east: Math.max(...diagonal.map((c) => c[0])) + 0.08,
+    });
+    expect(chunked).toBeLessThan(whole / 2);
+  });
+
+  it('returns an empty array for a degenerate line', () => {
+    expect(chunkBboxes([])).toEqual([]);
+    expect(chunkBboxes([[9, 53]])).toEqual([]);
+  });
+
+  it('handles a line shorter than one chunk as a single box', () => {
+    const short = [
+      [9, 53],
+      [9.01, 53.01],
+    ];
+    expect(chunkBboxes(short, { chunkKm: 100 })).toHaveLength(1);
   });
 });
 
