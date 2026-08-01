@@ -153,11 +153,14 @@ export function profilePoints(profile, { startKm, endKm, width, height, columns,
  *
  * The span is ORIENTED, like `profilePoints`'s window and like the days the itinerary
  * chains: `endKm` below `startKm` means the stretch is ridden downstream, and the walk
- * runs that way, so the ascent and descent totals trade places. That is the feature —
- * the same stretch is 487 m of climbing one way and 487 m of descent the other — and it
- * is why the totals are NOT computed once and swapped: hysteresis is not symmetric under
- * reversal, since which moves clear the threshold depends on where the walk came from.
- * (0 → 3 → 8 with a 5 m threshold is 8 m of ascent; read backwards it is 5 m of descent.)
+ * runs that way, so the ascent and descent totals trade places. Km 920 → 1000 of this
+ * corridor reads 453 m up / 398 m down ridden upstream and 398 / 453 ridden back.
+ *
+ * They are NOT computed once and swapped, though, and that stretch is the tidiest case on
+ * the road rather than the typical one: hysteresis is not symmetric under reversal, since
+ * which moves clear the threshold depends on where the walk came from, so a reversed
+ * stretch is usually a NEAR-transposition rather than an exact one. (0 → 3 → 8 with a 5 m
+ * threshold is 8 m of ascent; read backwards it is 5 m of descent.)
  *
  * Which SAMPLES the stretch covers is direction-free, so the index range is still
  * normalised; only the walk has a direction. `minM`/`maxM` describe the terrain rather

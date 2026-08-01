@@ -104,7 +104,9 @@ The same expression serves both directions: a descending window makes the denomi
 
 `profilePoints` already computes `km = startKm + (endKm - startKm) * t`, which is direction-correct; its `endKm <= startKm` guard has to be relaxed to allow a descending window.
 
-`ascentBetween` currently normalises with `Math.min/Math.max`, so it always reports the upstream figure. It gains a direction: riding downstream, the ascent and descent totals swap. That is the whole point of the feature — the same stretch is 487 m of climbing one way and 487 m of descent the other.
+`ascentBetween` currently normalises with `Math.min/Math.max`, so it always reports the upstream figure. It gains a direction: riding downstream, the ascent and descent totals swap. That is the whole point of the feature — km 920 → 1000 reads 453 m of climbing and 398 m of descent ridden upstream, and 398 / 453 ridden back.
+
+(Illustration corrected during Task 9; the requirement above is unchanged. An earlier draft said *"the same stretch is 487 m of climbing one way and 487 m of descent the other"*, which assumes a monotonic climb this corridor does not contain: **the Elbe is nearly symmetric in elevation** — across 95 sampled 80 km stretches the weaker side is a median 0.947 of the stronger, and not one is below 20% — so reversing a stretch trades two similar numbers rather than turning a climb into a descent. Direction-awareness still matters, and for the reason the swap illustrates rather than the magnitude.)
 
 ### 5. Per-day climb on the strip
 
