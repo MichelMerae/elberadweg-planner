@@ -28,6 +28,7 @@ function mount() {
     onEditBreak: vi.fn(),
     onAddCustomStop: vi.fn(),
     onCancelCustomStop: vi.fn(),
+    onPickEnd: vi.fn(),
   };
   return createDayPanel({ el, callbacks });
 }
@@ -56,10 +57,16 @@ beforeEach(() => {
 });
 
 describe('createDayPanel - empty plan', () => {
-  it('invites a first day', () => {
+  // CHANGED EXPECTATION (spec §6a, ruled 2026-08-01): this used to assert 'No days yet'.
+  // The state that sentence named no longer exists — storage v4 gives every plan a real
+  // window, so a plan with no days is not an empty plan, it is a trip nobody has ridden
+  // yet. The panel therefore asks where the trip runs and shows the window it already
+  // has (see 'the empty plan is trip setup' below). Recorded in the ledger as one of the
+  // three expectation changes phase 4 sanctions.
+  it('asks where the trip runs', () => {
     const panel = mount();
     panel.render({ trip: WHOLE_ROAD, day: null, dayCount: 0, breaks: [], fromName: 'Hamburg' });
-    expect(el.textContent).toContain('No days yet');
+    expect(el.querySelector('.day-panel__title').textContent).toBe('Where are you riding?');
   });
 
   // Deliberately redundant with the strip's own button. Both of the strip's
@@ -83,6 +90,161 @@ describe('createDayPanel - empty plan', () => {
 
     expect(el.textContent).not.toContain('undefined');
     expect(el.querySelector('[data-action="focus-next"]').disabled).toBe(true);
+  });
+});
+
+// Spec §6, and §6a as ruled on 2026-08-01: a plan with no days is where the trip itself
+// gets set, so this panel names both ends, where they sit on the road, and the trip they
+// make — with the two controls that move them. ONE state, not two: there is no "not set"
+// an end can be in, so the step is skippable rather than blocking and `+ add a first day`
+// stays throughout (its own test lives in 'empty plan' above and still passes).
+//
+// This is also the only direct test of tripHeadline, which is why the direction word is
+// pinned in both directions over the same two ends.
+describe('createDayPanel - the empty plan is trip setup', () => {
+  const UP = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: 1026.5 });
+  const DOWN = createTrip({ startKm: 797.6, destinationKm: 149.3, totalKm: 1026.5 });
+  const NAMED = { startName: 'Hamburg', destinationName: 'Dresden' };
+  const setup = (trip, extra = {}) => ({ trip, day: null, dayCount: 0, breaks: [], ...extra });
+  const control = (role) => el.querySelector(`[data-action="set-${role}"]`);
+  const headline = () => el.querySelector('.trip-setup__headline').textContent;
+
+  it('names both ends, where they sit on the road, and the trip they make', () => {
+    const panel = mount();
+    panel.render(setup(UP, NAMED));
+
+    const rows = [...el.querySelectorAll('.trip-setup__row')].map((r) => r.textContent);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toContain('Hamburg');
+    expect(rows[0]).toContain('km 149.3 of the road');
+    expect(rows[1]).toContain('Dresden');
+    expect(rows[1]).toContain('km 797.6 of the road');
+    expect(headline()).toBe('Hamburg → Dresden · 648.3 km upstream');
+  });
+
+  // The same two ends, ridden the other way. Not a duplicate: a hardcoded 'upstream'
+  // passes the test above, and so does a headline that reads its ends off the road
+  // rather than off the trip — here the rider starts at the LARGER km.
+  it('turns the sentence round when the same two ends are ridden the other way', () => {
+    const panel = mount();
+    panel.render(setup(DOWN, { startName: 'Dresden', destinationName: 'Hamburg' }));
+
+    const rows = [...el.querySelectorAll('.trip-setup__row')].map((r) => r.textContent);
+    expect(rows[0]).toContain('Dresden');
+    expect(rows[0]).toContain('km 797.6 of the road');
+    expect(rows[1]).toContain('Hamburg');
+    expect(rows[1]).toContain('km 149.3 of the road');
+    expect(headline()).toBe('Dresden → Hamburg · 648.3 km downstream');
+  });
+
+  // main.js resolves the names from the road's towns, and an end in open country has
+  // none. Whatever this prints, it must not be the word `null` — which is what a bare
+  // interpolation prints, and which reads as a claim about the trip rather than an
+  // absence of one.
+  it('reads an unnamed end as what it is rather than as null', () => {
+    const panel = mount();
+    panel.render(setup(UP));
+
+    const rows = [...el.querySelectorAll('.trip-setup__row')].map((r) => r.textContent);
+    expect(rows[0]).toContain('anywhere on the road');
+    expect(rows[1]).toContain('anywhere on the road');
+    expect(headline()).toBe('your start → your finish · 648.3 km upstream');
+    expect(el.textContent).not.toContain('null');
+    expect(el.textContent).not.toContain('undefined');
+  });
+
+  // A name reaches ELEMENT CONTENT in both the row and the headline, where that payload
+  // really does parse into an element — so the assertion can fail in both directions:
+  // unescaped it injects, and escaped twice it reads `&lt;img` on screen.
+  it('escapes an end name rather than letting it become markup', () => {
+    const panel = mount();
+    const name = '<img src=x onerror="alert(1)">';
+    panel.render(setup(UP, { startName: name, destinationName: 'Dresden' }));
+
+    expect(el.querySelectorAll('img')).toHaveLength(0);
+    expect(el.querySelector('.trip-setup__row').textContent).toContain(name);
+    expect(headline()).toBe(`${name} → Dresden · 648.3 km upstream`);
+  });
+
+  it('emits the end each control owns', () => {
+    const panel = mount();
+    panel.render(setup(UP, NAMED));
+
+    control('start').click();
+    control('finish').click();
+
+    // Both calls, in order: one control reporting both ends is the failure, and
+    // `toHaveBeenCalledWith` passes as long as ANY call matches.
+    expect(callbacks.onPickEnd.mock.calls).toEqual([['start'], ['destination']]);
+  });
+
+  // There is no focused day while this panel is on screen, so the two actions have to sit
+  // ABOVE the `if (!current.day) return` guard — and everything below that guard then
+  // reads `current.day.index` off null.
+  //
+  // The error listener is load-bearing, not belt-and-braces: jsdom swallows an exception
+  // thrown inside an event handler, so `.click()` returns normally and a dropped guard
+  // leaves `not.toHaveBeenCalled()` passing with only the "Unhandled Errors" banner to
+  // show for it.
+  it('arms nothing when the click lands on the setup step but on neither control', () => {
+    const errors = [];
+    const onError = (e) => errors.push(e.message || String(e.error));
+    window.addEventListener('error', onError);
+    const panel = mount();
+    panel.render(setup(UP, NAMED));
+
+    el.querySelector('.trip-setup').click();
+    window.removeEventListener('error', onError);
+
+    expect(errors).toEqual([]);
+    expect(callbacks.onPickEnd).not.toHaveBeenCalled();
+    expect(callbacks.onAddDay).not.toHaveBeenCalled();
+  });
+
+  // main.js renders this panel long before anything is armed, and a control that starts
+  // pressed tells the rider a click on the map means something it does not.
+  it('leaves both controls released when nothing is armed', () => {
+    const panel = mount();
+    panel.render(setup(UP, NAMED));
+
+    expect(control('start').getAttribute('aria-pressed')).toBe('false');
+    expect(control('finish').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('presses the start control, and only it, while the start is armed', () => {
+    const panel = mount();
+    panel.render(setup(UP, { ...NAMED, picking: 'start' }));
+
+    expect(control('start').getAttribute('aria-pressed')).toBe('true');
+    expect(control('finish').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  // The mirror image, and not a duplicate: without it a hardcoded 'start', or a
+  // truthiness test that presses whichever control renders first, passes above. Note the
+  // asymmetry the finish control has to survive — its action is `set-finish`, the value
+  // it reports and compares against is `destination`.
+  it('presses the finish control, and only it, while the finish is armed', () => {
+    const panel = mount();
+    panel.render(setup(UP, { ...NAMED, picking: 'destination' }));
+
+    expect(control('finish').getAttribute('aria-pressed')).toBe('true');
+    expect(control('start').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  // Pressing a control arms the pick, and main.js re-renders — destroying the button
+  // under the finger. Without restoration a keyboard user has to Tab back to `Set start`
+  // to press it a second time, which is the documented way to cancel.
+  it('keeps focus on the control across the re-render pressing it causes', () => {
+    const panel = mount();
+    panel.render(setup(UP, NAMED));
+    const button = control('start');
+    button.focus();
+
+    panel.render(setup(UP, { ...NAMED, picking: 'start' }));
+
+    expect(document.activeElement).not.toBe(button); // the node itself is gone
+    expect(document.activeElement.dataset.action).toBe('set-start');
+    expect(document.activeElement.getAttribute('aria-pressed')).toBe('true');
   });
 });
 

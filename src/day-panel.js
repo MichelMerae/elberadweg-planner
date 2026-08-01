@@ -9,7 +9,7 @@
 // from the road's origin instead is the one bug this feature can produce, and it
 // produces it silently — every number still looks like a number.
 
-import { esc, round1, poiKey, glyphFor } from './ui-util.js';
+import { esc, round1, poiKey, glyphFor, tripHeadline } from './ui-util.js';
 import { MIN_DAY_KM } from './boundaries.js';
 
 const SNAP_EPSILON_KM = 0.05;
@@ -348,6 +348,13 @@ export function createDayPanel({ el, callbacks = {} }) {
     // main.js. See draftForDay.
     draftOnDay = false,
     climb = null,
+    // The trip's two ends, named and armed. main.js resolves the names from the road's
+    // towns; null is a real answer (an end in open country has no name), which is why
+    // these default to null rather than to a string. `picking` is the end a click on the
+    // map would move, or null — the same shape the strip's own controls take.
+    startName = null,
+    destinationName = null,
+    picking = null,
   }) {
     // The header above says there is no fallback for a missing trip; this is what makes
     // that true rather than incidental. Without it the empty-plan branch below returns
@@ -359,23 +366,55 @@ export function createDayPanel({ el, callbacks = {} }) {
     current = { day, dayCount };
     const focusTarget = focusedTarget();
     if (!day) {
-      // The button is deliberately redundant with the strip's own "+ add a day".
-      // Both of the strip's affordances are in the strip, so anything that makes
-      // the strip unreachable — a window whose bottom edge sits under the taskbar,
-      // a projector cropping the page — left the app with NO route to a first day
-      // and nothing to do but resize. One button here keeps it recoverable.
+      // A plan with no days is not an empty plan — storage gives every plan a real
+      // window — so this is not an empty state, it is where the trip gets set (spec §6a,
+      // ruled 2026-08-01). ONE state, not the two §6a sketched: there is no "not set" an
+      // end can be in, so the step shows the ends it already has, named, and keeps its
+      // route to a first day throughout. A rider happy with the whole road can ignore
+      // every word of it and press "+ add a first day".
+      //
+      // The km here are ABSOLUTE and say so — `of the road` is the whole point of the
+      // line. These two controls are the one place where where-on-the-road is the
+      // question being asked, and a trip-relative km would answer it with "km 0" for
+      // every start ever picked.
+      //
+      // That first-day button is deliberately redundant with the strip's own "+ add a
+      // day". Both of the strip's affordances are in the strip, so anything that makes
+      // the strip unreachable — a window whose bottom edge sits under the taskbar, a
+      // projector cropping the page — left the app with NO route to a first day and
+      // nothing to do but resize. One button here keeps it recoverable.
       el.innerHTML = `
         <div class="day-panel day-panel--empty">
-          <h2 class="day-panel__title">No days yet</h2>
-          <p class="day-panel__hint">Click the strip below to pick where day 1 ends — or add a day
-            here and drag its boundary afterwards.</p>
+          <h2 class="day-panel__title">Where are you riding?</h2>
+          <dl class="trip-setup">
+            <div class="trip-setup__row">
+              <dt>Start</dt>
+              <dd>${esc(startName ?? 'anywhere on the road')}<span class="day-panel__hint">km ${round1(trip.startKm)} of the road</span></dd>
+              <button type="button" class="btn btn--sm" data-action="set-start"
+                      aria-pressed="${picking === 'start'}">Set start</button>
+            </div>
+            <div class="trip-setup__row">
+              <dt>Finish</dt>
+              <dd>${esc(destinationName ?? 'anywhere on the road')}<span class="day-panel__hint">km ${round1(trip.destinationKm)} of the road</span></dd>
+              <button type="button" class="btn btn--sm" data-action="set-finish"
+                      aria-pressed="${picking === 'destination'}">Set finish</button>
+            </div>
+          </dl>
+          <p class="trip-setup__headline">${tripHeadline(trip, { startName, destinationName })}</p>
+          <p class="day-panel__hint">Both ends default to the whole road, so you can skip this and
+            just add a day. Click the strip below to pick where day 1 ends — or add one here and
+            drag its boundary afterwards.</p>
           <div class="day-panel__actions">
             <button type="button" class="btn btn--sm btn--primary" data-action="add-day">+ add a first day</button>
           </div>
         </div>`;
-      // A draft stop needs a day to belong to, so an empty plan discards it
+      // A draft stop needs a day to belong to, so a plan with no days discards it
       // rather than parking typed text where it can never be added.
       renderCustomStopPrompt(null, null, trip, callbacks, promptEl);
+      // The setup step has controls now, and pressing one re-renders. Without this a
+      // keyboard user has to Tab back to `Set start` to press it a second time — which
+      // is the documented way to cancel.
+      restoreFocus(focusTarget);
       return;
     }
     // The distance RIDDEN, which is what the Distance field edits (editDay takes a
@@ -445,9 +484,12 @@ export function createDayPanel({ el, callbacks = {} }) {
     if (edit) return startBreakEdit(edit, callbacks);
     const remove = e.target.closest('[data-action="remove-break"]');
     if (remove) return callbacks.onRemoveBreak?.(remove.dataset.breakKey);
-    // The empty state's own button, so it has to run before the guard below —
-    // there is no focused day when it is the only thing on screen.
+    // The trip-setup step's own controls, so they have to run before the guard below —
+    // there is no focused day when that step is the only thing on screen, and everything
+    // past the guard reads `current.day.index`.
     if (e.target.closest('[data-action="add-day"]')) return callbacks.onAddDay?.();
+    if (e.target.closest('[data-action="set-start"]')) return callbacks.onPickEnd?.('start');
+    if (e.target.closest('[data-action="set-finish"]')) return callbacks.onPickEnd?.('destination');
     if (!current.day) return;
     const index = current.day.index;
     if (e.target.closest('[data-action="split-day"]')) return callbacks.onSplitDay?.(index);
