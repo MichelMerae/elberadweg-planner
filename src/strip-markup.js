@@ -402,6 +402,14 @@ function stubMarkup(tripEnd, past) {
  * an axis with no remainder and no way to add a day — the same self-contradiction the
  * window rescale closed, inverted, in the 0.1–0.5 km band. A rider reaches that band by
  * dragging the last boundary near an off-grid finish; it needs no picking UI.
+ *
+ * **The `planned / lengthKm` pair stays EXACT, deliberately, and must not be rounded to
+ * agree with the countdown.** Inside the band the line reads `648.3 / 648.6 km planned ·
+ * 0 km to finish`, and a reader who notices the pair does not subtract to the countdown is
+ * looking at the feature: the pair is two MEASUREMENTS of how far the plan and the trip
+ * each reach, while only the arrival CLAIM rounds. The visible 0.3 km is the off-grid slack
+ * the epsilon exists to forgive, and this pair is the one place a curious rider can still
+ * see it. Rounding the pair to protect the claim would falsify the plan's actual extent.
  */
 export function summaryMarkup(state) {
   const { days, trip } = state;
