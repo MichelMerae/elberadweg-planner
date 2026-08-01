@@ -949,6 +949,60 @@ describe('createItinerary - breaksInRange', () => {
   });
 });
 
+// Day 0's start is the one span boundary with no previous day to hand the shared km
+// to. Under the plain half-open rule a break dropped exactly on the rider's start
+// line therefore belongs to NO day: it appears on no day card, so there is no × to
+// remove it with. `includeFrom` is how the caller says "this span is day 0"; main.js
+// passes it for index 0 and nothing else.
+describe('createItinerary - breaksInRange includeFrom', () => {
+  it('includes a break exactly at the span start when asked', () => {
+    const itinerary = createItinerary({ trip: WHOLE });
+    itinerary.addDay(80); // (0, 80]
+    itinerary.addBreak(makeBreak({ name: 'OnTheStartLine', routeDistanceKm: 0 }));
+
+    const day = itinerary.getDays()[0];
+    expect(itinerary.breaksInRange(day.startKm, day.endKm)).toHaveLength(0);
+    expect(
+      itinerary.breaksInRange(day.startKm, day.endKm, { includeFrom: true }).map((b) => b.name),
+    ).toEqual(['OnTheStartLine']);
+  });
+
+  // The widening lives in RIDER km, which is what makes it work in both directions.
+  // Spelled in absolute km instead — main.js's old `startKm === 0 ? -1 : startKm` —
+  // it goes wrong twice over downstream: km-1 on the road is 1 km BEHIND this rider
+  // (a break their first day does not own), and reaching the other way narrows the
+  // span enough to drop the breaks in its first km.
+  it('includes the break at a downstream span start without reaching behind the rider', () => {
+    const down = createTrip({ startKm: 300, destinationKm: 100 });
+    const itinerary = createItinerary({ trip: down });
+    itinerary.addDay(80); // (300, 220]
+    itinerary.addBreak(makeBreak({ name: 'BehindTheRider', routeDistanceKm: 301 }));
+    itinerary.addBreak(makeBreak({ name: 'OnTheStartLine', routeDistanceKm: 300 }));
+    itinerary.addBreak(makeBreak({ name: 'JustInside', routeDistanceKm: 299.5 }));
+
+    const day = itinerary.getDays()[0];
+    // Trip order, so the start line comes before the km after it.
+    expect(
+      itinerary.breaksInRange(day.startKm, day.endKm, { includeFrom: true }).map((b) => b.name),
+    ).toEqual(['OnTheStartLine', 'JustInside']);
+  });
+
+  // A day CAN be zero-length: a stored plan replayed against a shorter rebuilt route
+  // leaves its trailing days piled at the destination, and with one day in the plan
+  // that day is day 0. It then owns the break on its own start line — which is the
+  // whole point of the option, so it holds here too rather than falling back to the
+  // "a zero-length span owns nothing" default.
+  it('makes even a zero-length first span own the break on its start line', () => {
+    const itinerary = createItinerary({ trip: WHOLE });
+    itinerary.addBreak(makeBreak({ name: 'Stop', routeDistanceKm: 100 }));
+
+    expect(itinerary.breaksInRange(100, 100)).toEqual([]);
+    expect(itinerary.breaksInRange(100, 100, { includeFrom: true }).map((b) => b.name)).toEqual([
+      'Stop',
+    ]);
+  });
+});
+
 describe('createItinerary - hydrate with breaks', () => {
   it('object form restores both days and breaks', () => {
     const itinerary = createItinerary({ trip: WHOLE });

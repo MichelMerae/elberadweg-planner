@@ -2,6 +2,7 @@ import './style.css';
 import { loadRoute, createRouteIndex, pointAtKm, stretchCoords, snap } from './route.js';
 import { loadTowns, townsNear } from './towns.js';
 import { loadPois, poisInRange } from './pois.js';
+import { createTrip } from './trip.js';
 import { createItinerary, breakKey } from './itinerary.js';
 import { ARRIVED_EPSILON_KM, MIN_DAY_KM } from './boundaries.js';
 import { createPlanStore } from './storage.js';
@@ -65,16 +66,25 @@ async function boot() {
   // routeVersion (builtAt) drives the "distances may have shifted" banner for a
   // rebuild of the same corridor; routeId is coarser and drives the archive-and-
   // reset for a corridor whose km measure from a different origin entirely.
+  // totalKm is where a plan that records no window ends — the store refuses to guess
+  // the road's length rather than hand every such plan a zero-length trip at km 0.
   const store = createPlanStore({
     storage: window.localStorage,
     routeVersion: meta.builtAt,
     routeId: meta.routeId,
+    totalKm,
   });
   const initial = store.load();
-  const itinerary = createItinerary({ totalKm });
+  const bootPlan = store.getActivePlan();
+  // The window belongs to the PLAN, so switching plans switches windows. These two
+  // bindings are rebuilt together, and only in hydrateActivePlan: createItinerary
+  // takes its trip once, at construction — which is what lets every day chain off
+  // the window without re-passing it — so a new window means a new model. Nothing
+  // outside boot() holds either object; every use below goes through these names.
+  let trip = tripFor(bootPlan);
+  let itinerary = createItinerary({ trip });
   // Object form restores days AND breaks; a stored plan may predate breaks, so
   // default the field. Using the array form here would leave breaks untouched.
-  const bootPlan = store.getActivePlan();
   itinerary.hydrate({ days: bootPlan.days, breaks: bootPlan.breaks ?? [] });
 
   // Favorites are a single global list, persisted independently of plans (its
@@ -244,6 +254,19 @@ async function boot() {
     }
   });
 
+  // The window a plan rides, as a trip. Storage guarantees both ends are finite (it
+  // repairs a ruined one to the whole road end by end), so this cannot throw; totalKm
+  // rides along so createTrip can pull a window recorded against a longer road onto
+  // this one. A missing plan — which load() makes impossible — reads as the whole
+  // road rather than as a reason to fail booting.
+  function tripFor(plan) {
+    return createTrip({
+      startKm: plan?.startKm,
+      destinationKm: plan?.destinationKm,
+      totalKm,
+    });
+  }
+
   // Persist the active plan's committed state. Called ONLY after user
   // mutations — never at boot or right after a plan switch. Reason: a corrupt
   // stored plan hydrates to empty days; persisting straight after would
@@ -252,6 +275,12 @@ async function boot() {
     store.saveActivePlan({
       days: itinerary.getDays().map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice })),
       breaks: itinerary.getBreaks(),
+      // Named explicitly even though storage preserves an omitted window: what it
+      // means to save a plan is to save the days AND the trip they were measured
+      // along, and a save site that says only half of that leaves the two to be kept
+      // in step by luck.
+      startKm: trip.startKm,
+      destinationKm: trip.destinationKm,
     });
     // Saving stamps the plan with the current route version, so a stale
     // route-changed banner must clear now, not on the next plan switch.
@@ -262,6 +291,12 @@ async function boot() {
   // hydrate + render only, no persist.
   function hydrateActivePlan() {
     const active = store.getActivePlan();
+    // A plan switch is a window switch: the incoming plan's days are lengths measured
+    // along ITS trip, so the trip has to be the new one before they are replayed. The
+    // itinerary is rebuilt with it (it holds the trip it was constructed on), which
+    // also means the new model starts with no days and no breaks of its own.
+    trip = tripFor(active);
+    itinerary = createItinerary({ trip });
     // Object form so the new plan's breaks replace the previous plan's — the
     // array form would leak breaks across a plan switch.
     itinerary.hydrate({ days: active?.days ?? [], breaks: active?.breaks ?? [] });
@@ -293,11 +328,14 @@ async function boot() {
     else banner.hide();
   }
 
-  // The plan is complete when the last endKm is within the shared arrival
-  // tolerance of the route total (endKm clamps to totalKm, so it never quite
-  // exceeds it). The strip collapses its remainder on the same constant.
+  // The plan is complete when the distance ridden comes within the shared arrival
+  // tolerance of the TRIP's length — not the road's. Both sides are rider km: days
+  // clamp at the destination, so totalPlannedKm() never quite exceeds trip.lengthKm.
+  // Compared against totalKm instead, a 200 km window on a 1026 km road could never
+  // be finished, and every day past its destination would still be offered.
+  // The strip collapses its remainder on the same constant.
   function hasReachedDestination() {
-    return itinerary.totalPlannedKm() >= totalKm - ARRIVED_EPSILON_KM;
+    return itinerary.totalPlannedKm() >= trip.lengthKm - ARRIVED_EPSILON_KM;
   }
 
   // "from X" for a day: the previous day's overnight town, the route's origin for
@@ -308,13 +346,24 @@ async function boot() {
   }
 
   // A day's own breaks, by km range, so editing a day re-buckets them
-  // automatically. Constraint: a km-0 break must own a leg somewhere — the
-  // (start, end] rule would exclude it from day 1 (startKm 0) with no removal
-  // path, so widen the lower bound for the first day. Later days start > 0 and
-  // are unaffected.
+  // automatically. Constraint: a break exactly on the rider's start line must own a
+  // leg somewhere — the (start, end] rule hands a shared km to the previous day and
+  // day 1 has none, so it would belong to no day and have no × to remove it with.
+  // `includeFrom` is itinerary's name for that, keyed on the day's INDEX: day 1 starts
+  // wherever the trip does, which is only km 0 on a whole-road plan.
   function breaksForDay(day) {
-    const start = day.startKm === 0 ? -1 : day.startKm;
-    return itinerary.breaksInRange(start, day.endKm);
+    return itinerary.breaksInRange(day.startKm, day.endKm, { includeFrom: day.index === 0 });
+  }
+
+  // Whether an absolute route km falls on `day`'s leg, under the same rule
+  // breaksForDay buckets by: half-open `(start, end]`, with day 1 also owning its own
+  // start. Compared in RIDER km so the two ends keep meaning "behind" and "ahead"
+  // whichever way the trip runs — the absolute-km form this replaced reads backwards
+  // on a downstream trip, accepting exactly the km it should refuse.
+  function dayOwnsKm(day, km) {
+    const from = trip.tripKm(day.startKm);
+    const at = trip.tripKm(km);
+    return (day.index === 0 ? at >= from : at > from) && at <= trip.tripKm(day.endKm);
   }
 
   function renderStrip(focusedIndex) {
@@ -391,8 +440,19 @@ async function boot() {
   // The focused stretch, as the route's own vertices. Both the thick highlight
   // and the fit want the same thing: the real shape of the day, not a sampled
   // approximation of it.
+  //
+  // The span goes over in ROAD order, which is what stretchCoords reads — it answers
+  // [] for a descending one, and a downstream day's span descends, so every day would
+  // come back shapeless: no highlight drawn and the camera left on the previous day
+  // (see renderCamera's zero-length guard). Neither consumer cares which way the
+  // vertices run; one draws a polyline through them, the other fits their bounds.
   function focusedCoords(day) {
-    return day ? stretchCoords(routeIndex, day.startKm, day.endKm) : [];
+    if (!day) return [];
+    return stretchCoords(
+      routeIndex,
+      Math.min(day.startKm, day.endKm),
+      Math.max(day.startKm, day.endKm),
+    );
   }
 
   function renderCamera({ dragging = false } = {}) {
@@ -423,8 +483,8 @@ async function boot() {
     // A zero-length day has no stretch to frame and focusRange declines it. The
     // record below already waits for a fit that ran, so this guard is belt and
     // braces — it keeps the intent legible here. A day can reach zero length: a
-    // stored plan longer than a rebuilt, shorter route clamps its trailing days
-    // to totalKm.
+    // stored plan that outruns its window piles its trailing days at the
+    // destination, which every one of them then clamps to.
     if (!coords.length) return;
     // Recorded only if the fit ran. map.js refuses camera moves while a pin drag
     // is in flight, and a frame booked but never drawn is one this stretch never
@@ -532,10 +592,7 @@ async function boot() {
     itinerary.editDay(index, target);
     // A resized day can strand the draft outside the day's stretch — drop it.
     const day = focusedDay();
-    if (customStopDraft && day) {
-      const lower = day.startKm === 0 ? -1 : day.startKm;
-      if (customStopDraft.km <= lower || customStopDraft.km > day.endKm) customStopDraft = null;
-    }
+    if (customStopDraft && day && !dayOwnsKm(day, customStopDraft.km)) customStopDraft = null;
     persistPlan();
     renderAll();
   }
@@ -596,6 +653,12 @@ async function boot() {
   // A remainder click gives an absolute end km; the + button gives null, meaning
   // "another day the length of the last one" (80 km for the first day).
   //
+  // addDay takes a LENGTH — a positive distance ridden — so the clicked position is
+  // converted to rider km before the plan's own reach is subtracted from it. Both
+  // terms then count from the rider's start: subtracting totalPlannedKm() straight
+  // off an absolute km silently added the trip's own offset to every day the strip
+  // created, and on a downstream trip it came out negative.
+  //
   // Two clamps on the computed length. MIN_DAY_KM is the floor: a click within
   // 5 km of the plan end — or, from a caller that measured against something
   // other than the remainder, before it — would otherwise append a day shorter
@@ -606,9 +669,9 @@ async function boot() {
   function handleAddDay(endKm) {
     if (hasReachedDestination()) return;
     const days = itinerary.getDays();
-    const startKm = itinerary.totalPlannedKm();
+    const plannedKm = itinerary.totalPlannedKm();
     const fallback = days.length ? days[days.length - 1].targetKm : DEFAULT_TARGET_KM;
-    const length = endKm == null ? fallback : Math.max(MIN_DAY_KM, endKm - startKm);
+    const length = endKm == null ? fallback : Math.max(MIN_DAY_KM, trip.tripKm(endKm) - plannedKm);
     itinerary.addDay(round1(length));
     focusedDayIndex = itinerary.getDays().length - 1;
     customStopDraft = null;
@@ -626,8 +689,9 @@ async function boot() {
     if (!day) return;
     const { distanceKm } = snap(route, lngLat);
     const km = round1(distanceKm);
-    const lower = day.startKm === 0 ? -1 : day.startKm; // same km-0 widening as breaksForDay
-    if (km <= lower || km > day.endKm) return;
+    // Same rule the break bucketing uses, so a confirmed draft lands on the day it was
+    // drafted on rather than on none — a stop the day panel would never list.
+    if (!dayOwnsKm(day, km)) return;
     const [lng, lat] = pointAtKm(routeIndex, km);
     customStopDraft = { km, lat, lng };
     renderAll();

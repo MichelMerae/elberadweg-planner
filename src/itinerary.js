@@ -97,7 +97,7 @@ function toPublicDay(day, index) {
  *   removeBreak: (key: string) => void,
  *   updateBreak: (key: string, patch: {name?: string, note?: string}) => string|null,
  *   getBreaks: () => Array<object>,
- *   breaksInRange: (startKm: number, endKm: number) => Array<object>,
+ *   breaksInRange: (startKm: number, endKm: number, opts?: {includeFrom?: boolean}) => Array<object>,
  *   hydrate: (input: Array<{targetKm: number, townChoice?: any}> | {days: Array<object>, breaks?: Array<object>}) => void,
  * }}
  */
@@ -434,8 +434,22 @@ export function createItinerary({ trip } = {}) {
    * Returned in the order the rider MEETS them, which is the plan-level sort order
    * only on a forward trip: `breaks` is kept sorted by absolute km, and downstream
    * that is exactly backwards. Re-sorted here so no display site has to know.
+   *
+   * `includeFrom` closes the half-open rule's one hole: day 0's start has no previous
+   * day to hand the shared km to, so a break dropped exactly on the rider's start line
+   * would belong to no day at all — listed on no day card, and therefore with no × to
+   * remove it with. The caller passing it is saying "this span starts the trip"; main.js
+   * passes it for index 0 and nothing else. It widens by the endpoint itself rather than
+   * by a km of slack, so nothing BEHIND the rider is ever swept in — and being a
+   * comparison in rider km it means the same thing whichever way the trip runs, unlike
+   * a widened absolute km, which downstream reaches the wrong way down the road.
+   *
+   * @param {number} startKm - absolute km, trip-ordered with endKm
+   * @param {number} endKm - absolute km
+   * @param {{includeFrom?: boolean}} [opts] - `includeFrom: true` makes the span own a
+   *   break exactly at `startKm` too, i.e. `[start, end]` instead of `(start, end]`.
    */
-  function breaksInRange(startKm, endKm) {
+  function breaksInRange(startKm, endKm, { includeFrom = false } = {}) {
     const from = trip.tripKm(startKm);
     const to = trip.tripKm(endKm);
     const lo = Math.min(from, to);
@@ -443,7 +457,7 @@ export function createItinerary({ trip } = {}) {
     return getBreaks()
       .filter((b) => {
         const km = trip.tripKm(b.routeDistanceKm);
-        return km > lo && km <= hi;
+        return (includeFrom ? km >= lo : km > lo) && km <= hi;
       })
       .sort((a, b) => trip.tripKm(a.routeDistanceKm) - trip.tripKm(b.routeDistanceKm));
   }
