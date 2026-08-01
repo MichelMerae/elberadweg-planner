@@ -37,10 +37,12 @@ export const ARRIVED_EPSILON_KM = 0.5;
  * **The bounds come back in TRIP order, not numeric order:** `min` is the closest
  * legal position to the rider's start and `max` the farthest along the trip, so on a
  * DOWNSTREAM trip `min` is the numerically LARGER absolute km. A caller that needs
- * them numerically ordered sorts them itself — `strip-markup.js` does, because
- * `aria-valuemin > aria-valuemax` is undefined behaviour for a screen reader.
- * Ordering them here instead would put the answer in road order and lose which end
- * is the rider's own floor, which is the thing every caller actually asks about.
+ * them numerically ordered converts them to RIDER km, where trip order and numeric
+ * order are the same thing — `strip-markup.js` does that for its `aria-valuemin` /
+ * `aria-valuemax`, since an inverted pair is undefined behaviour for a screen reader
+ * (it used to sort them instead, which would have hidden a real inversion rather than
+ * prevented one). Ordering them here would put the answer in road order and lose which
+ * end is the rider's own floor, which is the thing every caller actually asks about.
  *
  * @param {Array<{startKm: number, endKm: number}>} days - absolute km
  * @param {number} index - 0-based day index

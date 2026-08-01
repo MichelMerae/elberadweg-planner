@@ -47,9 +47,14 @@ function span(x, width) {
   return { left, width: Math.max(0, right - left) };
 }
 
-// The trailing unplanned stretch as it will be drawn. Both the axis (does the
-// remainder get a box at all?) and the scale line (has the trip arrived?) turn
-// on the same rounded width, so it is derived once.
+// The trailing unplanned stretch as it will be drawn: the part of the rider's own
+// window their days have not filled yet.
+//
+// Both the axis (does the remainder get a box at all?) and the scale line (has the trip
+// arrived?) turn on the same rounded width, so it is derived once — and now they mean
+// the same thing by it. They briefly did not: while stripLayout still measured the
+// remainder against the ROAD, a completed 648 km trip on a 1026 km road drew 290 px of
+// "+ add a day" here beside a summary that already read "0 km to Prague".
 function tailBox(layout) {
   return span(layout.remainder.x, layout.remainder.width);
 }

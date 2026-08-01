@@ -112,16 +112,26 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
     return points;
   }
 
-  // The axis, in ABSOLUTE route km — deliberately, and the last place in the strip that
-  // still is: it maps the whole road, so every px derived from it (blocks, handles,
-  // glyphs, the profile above) is whole-road geometry. Plan Tasks 7/8 rescale this to
-  // the trip's window; the numbers a user READS are already the rider's own.
+  // The window the axis maps, in the two names strip-geometry asks for. One place, so
+  // the render path and the pointer path can never disagree about which km an x is —
+  // a click mapped through a different window than the block under it was drawn in
+  // would move a boundary to somewhere the user did not point.
+  function windowFor(width) {
+    const trip = tripFor();
+    return { startKm: trip.startKm, endKm: trip.destinationKm, width };
+  }
+
+  // The axis: the TRIP's window drawn across the width, in trip order. Every px derived
+  // from it — blocks, handles, glyphs — is window geometry now, and the km feeding it
+  // stay ABSOLUTE (kmToX takes the road's own numbers and maps them into the window).
+  // `totalKm` rides along for the glyph layer's extent filter; plan Task 8 replaces
+  // that with the window's own containment test and it goes away.
   function axisOpts() {
     const width = axisWidth();
     const height = axisHeight();
     return {
+      ...windowFor(width),
       totalKm: state.totalKm,
-      width,
       height,
       elevationPoints: elevationPointsFor(width, height),
     };
@@ -216,13 +226,16 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
     return { left: rect.left, width: axisWidth() };
   }
 
+  // ABSOLUTE route km, which is the contract for every km this module emits — the
+  // window only decides which stretch of road the axis covers, never how a km is
+  // named. A pointer past either end reads as that end: kmToX clamps, so xToKm does.
   function kmAtClientX(clientX) {
     const axis = pointerAxis();
-    return round1(xToKm(clientX - axis.left, { totalKm: state.totalKm, width: axis.width }));
+    return round1(xToKm(clientX - axis.left, windowFor(axis.width)));
   }
 
   function layoutForPointer(axis) {
-    return stripLayout(state.days, { totalKm: state.totalKm, width: axis.width });
+    return stripLayout(state.days, windowFor(axis.width));
   }
 
   /**
