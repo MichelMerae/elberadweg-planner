@@ -9,9 +9,14 @@
 //
 // Every km that reaches a user here — a label, a title, an aria value — is counted
 // from the RIDER's own start, via `state.trip.tripKm`. The km in `state.days` and
-// `state.breaks` are absolute route km and stay that way, as do the px positions
-// derived from them: `kmToX` maps the road, so a glyph's `left` and a handle's `left`
-// are absolute-km geometry until plan Task 8 rescales the axis to the window.
+// `state.breaks` are absolute route km and stay that way, and so do the km fed to
+// `kmToX`: the axis maps the trip's WINDOW, so kmToX takes an absolute km and answers
+// with an x inside that window. A glyph's `left` and a handle's `left` are therefore
+// window geometry derived from absolute km — no conversion, and none needed.
+//
+// Road outside the window has no x at all (kmToX clamps it onto the nearer end), which
+// is why the road past a trip end is drawn as a stub BESIDE the axis and why a break
+// out there is not drawn at all.
 
 import { esc, round1, glyphFor } from './ui-util.js';
 import { boundaryBounds } from './boundaries.js';
@@ -89,10 +94,10 @@ function breaksIn(breaks, trip, day, isFirstDay) {
 /**
  * One glyph layer for the whole axis, each break at its absolute route km.
  *
- * Deliberately absolute, and the only km here that is: these are POSITIONS on an axis
- * that still maps the road, not numbers a user reads (the names in the titles are).
- * Plan Task 8 rescales the axis to the trip's window and both the filter and the
- * mapping follow it there.
+ * Filtered to the WINDOW, not to the road. kmToX clamps, so a break out on road the
+ * rider is not riding would pile up on the nearer end of the axis and read as a stop
+ * standing on their own start line. `trip.contains` is inclusive of both ends, which is
+ * right here: a stop exactly on the start or the finish is on the trip.
  *
  * These used to be children of the day they fell in, which cost three things: a
  * block's `overflow: hidden` clipped them, every offset needed the block's own
@@ -104,10 +109,7 @@ function breaksIn(breaks, trip, day, isFirstDay) {
  */
 function glyphLayerMarkup(breaks, axis) {
   return breaks
-    .filter(
-      (b) =>
-        Number.isFinite(b.routeDistanceKm) && b.routeDistanceKm >= 0 && b.routeDistanceKm <= axis.totalKm,
-    )
+    .filter((b) => Number.isFinite(b.routeDistanceKm) && axis.trip.contains(b.routeDistanceKm))
     .map((b) => {
       const x = kmToX(b.routeDistanceKm, axis);
       return `<span class="strip__glyph" style="left:${round1(x)}px" title="${esc(b.name)}">${glyphFor(b)}</span>`;
@@ -194,8 +196,8 @@ function handleMarkup(days, index, axis, activeIndex, trip) {
   // by construction. The model still refuses the moves it always refused.
   const min = Math.min(lo, value);
   const max = Math.max(hi, value);
-  // Absolute km, deliberately: the axis maps the road until plan Task 8 rescales it
-  // to the window, so this is geometry rather than a number anyone reads.
+  // The day's ABSOLUTE end km, deliberately: kmToX maps it into the window, so this is
+  // geometry rather than a number anyone reads. The number read is `value`, above.
   const x = kmToX(day.endKm, axis);
   const town = day.townChoice ? ` (${day.townChoice.name})` : '';
   const label = `Day ${index + 1} end, km ${round1(value)}${town}, arrow keys adjust`;
@@ -210,9 +212,81 @@ function handleMarkup(days, index, axis, activeIndex, trip) {
 // Neutral stand-ins for the endpoint names. The corridor is data — it grew from
 // Hamburg → Dresden to Cuxhaven → Prague and will change again — so no place name
 // belongs in this module. These are what it says when mounted without names, which
-// the tests do and which must not read as "undefined".
+// the tests do and which must not read as "undefined"; they are also what a trip end
+// the rider chose reads as, since nothing here knows a name for it yet.
 const ORIGIN_FALLBACK = 'start';
 const DESTINATION_FALLBACK = 'finish';
+
+/**
+ * What lies past one end of the trip: how much ROAD is left, and the name of the road
+ * end that road runs to. `which` is 'start' or 'destination'.
+ *
+ * Which road end that is follows the DIRECTION, not the trip end's own role: a
+ * downstream trip starts at the road's destination, so the road behind its start runs
+ * to Prague and the road past its finish runs to Cuxhaven. Getting this backwards would
+ * label the caps with each other's names and read as perfectly plausible.
+ *
+ * `remainingKm` is a plain distance, positive whichever way the trip runs. A trip that
+ * was never told a road length reports 0 — nothing is known past either of its ends,
+ * which is exactly what the strip drew before windows existed: the trip IS the road.
+ */
+function roadPast({ trip, originName, destinationName }, which) {
+  const towardsOrigin = which === 'start' ? trip.direction === 1 : trip.direction === -1;
+  const km = which === 'start' ? trip.startKm : trip.destinationKm;
+  return {
+    name: towardsOrigin ? originName ?? ORIGIN_FALLBACK : destinationName ?? DESTINATION_FALLBACK,
+    remainingKm: Number.isFinite(trip.totalKm) ? (towardsOrigin ? km : trip.totalKm - km) : 0,
+  };
+}
+
+/**
+ * Whether the road really continues past a trip end.
+ *
+ * The one predicate the edge stub (draw a cap?) and the end's own name (is this end
+ * already named by the road?) both read, so the two cannot disagree about whether a
+ * trip end is a road end. Rounded, because a cap whose title would read "road continues
+ * 0 km" is not a cap.
+ */
+function roadContinues(past) {
+  return round1(past.remainingKm) > 0;
+}
+
+/**
+ * What to call one end of the trip.
+ *
+ * An end sitting on an end of the ROAD keeps that road end's name. Any other end is
+ * somewhere the rider picked, and nothing in this module knows its name, so it reads as
+ * the neutral word for its role — "Cuxhaven" on a start 149 km past Cuxhaven would be a
+ * plain lie. **Plan Tasks 11/12 replace these two fallbacks with the town the rider
+ * picked**, which is the only thing that can name a window's own ends.
+ */
+function endName(state, which) {
+  const past = roadPast(state, which);
+  if (!roadContinues(past)) return past.name;
+  return which === 'start' ? ORIGIN_FALLBACK : DESTINATION_FALLBACK;
+}
+
+/**
+ * A dimmed cap where the ROAD continues past an end of the trip (spec §3).
+ *
+ * Drawn OUTSIDE the axis proper, in #strip's side padding, because the axis maps the
+ * window and there is no x inside it for road nobody is riding. Without them a trip
+ * that finishes at Dresden looks like a road that finishes at Dresden.
+ *
+ * Not a button and not draggable: extending the trip is what the scale line's `Set
+ * start` / `Set finish` will do (plan Task 11), and a draggable cap would be a second,
+ * silent way to do the same thing. aria-hidden because an empty span's title is
+ * announced by nothing anyway and there is no action here to offer — Tasks 11/12 put
+ * the trip's ends into real controls, which is where this belongs as text.
+ *
+ * The distance is display text, so it is rounded like every other km on the strip.
+ */
+function stubMarkup(side, past) {
+  if (!roadContinues(past)) return '';
+  const title = `road continues ${round1(past.remainingKm)} km to ${past.name}`;
+  return `
+          <span class="strip__stub strip__stub--${side}" aria-hidden="true" title="${esc(title)}"></span>`;
+}
 
 /**
  * The line above the axis: how far the plan reaches, and the average day.
@@ -221,15 +295,19 @@ const DESTINATION_FALLBACK = 'finish';
  * than the road's. The last day's absolute endKm is not "how far you have planned":
  * on a trip starting at km 149.3 it overstated the plan by 149.3 km, and against a
  * 1026 km road a 648 km trip could never read as finished.
+ *
+ * The place counted down to is the RIDER's destination, named by endName — "468 km to
+ * Prague" on a trip that stops 229 km short of Prague is the same lie the km used to be.
  */
-export function summaryMarkup({ days, trip, destinationName }) {
+export function summaryMarkup(state) {
+  const { days, trip } = state;
   const planned = days.length ? trip.tripKm(days[days.length - 1].endKm) : 0;
   const remaining = Math.max(0, trip.lengthKm - planned);
   const avg = days.length ? round1(planned / days.length) : 0;
   const right = days.length
     ? `${days.length} ${days.length === 1 ? 'day' : 'days'} · ⌀ ${avg} km/day`
     : 'no days yet';
-  const destination = esc(destinationName ?? DESTINATION_FALLBACK);
+  const destination = esc(endName(state, 'destination'));
   return `
       <span><b>${round1(planned)} / ${round1(trip.lengthKm)} km planned</b> · ${round1(remaining)} km to ${destination}</span>
       <span>${right}</span>`;
@@ -244,10 +322,11 @@ export function summaryMarkup({ days, trip, destinationName }) {
  * visually and buys the tab order: all blocks and then all handles made a
  * keyboard user cross the whole route twice to reach day 2's end.
  *
- * @param {{days: Array<object>, trip: object, focusedIndex: number|null, breaks: Array<object>}} state
- *   - `trip` from createTrip(): the window every km below is announced in.
+ * @param {{days: Array<object>, focusedIndex: number|null, breaks: Array<object>}} state
  * @param {ReturnType<import('./strip-geometry.js').stripLayout>} layout
- * @param {{totalKm: number, width: number}} axis
+ * @param {{startKm: number, endKm: number, width: number, height: number, trip: object}} axis
+ *   - the window the axis maps, plus the `createTrip()` object it was built from: the
+ *     one window every km below is announced in and every x is positioned in.
  * @param {number|null} activeIndex - the boundary being dragged, or null.
  */
 export function axisMarkup(state, layout, axis, activeIndex = null) {
@@ -255,7 +334,9 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
     width: axis.width,
     height: axis.height,
   });
-  const trip = state.trip;
+  // From the axis, not from the state: the geometry below and the km read off it are
+  // then the same window by construction rather than by two callers agreeing.
+  const trip = axis.trip;
   const blocks = layout.blocks
     .map((block) => {
       const day = state.days[block.index];
@@ -280,17 +361,27 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
     box.width > 0
       ? `<div class="strip__remainder" style="left:${box.left}px;width:${box.width}px">
              <button type="button" class="strip__add" data-action="add-day">+ add a day</button>
-             <span class="strip__flag">⚑ ${esc(state.destinationName ?? DESTINATION_FALLBACK)}</span>
+             <span class="strip__flag">⚑ ${esc(endName(state, 'destination'))}</span>
            </div>`
       : '';
 
+  const stubs =
+    stubMarkup('start', roadPast(state, 'start')) +
+    stubMarkup('end', roadPast(state, 'destination'));
+
   // Elevation first in source order: it and the glyph layer share z-index 1, so the
   // later one paints on top and a café pin must not disappear under the terrain fill.
-  return elevation + blocks + tail + glyphLayerMarkup(state.breaks, axis);
+  // The stubs sit outside the axis's own width, so their order costs nothing.
+  return elevation + blocks + tail + glyphLayerMarkup(state.breaks, axis) + stubs;
 }
 
 /**
- * The scale line under the axis: where the route starts and where it ends.
+ * The scale line under the axis: where the TRIP starts and where it ends.
+ *
+ * Both ends are the rider's own, named by endName — on a whole-road trip ridden
+ * downstream that means the two road names swap places, because the rider starts at
+ * Prague. `arrived` is arrival at the trip's destination, which is what the remainder's
+ * width has meant since stripLayout started measuring the window.
  *
  * The finish marker lives here rather than on the axis: at right: 0 over a
  * collapsed remainder it sat on top of the last block and underneath the last
@@ -299,16 +390,21 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
  */
 export function scaleMarkup(state, layout) {
   const arrived = state.days.length > 0 && tailBox(layout).width <= 0;
-  const origin = esc(state.originName ?? ORIGIN_FALLBACK);
-  const destination = esc(state.destinationName ?? DESTINATION_FALLBACK);
+  const origin = esc(endName(state, 'start'));
+  const destination = esc(endName(state, 'destination'));
   // The vertical range, whenever a profile is drawn. Not decoration: this corridor
   // falls from sea level to 184 m over 1026 km, so the profile is exaggerated
   // roughly 500:1, and an unlabelled exaggerated profile invites reading a 30 m
   // river terrace as a climb.
+  //
+  // It is the whole ROAD's range even though the axis now draws one window, because
+  // that range is the vertical SCALE — fixing it is what keeps two windows, and two
+  // days, comparable. The title says so, since the number no longer describes the
+  // stretch on screen.
   const profile = state.elevation;
   const range =
     profile && Number.isFinite(profile.minM) && Number.isFinite(profile.maxM)
-      ? `<span class="strip__range" title="Elevation range along the whole route. The profile's vertical scale is exaggerated to make this relief visible.">↕ ${Math.round(profile.minM)}–${Math.round(profile.maxM)} m</span>`
+      ? `<span class="strip__range" title="Elevation range along the whole route — the profile's vertical scale, fixed so that days and trips stay comparable. It is exaggerated to make this relief visible.">↕ ${Math.round(profile.minM)}–${Math.round(profile.maxM)} m</span>`
       : '';
   // km 0 needs no conversion: the left end of the scale IS the rider's start, which is
   // rider km 0 whatever absolute km it sits at. The right end is how far they ride —

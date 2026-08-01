@@ -1016,12 +1016,15 @@ input[type="number"]:disabled {
 }
 
 /* --- Timeline strip ------------------------------------------------------
-   The trip, drawn to scale: 650 km always fits the width, so this can never
-   overflow. Blocks and handles are absolutely positioned from px values that
-   strip-geometry.js computes. */
-/* 24px of side padding, not 16: a boundary handle at km == totalKm sits at the
-   axis's right edge and hangs 5px past it, plus a 3px hover ring. Padding (not
-   an axis margin) keeps the summary and scale lines aligned with the axis ends. */
+   The TRIP, drawn to scale: the axis maps the rider's own window — their start at
+   the left edge, their destination at the right — so the whole ride always fits and
+   this can never overflow. Blocks and handles are absolutely positioned from px
+   values that strip-geometry.js computes. */
+/* 24px of side padding, not 16: a boundary handle at the trip's destination sits at
+   the axis's right edge and hangs 5px past it, plus a 3px hover ring; and where the
+   road continues past a trip end, an edge stub sits 12px out on the same side.
+   Padding (not an axis margin) keeps the summary and scale lines aligned with the
+   axis ends, and gives both overhangs somewhere to live. */
 #strip {
   border-top: 1px solid var(--line);
   background: var(--surface-sunk);
@@ -1210,6 +1213,41 @@ input[type="number"]:disabled {
    what a finished plan always leaves it doing. */
 .strip__finish {
   color: var(--done);
+}
+
+/* Where the ROAD continues past an end of the trip (spec §3). The axis maps the
+   rider's window, so road nobody is riding has no x inside it — these caps sit in
+   #strip's side padding instead, offset by --strip-stub-gap so they read as beside
+   the axis rather than as part of it. Without them a trip that finishes at Dresden
+   looks like a road that finishes at Dresden.
+
+   Dimmed and inert: extending the trip is what the scale line's Set start / Set
+   finish will do, and a cap that looked draggable would promise otherwise. Unlike
+   the glyph layer it does take pointer events, because its title is the only place
+   the remaining road is named — and out here it covers no part of the axis's drag
+   surface, so it cannot eat a grab.
+
+   --start / --end are the TRIP's ends, which are always left and right on screen:
+   the axis runs in trip order whichever way along the road that is. */
+.strip__stub {
+  --strip-stub-width: 10px;
+  --strip-stub-gap: 2px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--strip-stub-width);
+  border-radius: 3px;
+  background: var(--line);
+  opacity: 0.55;
+  cursor: help;
+}
+
+.strip__stub--start {
+  right: calc(100% + var(--strip-stub-gap));
+}
+
+.strip__stub--end {
+  left: calc(100% + var(--strip-stub-gap));
 }
 
 /* The boundary itself: a thin grab bar straddling two blocks, 10 px wide.

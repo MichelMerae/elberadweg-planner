@@ -89,6 +89,41 @@ describe('profilePoints', () => {
     expect(profilePoints(ramp, { startKm: 0, endKm: 1, width: 0, height: 10 })).toEqual([]);
   });
 
+  // The strip's axis runs in TRIP order, so a downstream ride hands this a window whose
+  // end is BELOW its start. `km = startKm + (endKm - startKm) * t` was already
+  // direction-correct; only the guard refused to let it run.
+  it('mirrors a descending window, so a downstream ride reads left to right', () => {
+    const shared = { width: 100, height: 80, columns: 11, minM: 0, maxM: 100 };
+    const up = profilePoints(ramp, { startKm: 0, endKm: 1, ...shared });
+    const down = profilePoints(ramp, { startKm: 1, endKm: 0, ...shared });
+
+    expect(down).toHaveLength(11);
+    // The point-mirror of the upstream profile: same x, the y from the far column.
+    down.forEach(([x, y], i) => {
+      expect(x).toBeCloseTo(up[i][0], 6);
+      expect(y).toBeCloseTo(up[up.length - 1 - i][1], 6);
+    });
+    // Which for this ramp means: ridden downstream it starts at the top and descends
+    // to the baseline, rather than being drawn identically to the climb.
+    expect(down[0][1]).toBeCloseTo(0, 6);
+    expect(down[10][1]).toBeCloseTo(80, 6);
+  });
+
+  it('mirrors a descending sub-stretch too, not only a whole-profile one', () => {
+    const shared = { width: 100, height: 100, columns: 2, minM: 0, maxM: 100 };
+    const down = profilePoints(ramp, { startKm: 1, endKm: 0.5, ...shared });
+    // 100 m at the top, 50 m halfway up — the sub-stretch test below, ridden the other
+    // way round.
+    expect(down[0][1]).toBeCloseTo(0, 6);
+    expect(down[1][1]).toBeCloseTo(50, 6);
+  });
+
+  // Still refused: a zero-length window has no stretch to draw, and every column
+  // would sample the same km — a flat line that reads as terrain.
+  it('returns an empty array for a zero-length window', () => {
+    expect(profilePoints(ramp, { startKm: 0.5, endKm: 0.5, width: 100, height: 80 })).toEqual([]);
+  });
+
   it('covers a sub-stretch of the route, not always the whole thing', () => {
     const pts = profilePoints(ramp, {
       startKm: 0.5,

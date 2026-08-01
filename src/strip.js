@@ -6,7 +6,6 @@
 
 import { round1 } from './ui-util.js';
 import { boundaryWindow, clampBoundaryKm } from './boundaries.js';
-import { createTrip } from './trip.js';
 import { stripLayout, xToKm, hitTestHandle } from './strip-geometry.js';
 import { summaryMarkup, axisMarkup, scaleMarkup } from './strip-markup.js';
 import { profilePoints } from './elevation.js';
@@ -45,8 +44,9 @@ const KEY_STEP_SHIFT_KM = 5;
 export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } = {}) {
   // originName/destinationName are undefined until main.js supplies them from
   // route.meta.json; strip-markup.js substitutes neutral words meanwhile. `trip` is
-  // undefined the same way until a render brings one — see tripFor.
-  let state = { days: [], totalKm: 0, focusedIndex: null, breaks: [] };
+  // undefined until the first render brings one, and render() refuses without it —
+  // there is no road-shaped fallback, because the axis maps the TRIP.
+  let state = { days: [], focusedIndex: null, breaks: [] };
 
   // Interaction state lives HERE and never in the DOM. render() rebuilds the
   // whole axis with innerHTML, and main.js re-renders on every drag preview, so
@@ -81,34 +81,38 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
   const axisWidth = measureWidth || (() => axisEl.getBoundingClientRect().width || FALLBACK_WIDTH);
   const axisHeight = measureHeight || (() => axisEl.getBoundingClientRect().height || FALLBACK_HEIGHT);
 
-  // The elevation profile depends only on the axis width, the route length and the
+  // The elevation profile depends only on the axis box, the WINDOW it spans and the
   // profile itself — never on the days. Without this memo every pointermove of a
   // boundary drag would re-interpolate ~700 samples to redraw an identical path.
   let elevationMemo = null;
 
-  // The window below is the WHOLE ROAD in absolute km, deliberately, and it is the one
-  // absolute site plan Task 8 is guaranteed to edit: the profile has to be sampled over
-  // the trip's window instead, and the memo key has to gain both of its ends — memoising
-  // on `totalKm` alone would serve a stale profile to every window on the same road.
-  function elevationPointsFor(width, height) {
+  // Sampled over the trip's own window, in trip order: the profile has to describe the
+  // stretch the axis draws, and profilePoints mirrors itself for a descending window so
+  // a downstream ride reads left to right like everything else here.
+  //
+  // The memo key carries BOTH ends. On the road's length alone it served the first
+  // window's samples to every later window on the same road — switching plans would
+  // redraw the days and leave the terrain behind.
+  function elevationPointsFor(width, height, { startKm, endKm }) {
     if (!state.elevation) return null;
     if (
       elevationMemo &&
       elevationMemo.width === width &&
       elevationMemo.height === height &&
-      elevationMemo.totalKm === state.totalKm &&
+      elevationMemo.startKm === startKm &&
+      elevationMemo.endKm === endKm &&
       elevationMemo.profile === state.elevation
     ) {
       return elevationMemo.points;
     }
     const points = profilePoints(state.elevation, {
-      startKm: 0,
-      endKm: state.totalKm,
+      startKm,
+      endKm,
       width,
       height,
       columns: Math.max(2, Math.round(width / ELEVATION_PX_PER_COLUMN)),
     });
-    elevationMemo = { width, height, totalKm: state.totalKm, profile: state.elevation, points };
+    elevationMemo = { width, height, startKm, endKm, profile: state.elevation, points };
     return points;
   }
 
@@ -117,38 +121,26 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
   // a click mapped through a different window than the block under it was drawn in
   // would move a boundary to somewhere the user did not point.
   function windowFor(width) {
-    const trip = tripFor();
-    return { startKm: trip.startKm, endKm: trip.destinationKm, width };
+    return { startKm: state.trip.startKm, endKm: state.trip.destinationKm, width };
   }
 
   // The axis: the TRIP's window drawn across the width, in trip order. Every px derived
-  // from it — blocks, handles, glyphs — is window geometry now, and the km feeding it
-  // stay ABSOLUTE (kmToX takes the road's own numbers and maps them into the window).
-  // `totalKm` rides along for the glyph layer's extent filter; plan Task 8 replaces
-  // that with the window's own containment test and it goes away.
+  // from it — blocks, handles, glyphs, the profile — is window geometry, and the km
+  // feeding it stay ABSOLUTE (kmToX takes the road's own numbers and maps them in).
+  //
+  // The trip rides along so the markup has one source for the window: the two ends
+  // strip-geometry needs and the value object every km on screen is converted through
+  // are built here, together, from the same trip.
   function axisOpts() {
     const width = axisWidth();
     const height = axisHeight();
+    const window = windowFor(width);
     return {
-      ...windowFor(width),
-      totalKm: state.totalKm,
+      ...window,
+      trip: state.trip,
       height,
-      elevationPoints: elevationPointsFor(width, height),
+      elevationPoints: elevationPointsFor(width, height, window),
     };
-  }
-
-  // The trip every km on screen is counted from, and the window the boundary math is
-  // asked about. main.js supplies it with the state; a caller that names only a road
-  // length (the tests, and no path in the app) gets the whole road ridden forwards,
-  // which is exactly what the strip drew before trips existed and an identity for
-  // every conversion in boundaries.js — so those numbers are unchanged.
-  //
-  // Resolved per call rather than stored, so the fallback always describes THIS
-  // render's road length instead of an earlier one's. STOPGAP either way: plan Task 8
-  // rescales the axis to the window, at which point a trip-less strip has nothing
-  // coherent left to draw and this goes away with the `createTrip` import.
-  function tripFor() {
-    return state.trip ?? createTrip({ startKm: 0, destinationKm: state.totalKm });
   }
 
   // A role="slider" that is destroyed and recreated on every change never
@@ -179,9 +171,18 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
   // px in the DOM was derived from the old axis width. A ResizeObserver in
   // main.js drives that path.
   function render(next = state) {
+    // Ditto the names below: a width change re-renders with no argument, and a strip
+    // that forgot its trip would have nothing to draw an axis from.
+    const trip = next.trip ?? state.trip;
+    // No fallback. The axis maps the trip's window, so a road-shaped stand-in would be
+    // a second, silent window with every km on screen counted from the wrong origin —
+    // which is what the fallback this replaces actually did. day-panel and places
+    // refuse for the same reason, in the same voice.
+    if (!trip || typeof trip.tripKm !== 'function') {
+      throw new Error('strip render needs a trip (see createTrip in src/trip.js)');
+    }
     state = {
       days: next.days || [],
-      totalKm: next.totalKm || 0,
       focusedIndex: next.focusedIndex ?? null,
       breaks: next.breaks || [],
       // Fall back to what state already holds, not to a default: render() is
@@ -192,25 +193,19 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       destinationName: next.destinationName ?? state.destinationName,
       // Same argument-less-render reasoning as the names above.
       elevation: next.elevation ?? state.elevation,
-      // Ditto: a width change re-renders with no argument, and a strip that forgot its
-      // trip would start counting from the road's origin again — silently, since every
-      // number would still look like a number.
-      trip: next.trip ?? state.trip,
+      trip,
     };
     const axis = axisOpts();
     const layout = stripLayout(state.days, axis);
-    // One trip for all three regions, so the summary, the axis and the scale line can
-    // never announce the same plan against two different windows.
-    const view = { ...state, trip: tripFor() };
 
-    summaryEl.innerHTML = summaryMarkup(view);
+    summaryEl.innerHTML = summaryMarkup(state);
     const restore = focusedSelector();
-    axisEl.innerHTML = axisMarkup(view, layout, axis, dragging ? dragging.index : null);
+    axisEl.innerHTML = axisMarkup(state, layout, axis, dragging ? dragging.index : null);
     // preventScroll: the strip sits at the bottom of a height:100vh,
     // overflow:hidden body, and scrolling that to "reveal" the handle shoves the
     // whole app off screen.
     if (restore) axisEl.querySelector(restore)?.focus({ preventScroll: true });
-    scaleEl.innerHTML = scaleMarkup(view, layout);
+    scaleEl.innerHTML = scaleMarkup(state, layout);
   }
 
   // --- Interaction -------------------------------------------------------
@@ -249,10 +244,8 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
    * distinction (the model refuses the same moves for the same reason).
    */
   function proposeKm(index, km) {
-    // The real window once main.js supplies one: a drag is bounded by the trip the
-    // plan was measured along, not by the road. (Identical while a trip spans the whole
-    // road, which is every plan until the picking UI lands.)
-    const trip = tripFor();
+    // A drag is bounded by the trip the plan was measured along, not by the road.
+    const trip = state.trip;
     if (!boundaryWindow(state.days, index, { trip })) return null;
     // Clamped by boundaries.js rather than here: its bounds come back in TRIP order,
     // so a numeric Math.min/Math.max would pull the km towards the road's origin
@@ -317,6 +310,11 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
     // boundary's grab tolerance, and latching there would preventDefault the
     // press and swallow the button's click.
     if (e.target.closest?.('[data-action="add-day"]')) return;
+    // Same shape of problem at the axis's own edges: an edge stub sits 2px outside it,
+    // which is well inside HANDLE_TOLERANCE_PX of a boundary standing on that edge —
+    // and a finished plan always leaves its last boundary standing on the right one.
+    // The caps are not a drag surface; nothing outside the axis may move a boundary.
+    if (e.target.closest?.('.strip__stub')) return;
     const axis = pointerAxis();
     // Hit-test the GEOMETRY, not the DOM: nearest boundary within
     // HANDLE_TOLERANCE_PX wins. MIN_DAY_KM puts two handles ~11 px apart at
@@ -425,7 +423,7 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       const day = state.days[index];
       if (!day) return;
       const step = e.shiftKey ? KEY_STEP_SHIFT_KM : KEY_STEP_KM;
-      const trip = tripFor();
+      const trip = state.trip;
       // Stepped in RIDER km: an arrow moves the boundary along the TRIP, so
       // ArrowRight is always "further from the rider's start". Added to the absolute
       // km instead it ran backwards downstream — a press the user reads as forward

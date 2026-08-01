@@ -104,6 +104,13 @@ export function elevationAtKm(profile, km) {
  * y is inverted for SVG (0 at the top), and `minM` sits on the baseline so a
  * profile reads as ground rather than floating.
  *
+ * The window is ORIENTED: `endKm` below `startKm` means the stretch is ridden
+ * downstream, and the profile comes back point-mirrored — the same terrain, read left
+ * to right in the direction of travel, which is the direction the strip's axis runs.
+ * `km = startKm + (endKm - startKm) * t` was always direction-correct; a zero-length
+ * window is the only one refused, since every column would sample the same km and the
+ * flat line that produced would read as terrain.
+ *
  * @param {{startKm:number, endKm:number, width:number, height:number,
  *          columns?:number, minM?:number, maxM?:number}} opts
  *   minM/maxM default to the whole profile's range, which is what makes days
@@ -113,7 +120,7 @@ export function elevationAtKm(profile, km) {
 export function profilePoints(profile, { startKm, endKm, width, height, columns, minM, maxM } = {}) {
   if (!usable(profile)) return [];
   if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) return [];
-  if (!Number.isFinite(startKm) || !Number.isFinite(endKm) || endKm <= startKm) return [];
+  if (!Number.isFinite(startKm) || !Number.isFinite(endKm) || startKm === endKm) return [];
 
   const lo = Number.isFinite(minM) ? minM : profile.minM ?? Math.min(...profile.elevationsM);
   const hi = Number.isFinite(maxM) ? maxM : profile.maxM ?? Math.max(...profile.elevationsM);

@@ -250,6 +250,15 @@ describe('stripLayout - oriented windows', () => {
     const layout = stripLayout(tripDays(UP, 80), UP);
     expect(layout.remainder.width).toBeCloseTo(1000 - 80 * PX_PER_KM, 6);
   });
+
+  // `arrived` compares a DISTANCE, and this is the case that needs it to. Signed,
+  // `endKm - plannedKm` is 149.3 − 717.6 downstream: hugely negative, so under the
+  // tolerance, so "arrived" — and an 80 km plan on a 648 km window would collapse its
+  // remainder and read as finished on its first day.
+  it('does not mistake an unfinished downstream window for a finished one', () => {
+    const layout = stripLayout(tripDays(DOWN, 80), DOWN);
+    expect(layout.remainder.width).toBeCloseTo(1000 - 80 * PX_PER_KM, 6);
+  });
 });
 
 describe('hitTestHandle', () => {

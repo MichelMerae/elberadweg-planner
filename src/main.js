@@ -352,10 +352,13 @@ async function boot() {
   // Every renderer below is handed the trip, and every km it puts on screen is counted
   // from the rider's start. The km in the records stay absolute — that is the whole of
   // the invariant, and the reason the conversion lives at the templates rather than here.
+  // The road's own length reaches the strip on the trip (createTrip keeps it), so the
+  // axis, the edge stubs and the window are one object rather than two arguments that
+  // could describe different roads. The two names are the ROAD's ends — the strip
+  // decides which of them names a trip end and which names a stub.
   function renderStrip(focusedIndex) {
     strip.render({
       days: itinerary.getDays(),
-      totalKm,
       trip,
       focusedIndex,
       breaks: itinerary.getBreaks(),
