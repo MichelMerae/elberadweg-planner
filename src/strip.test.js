@@ -843,6 +843,75 @@ describe('createStrip - focus and add', () => {
   });
 });
 
+// The profile answers "where does this trip get hard". It is drawn ACROSS the axis
+// rather than behind it — the day blocks are opaque — which puts it in the path of
+// the boundary drag, so its layering and its pointer-transparency are load-bearing
+// rather than cosmetic.
+describe('createStrip - elevation profile', () => {
+  // A 1 km ramp, 0 -> 100 m, sampled every 250 m.
+  const profile = { spacingM: 250, minM: 0, maxM: 100, elevationsM: [0, 25, 50, 75, 100] };
+  const withProfile = () => {
+    const strip = mount();
+    strip.render({ days: days(400), totalKm: 400, focusedIndex: 0, breaks: [], elevation: profile });
+    return strip;
+  };
+
+  it('draws the profile when there is one', () => {
+    withProfile();
+
+    expect(el.querySelector('.strip__elevation')).not.toBeNull();
+    expect(el.querySelector('.strip__elevation-line').getAttribute('d')).toMatch(/^M0,/);
+  });
+
+  it('draws nothing at all without a profile', () => {
+    const strip = mount();
+    strip.render({ days: days(400), totalKm: 400, focusedIndex: 0, breaks: [] });
+
+    expect(el.querySelector('.strip__elevation')).toBeNull();
+  });
+
+  it('closes the fill path back to the baseline so it reads as ground', () => {
+    withProfile();
+
+    // …L<width>,<height>L0,<height>Z
+    expect(el.querySelector('.strip__elevation-fill').getAttribute('d')).toMatch(/L0,\d+(\.\d+)?Z$/);
+  });
+
+  // Source order decides the winner between the profile and the break glyphs, which
+  // share z-index 1. A café pin must not vanish under the terrain fill.
+  it('comes before the break glyphs, so a glyph paints over it', () => {
+    const strip = mount();
+    strip.render({
+      days: days(400),
+      totalKm: 400,
+      focusedIndex: 0,
+      breaks: [{ name: 'Café', kind: 'cafe', routeDistanceKm: 100 }],
+      elevation: profile,
+    });
+
+    const axis = el.querySelector('[data-strip-axis]');
+    const nodes = [...axis.children];
+    expect(nodes.indexOf(axis.querySelector('.strip__elevation'))).toBeLessThan(
+      nodes.indexOf(axis.querySelector('.strip__glyph')),
+    );
+  });
+
+  // The axis under the profile is a drag surface. If the SVG took pointer events, a
+  // grab anywhere along the route would hit terrain instead of a boundary handle.
+  it('is marked aria-hidden, the numbers being text elsewhere', () => {
+    withProfile();
+
+    expect(el.querySelector('.strip__elevation').getAttribute('aria-hidden')).toBe('true');
+  });
+
+  it('survives an argument-less re-render, as a width change produces', () => {
+    const strip = withProfile();
+    strip.render();
+
+    expect(el.querySelector('.strip__elevation')).not.toBeNull();
+  });
+});
+
 // The corridor outgrew Hamburg -> Dresden, so the endpoints are data now. The
 // strip must never hold a place name of its own: it is mounted standalone in these
 // tests and would otherwise render a destination the route does not have.
@@ -897,6 +966,26 @@ describe('createStrip - endpoint names', () => {
 
     expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · Cuxhaven');
     expect(el.querySelector('.strip__summary').textContent).toContain('to Prague');
+  });
+
+  it('shows the elevation range in the scale line so the exaggeration is legible', () => {
+    const strip = mount();
+    strip.render({
+      days: days(100),
+      totalKm: 400,
+      focusedIndex: 0,
+      breaks: [],
+      elevation: { spacingM: 250, minM: -1, maxM: 205, elevationsM: [0, 100, 205] },
+    });
+
+    expect(el.querySelector('.strip__range').textContent).toContain('-1–205 m');
+  });
+
+  it('omits the range when there is no profile', () => {
+    const strip = mount();
+    strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [] });
+
+    expect(el.querySelector('.strip__range')).toBeNull();
   });
 
   it('escapes a name rather than injecting it as markup', () => {

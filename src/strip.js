@@ -8,10 +8,19 @@ import { round1 } from './ui-util.js';
 import { boundaryWindow } from './boundaries.js';
 import { stripLayout, xToKm, hitTestHandle } from './strip-geometry.js';
 import { summaryMarkup, axisMarkup, scaleMarkup } from './strip-markup.js';
+import { profilePoints } from './elevation.js';
 
 // jsdom (and a first paint before layout settles) reports width 0; a plausible
 // width keeps the strip renderable and the geometry tests honest.
 const FALLBACK_WIDTH = 1000;
+// Matches .strip__axis's height in style.css. Read from the rect when layout has
+// settled; this is the value used before then, and in jsdom.
+const FALLBACK_HEIGHT = 46;
+
+// One profile sample every 2 px. At a pixel per sample the path string runs ~17 KB
+// and gets rebuilt on every pointermove of a boundary drag; at 2 px it halves, and
+// terrain at 0.73 km per pixel has nothing finer to say.
+const ELEVATION_PX_PER_COLUMN = 2;
 
 // How far the pointer must travel before a press counts as a drag rather than a
 // click. Without it a narrow day — which lies entirely inside its own
@@ -30,8 +39,9 @@ const KEY_STEP_SHIFT_KM = 5;
  * @param {(endKm: number|null) => void} opts.callbacks.onAddDay - endKm from a
  *   remainder click, or null to append a default-length day.
  * @param {() => number} [opts.measureWidth] - axis width in px; injectable for tests.
+ * @param {() => number} [opts.measureHeight] - axis height in px; injectable for tests.
  */
-export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
+export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } = {}) {
   // originName/destinationName are undefined until main.js supplies them from
   // route.meta.json; strip-markup.js substitutes neutral words meanwhile.
   let state = { days: [], totalKm: 0, focusedIndex: null, breaks: [] };
@@ -67,9 +77,44 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
   // pointer maths below measures the same axis fractionally, and the two
   // disagreeing put a boundary up to a px away from where it was grabbed.
   const axisWidth = measureWidth || (() => axisEl.getBoundingClientRect().width || FALLBACK_WIDTH);
+  const axisHeight = measureHeight || (() => axisEl.getBoundingClientRect().height || FALLBACK_HEIGHT);
+
+  // The elevation profile depends only on the axis width, the route length and the
+  // profile itself — never on the days. Without this memo every pointermove of a
+  // boundary drag would re-interpolate ~700 samples to redraw an identical path.
+  let elevationMemo = null;
+
+  function elevationPointsFor(width, height) {
+    if (!state.elevation) return null;
+    if (
+      elevationMemo &&
+      elevationMemo.width === width &&
+      elevationMemo.height === height &&
+      elevationMemo.totalKm === state.totalKm &&
+      elevationMemo.profile === state.elevation
+    ) {
+      return elevationMemo.points;
+    }
+    const points = profilePoints(state.elevation, {
+      startKm: 0,
+      endKm: state.totalKm,
+      width,
+      height,
+      columns: Math.max(2, Math.round(width / ELEVATION_PX_PER_COLUMN)),
+    });
+    elevationMemo = { width, height, totalKm: state.totalKm, profile: state.elevation, points };
+    return points;
+  }
 
   function axisOpts() {
-    return { totalKm: state.totalKm, width: axisWidth() };
+    const width = axisWidth();
+    const height = axisHeight();
+    return {
+      totalKm: state.totalKm,
+      width,
+      height,
+      elevationPoints: elevationPointsFor(width, height),
+    };
   }
 
   // A role="slider" that is destroyed and recreated on every change never
@@ -111,6 +156,8 @@ export function createStrip({ el, callbacks = {}, measureWidth } = {}) {
       // the strip would silently start calling Prague "finish" after any resize.
       originName: next.originName ?? state.originName,
       destinationName: next.destinationName ?? state.destinationName,
+      // Same argument-less-render reasoning as the names above.
+      elevation: next.elevation ?? state.elevation,
     };
     const axis = axisOpts();
     const layout = stripLayout(state.days, axis);
