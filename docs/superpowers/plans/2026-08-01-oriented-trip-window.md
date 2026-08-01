@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-01-oriented-trip-window-design.md`
 
-**Baseline:** 1076 tests passing at `997c525`.
+**Baseline:** 592 tests passing in 18 files at `b1d778d`. (An earlier figure of 1076 came from running vitest in the main checkout, which swept up duplicate test files inside `.claude/worktrees/` — a stale merged worktree has since been removed. Always run the suite from inside the feature worktree.)
 
 ---
 
@@ -716,6 +716,7 @@ export function kmToX(km, { startKm = 0, endKm, width } = {}) {
 ### Task 12: Town snapping and refused flips
 
 - [ ] After a pick, if a town lies within 3 km, offer it by name and km; one press snaps. A pick that would flip direction with days present is refused with the message from spec §6 — test the message names the direction.
+- [ ] **Guard order:** the `MIN_DAY_KM` length guard (spec §8) runs **before** `wouldReverse`. A pick at or on top of the other end is refused as *too short*, never as a reversal — `wouldReverse` conflates a zero-length window with a flip on downstream trips, so it must never see one. Also validate the pick is a finite km before either guard; `wouldReverse` throws on non-finite ends by design (Task 1 quality review).
 
 ### Task 13: `Finish here` on a day card
 
@@ -742,7 +743,7 @@ export function kmToX(km, { startKm = 0, endKm, width } = {}) {
 
 ## Task 16: Review, verify, merge
 
-- [ ] `npm test` — expect >1150 tests passing.
+- [ ] `npm test` — run from inside the worktree; expect >650 tests passing (592 baseline + this feature's new tests; the plan's original ">1150" figure was based on a polluted count).
 - [ ] `npm run build`.
 - [ ] Grep sweep: no raw absolute km in display code; no `totalKm` left in `itinerary`/`boundaries`/`strip-geometry` signatures.
 - [ ] Browser: Hamburg → Dresden, then Dresden → Hamburg, and confirm the climb figures swap.
@@ -768,4 +769,10 @@ export function kmToX(km, { startKm = 0, endKm, width } = {}) {
 
 ## Ledger
 
-Filled in during execution.
+- **Baseline corrected:** 592 tests in 18 files at `b1d778d`, not 1076 — the old figure counted duplicate suites in stale worktrees. Stale `timeline-layout` worktree (clean, fully merged) removed.
+- **Task 1 done** (`5780f74`, +16 tests → 608). Deviations from the plan's snippet, all from the quality review and adopted by the controller:
+  - `createTrip` **throws** when neither `destinationKm` nor `totalKm` is finite, instead of silently defaulting the destination to 0 (which turned a forgotten route length into a reversed trip to km 0 and would have zero-collapsed every day once Task 2 swaps `clamp(…, 0, total)` for `trip.advance`). Matches `boundaries.js`'s documented throw-on-missing-totalKm posture.
+  - `wouldReverse` **throws on a non-finite proposed end** — it previously failed *open* on downstream trips (`wouldReverse(down, {destinationKm: NaN}) === false`), letting the refused-flip guard pass the exact state it exists to refuse.
+  - The trip **keeps `totalKm`** on the frozen object and **clamps both ends into `[0, totalKm]`** when it is finite — this is spec §8's "both ends clamped" requirement, which no other task owned, and Task 8's stubs need `totalKm` anyway.
+  - Consequence for **Task 4**: `createPlanStore`'s new `totalKm` argument is **required and validated finite**, not `?? 0` — a zero fallback recreates the failure `createTrip` now refuses.
+  - The unused `round1` import from the plan snippet was dropped; no rounding in `trip.js` (rounding is display work, and it would break the round-trip property the tests pin).
