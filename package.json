@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "build:data": "node scripts/build-data.mjs"
+    "build:data": "node scripts/build-data.mjs",
+    "build:elevation": "node scripts/build-elevation.mjs"
   },
   "dependencies": {
     "@turf/turf": "^7.3.5",
