@@ -15,16 +15,24 @@
 
 import { ARRIVED_EPSILON_KM } from './boundaries.js';
 
-// Measured in Chromium at the real 11px Archivo, worst case a two-digit day
-// number, and including the label's 12px padding and the block's 2px border:
-// "12" needs 27.1px and "12 30.5 km" needs 68.8px. (A three-digit day number
+// Measured in Chromium at the real 11px Archivo (10px on the second line), worst case a
+// two-digit day number, and including the label's 12px padding and the block's 2px
+// border: "12" needs 27.1px and "12 30.5 km" needs 68.8px. (A three-digit day number
 // needs 75.1px, so it clips at the km tier's lower edge — that takes a plan of
 // 100+ days, which even on the full 1026.5 km road means every day near the 5 km
 // minimum, and on a shorter WINDOW means more of them still.)
-// The 'full' threshold is the one judgement rather than a measurement: its first
-// line is the km tier's, and the 18px above it are so the second line has room
-// to say something about the town before the ellipsis bites.
-const TIER_FULL_PX = 88;   // number + km, plus the town line and break glyphs
+//
+// TIER_FULL_PX is a measurement too, of the whole two-line label with the climb on it:
+// "12 30.5 km" over "🛏 Hitzacker · ↑ 1040 m" needs 116.1px, so 117. Spec §5's own
+// example ("1 80 km" / "🛏 Hitzacker · ↑ 340 m") needs 110.9 — the extra 5.2px is the
+// fourth digit of a climb, which this corridor's Czech end really does reach. The plan
+// guessed 112, which fits the example and not the worst case.
+//
+// TIER_TOWN_PX is the one judgement rather than a measurement, and it is the number
+// TIER_FULL_PX used to be: its first line is the km tier's, and the 18px above it are so
+// the second line has room to say something about the town before the ellipsis bites.
+const TIER_FULL_PX = 117;  // number + km, plus the town AND the day's climb beside it
+const TIER_TOWN_PX = 88;   // number + km, plus the town line and break glyphs
 const TIER_KM_PX = 70;     // number + km
 const TIER_NUMBER_PX = 28; // number only
 const HANDLE_TOLERANCE_PX = 12;
@@ -69,10 +77,16 @@ export function xToKm(x, { startKm = 0, endKm, width } = {}) {
  * 1400 px axis spanning the whole road, so labels must degrade rather than overflow.
  * A narrower window is only ever kinder — the axis maps the trip, so every day of a
  * 200 km trip gets five times the px it had when the axis mapped 1000 km of road.
- * @returns {'full'|'km'|'number'|'none'}
+ *
+ * The ladder degrades from the bottom of the label upwards, which is the order spec §5
+ * asks for: the day's CLIMB goes first ('town'), then the overnight town with it ('km'),
+ * then the day's own km, leaving just its number. Nothing here knows what a tier renders
+ * — strip-markup does — so the names say which of them is the LAST thing still on.
+ * @returns {'full'|'town'|'km'|'number'|'none'}
  */
 export function labelTier(width) {
   if (width >= TIER_FULL_PX) return 'full';
+  if (width >= TIER_TOWN_PX) return 'town';
   if (width >= TIER_KM_PX) return 'km';
   if (width >= TIER_NUMBER_PX) return 'number';
   return 'none';

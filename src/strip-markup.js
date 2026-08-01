@@ -21,6 +21,9 @@
 import { esc, round1, glyphFor } from './ui-util.js';
 import { boundaryBounds, ARRIVED_EPSILON_KM } from './boundaries.js';
 import { kmToX } from './strip-geometry.js';
+// Pure, like boundaries.js's boundary math and on the same terms: a block's climb is a
+// reading of the profile this module is already handed, not a second source of data.
+import { ascentBetween } from './elevation.js';
 
 // Distance ridden from one absolute km to another, counted the rider's way: positive
 // along the trip whichever direction it runs. tripKm is linear, so the difference of
@@ -102,10 +105,10 @@ function breaksIn(breaks, trip, day, isFirstDay) {
  * These used to be children of the day they fell in, which cost three things: a
  * block's `overflow: hidden` clipped them, every offset needed the block's own
  * rendered left edge subtracted (a whole class of off-by-a-block bug), and they
- * were gated behind the widest label tier — 88 px, about 39 km at desktop
- * width — so a 20 km day with a café silently showed nothing. At axis level
- * they work at every tier. They are pointer-events: none, so clicks still reach
- * the block underneath.
+ * were gated behind the widest label tier of the day — then 88 px, about 39 km at
+ * desktop width on a road-scaled axis — so a 20 km day with a café silently showed
+ * nothing. At axis level they work at every tier. They are pointer-events: none, so
+ * clicks still reach the block underneath.
  */
 function glyphLayerMarkup(breaks, axis) {
   return breaks
@@ -147,20 +150,97 @@ function elevationMarkup(points, { width, height } = {}) {
       </svg>`;
 }
 
-function blockLabelMarkup(block, day, trip) {
+/**
+ * A day's climb, or null when the app has no elevation data to read one from.
+ *
+ * The day's own km, in the order the itinerary chains them — which is TRIP order, so a
+ * downstream day hands `ascentBetween` a descending span and gets the descent-heavy
+ * answer back. That is the whole of the direction-awareness here: no branch on
+ * `trip.direction`, because the day already carries it.
+ *
+ * Read here rather than passed in alongside the days: an array parallel to `days` would
+ * add an index-alignment invariant for every future caller to maintain, and a forgotten
+ * one would silently label days with each other's climb. The profile is already in
+ * `state.elevation` (the scale line reads its range), so this adds no data path at all.
+ */
+function climbFor(profile, day) {
+  // One guard, not two: `ascentBetween` already answers nulls for a profile it cannot
+  // use, so asking it first collapses "no elevation build" and "half-written profile"
+  // into the same answer — and leaves nothing here that a test cannot reach. (An earlier
+  // `if (!profile) return null` above this made the finite check unreachable from any
+  // input the app can produce, which a mutation duly survived.)
+  const climb = ascentBetween(profile, day.startKm, day.endKm);
+  return Number.isFinite(climb.ascentM) ? climb : null;
+}
+
+/** The climb as the block's label says it: metres of ascent, or nothing. */
+function climbText(climb) {
+  return climb ? `↑ ${Math.round(climb.ascentM)} m` : '';
+}
+
+/**
+ * The climb as the block's TITLE says it, at every tier — so a day too narrow for a label
+ * still reports it on hover.
+ *
+ * With the descent beside the ascent, which the label has no room for: a tooltip does, and
+ * the descent is the figure that shows the direction, since the same stretch trades the two
+ * round the other way. Metres, so none of it goes through the trip; the km either side of
+ * it already do. The ≈ that qualifies these numbers stays in the day panel, which has the
+ * room to explain what it means.
+ */
+function climbTitle(climb) {
+  return climb ? ` · ${climbText(climb)} ↓ ${Math.round(climb.descentM)} m` : '';
+}
+
+/**
+ * The block's second label line: where the rider sleeps, and how much the day climbs.
+ *
+ * ```
+ * 1  80 km
+ * 🛏 Hitzacker · ↑ 340 m
+ * ```
+ *
+ * A flex row rather than one nowrap line, so the ellipsis bites the TOWN and not the
+ * climb: "Ústí nad Labem" is half again as wide as the "Hitzacker" TIER_FULL_PX is
+ * measured against, and a tier that promised the climb and then clipped it off the end
+ * would be worse than one that never offered it. The town's full name is in the title.
+ *
+ * Either half can be absent — a day with no town chosen still reports its climb — so the
+ * separator belongs to the climb, which is the half that can have something before it.
+ */
+function secondLineMarkup(day, climb) {
+  const town = day.townChoice ? `<span class="strip__block-town">🛏 ${esc(day.townChoice.name)}</span>` : '';
+  const text = climbText(climb);
+  const up = text ? `<span class="strip__block-climb">${town ? '· ' : ''}${text}</span>` : '';
+  if (!town && !up) return '';
+  return `<span class="strip__block-second">${town}${up}</span>`;
+}
+
+/**
+ * A block's label, as much of it as the block's width can carry.
+ *
+ * The ladder degrades from the bottom of the label upwards: the climb goes first, then
+ * the town with it, then the day's own km, leaving just its number (spec §5). Which is
+ * why 'full' and 'town' differ only in whether a climb reaches `secondLineMarkup`.
+ */
+function blockLabelMarkup(block, day, trip, climb) {
   // A day's length is a distance RIDDEN, so it is positive whichever way the trip
   // runs. `endKm - startKm` is the same number forwards and its negation downstream,
   // which put "-80 km" on every block of a Dresden -> Hamburg plan.
   const km = `${round1(rideKm(trip, day.startKm, day.endKm))} km`;
-  const town = day.townChoice ? `<span class="strip__block-town">🛏 ${esc(day.townChoice.name)}</span>` : '';
+  const number = `<b>${block.index + 1}</b>`;
+  const first = `${number} <span class="strip__block-km">${km}</span>`;
   if (block.tier === 'full') {
-    return `<span class="strip__block-label"><b>${block.index + 1}</b> <span class="strip__block-km">${km}</span>${town}</span>`;
+    return `<span class="strip__block-label">${first}${secondLineMarkup(day, climb)}</span>`;
+  }
+  if (block.tier === 'town') {
+    return `<span class="strip__block-label">${first}${secondLineMarkup(day, null)}</span>`;
   }
   if (block.tier === 'km') {
-    return `<span class="strip__block-label"><b>${block.index + 1}</b> <span class="strip__block-km">${km}</span></span>`;
+    return `<span class="strip__block-label">${first}</span>`;
   }
   if (block.tier === 'number') {
-    return `<span class="strip__block-label"><b>${block.index + 1}</b></span>`;
+    return `<span class="strip__block-label">${number}</span>`;
   }
   return '';
 }
@@ -372,11 +452,14 @@ export function axisMarkup(state, layout, axis, activeIndex = null) {
       // illegible cluster, and a 5 km day is ~11 px wide.
       const marks = breaksIn(state.breaks, trip, day, block.index === 0);
       const marked = marks.length ? ` · ${marks.map((b) => `${glyphFor(b)} ${b.name}`).join(', ')}` : '';
-      const title = `Day ${block.index + 1} · ${round1(rideKm(trip, day.startKm, day.endKm))} km · km ${round1(trip.tripKm(day.startKm))} → ${round1(trip.tripKm(day.endKm))}${town}${marked}`;
+      // Read once per block and used twice: the label carries the ascent when the block is
+      // wide enough, the title carries both figures whatever the width.
+      const climb = climbFor(state.elevation, day);
+      const title = `Day ${block.index + 1} · ${round1(rideKm(trip, day.startKm, day.endKm))} km · km ${round1(trip.tripKm(day.startKm))} → ${round1(trip.tripKm(day.endKm))}${climbTitle(climb)}${town}${marked}`;
       return `
           <div class="strip__block${focused}" data-day-index="${block.index}" role="button" tabindex="0"
                style="left:${box.left}px;width:${box.width}px" title="${esc(title)}">
-            ${blockLabelMarkup(block, day, trip)}
+            ${blockLabelMarkup(block, day, trip, climb)}
           </div>${handleMarkup(state.days, block.index, axis, activeIndex, trip)}`;
     })
     .join('');

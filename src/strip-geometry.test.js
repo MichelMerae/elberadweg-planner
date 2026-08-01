@@ -126,13 +126,34 @@ describe('kmToX / xToKm - oriented windows', () => {
 
 describe('labelTier', () => {
   it('degrades detail as a block narrows', () => {
-    expect(labelTier(120)).toBe('full');
-    expect(labelTier(88)).toBe('full');
+    expect(labelTier(200)).toBe('full');
+    expect(labelTier(117)).toBe('full');
+    expect(labelTier(116)).toBe('town');
+    expect(labelTier(88)).toBe('town');
     expect(labelTier(87)).toBe('km');
     expect(labelTier(70)).toBe('km');
     expect(labelTier(69)).toBe('number');
     expect(labelTier(28)).toBe('number');
     expect(labelTier(27)).toBe('none');
+  });
+
+  // Spec §5's degradation order, as one ordered claim rather than five thresholds: the
+  // climb is the first thing a narrowing block gives up and the town is the second, so
+  // there is exactly one tier that carries a town without a climb and none the other way
+  // round. Measured in Chromium at the real 11px/10px Archivo (see TIER_FULL_PX).
+  it('gives up the climb one tier before the town', () => {
+    const ladder = [200, 117, 116, 88, 87, 70, 69, 28, 27].map(labelTier);
+    expect(ladder).toEqual([
+      'full',
+      'full',
+      'town',
+      'town',
+      'km',
+      'km',
+      'number',
+      'number',
+      'none',
+    ]);
   });
 });
 

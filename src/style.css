@@ -1156,13 +1156,32 @@ input[type="number"]:disabled {
   color: var(--text-dim);
 }
 
-.strip__block-town {
-  display: block;
+/* The block's second label line: where the day ends, and how much it climbs. A flex
+   row so the two shrink differently — the town gives way and the climb does not (see
+   secondLineMarkup in strip-markup.js). The gap is the space in "Hitzacker · ↑ 340 m";
+   the dot itself belongs to the climb, which is the half that can have a neighbour. */
+.strip__block-second {
+  display: flex;
+  gap: 3px;
   font-size: 10px;
+}
+
+.strip__block-town {
   color: var(--town);
   white-space: nowrap;
+  /* min-width: 0 is what lets a flex item ellipsis at all — without it a long town name
+     refuses to shrink below its content and pushes the climb out of the block. */
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Terrain-coloured, like the profile and the range in the scale line, and never the one
+   that gives way: TIER_FULL_PX exists to make room for it. */
+.strip__block-climb {
+  color: var(--terrain);
+  white-space: nowrap;
+  flex: none;
 }
 
 /* One layer for the whole axis, each break at its absolute route km — not a

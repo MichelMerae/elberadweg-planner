@@ -143,13 +143,25 @@ export function profilePoints(profile, { startKm, endKm, width, height, columns,
 }
 
 /**
- * Ascent, descent and range over a stretch.
+ * Ascent, descent and range over a stretch, RIDDEN in the order it is asked.
  *
  * Hysteresis, not a naive sum of positive differences: only a move that carries
  * `thresholdM` clear of the last accepted reference counts, and then the reference
  * moves with it. A steady climb still totals correctly because it is accumulated in
  * threshold-sized steps; a sawtooth inside the threshold contributes nothing, which
  * is the entire point — that sawtooth is the DEM's error bar, not terrain.
+ *
+ * The span is ORIENTED, like `profilePoints`'s window and like the days the itinerary
+ * chains: `endKm` below `startKm` means the stretch is ridden downstream, and the walk
+ * runs that way, so the ascent and descent totals trade places. That is the feature —
+ * the same stretch is 487 m of climbing one way and 487 m of descent the other — and it
+ * is why the totals are NOT computed once and swapped: hysteresis is not symmetric under
+ * reversal, since which moves clear the threshold depends on where the walk came from.
+ * (0 → 3 → 8 with a 5 m threshold is 8 m of ascent; read backwards it is 5 m of descent.)
+ *
+ * Which SAMPLES the stretch covers is direction-free, so the index range is still
+ * normalised; only the walk has a direction. `minM`/`maxM` describe the terrain rather
+ * than the ride and come back the same either way round.
  *
  * @returns {{ascentM:number|null, descentM:number|null, minM:number|null, maxM:number|null}}
  */
@@ -165,16 +177,22 @@ export function ascentBetween(
 
   const samples = profile.elevationsM;
   const perKm = 1000 / profile.spacingM;
-  const first = Math.max(0, Math.ceil(Math.min(startKm, endKm) * perKm));
-  const last = Math.min(samples.length - 1, Math.floor(Math.max(startKm, endKm) * perKm));
+  const lo = Math.max(0, Math.ceil(Math.min(startKm, endKm) * perKm));
+  const hi = Math.min(samples.length - 1, Math.floor(Math.max(startKm, endKm) * perKm));
 
   // A stretch shorter than one sample spacing: read its endpoints rather than
   // reporting nothing, but there is no climb to accumulate between them.
-  if (last <= first) {
+  if (hi <= lo) {
     const a = elevationAtKm(profile, startKm);
     const b = elevationAtKm(profile, endKm);
     return { ascentM: 0, descentM: 0, minM: Math.min(a, b), maxM: Math.max(a, b) };
   }
+
+  // The walk's own direction: from the sample nearest the stretch's START towards the
+  // one nearest its END, whichever way along the road that is.
+  const step = endKm < startKm ? -1 : 1;
+  const first = step === 1 ? lo : hi;
+  const last = step === 1 ? hi : lo;
 
   let ascentM = 0;
   let descentM = 0;
@@ -182,7 +200,7 @@ export function ascentBetween(
   let minM = samples[first];
   let maxM = samples[first];
 
-  for (let i = first + 1; i <= last; i++) {
+  for (let i = first + step; step === 1 ? i <= last : i >= last; i += step) {
     const metres = samples[i];
     if (metres < minM) minM = metres;
     if (metres > maxM) maxM = metres;

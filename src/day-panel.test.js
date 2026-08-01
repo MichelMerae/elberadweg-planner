@@ -3,6 +3,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createDayPanel } from './day-panel.js';
 import { MIN_DAY_KM } from './boundaries.js';
 import { createTrip } from './trip.js';
+// The real ascent reader, for the one test that pins the day panel's climb against the
+// direction of the trip: the figures swap because the day's own km do, and a fixture
+// climb hand-written in this file would pin nothing about that.
+import { ascentBetween } from './elevation.js';
 
 // The whole road ridden forwards: tripKm is the identity on it, so every km below is
 // the number it always was. The oriented cases live in their own describe at the end.
@@ -936,6 +940,33 @@ describe('createDayPanel - oriented trips', () => {
     const title = el.querySelector('.custom-stop__title').textContent;
     expect(title).toContain('New stop at km 120');
     expect(title).toContain('40 km into the day');
+  });
+
+  // The composition main.js makes — `ascentBetween(profile, day.startKm, day.endKm)` on a
+  // day whose km arrive in TRIP order — asserted through the real panel, because that
+  // composition is the whole of why the day panel became direction-aware without a
+  // call-site change. The SAME stretch of road is ridden both ways here.
+  it('swaps the day’s climb and its descent with the trip’s direction', () => {
+    // 10 m of climb per km of road, so every 1 km sample clears the 5 m threshold and a
+    // stretch's figure is just its length in km × 10. The arithmetic is not the point.
+    const slope = {
+      routeId: 'slope',
+      spacingM: 1000,
+      count: 900,
+      elevationsM: Array.from({ length: 900 }, (_, i) => i * 10),
+    };
+    const upDay = { index: 1, targetKm: 105, startKm: 229.3, endKm: 334.3, townChoice: null };
+    const downDay = { index: 1, targetKm: 105, startKm: 334.3, endKm: 229.3, townChoice: null };
+    const climbFor = (day) => ascentBetween(slope, day.startKm, day.endKm);
+    const panel = mount();
+
+    panel.render({ trip: UP, day: upDay, dayCount: 4, breaks: [], fromName: 'Lenzen', climb: climbFor(upDay) });
+    expect(el.querySelector('.day-panel__climb-up').textContent).toBe('↑ 1040 m');
+    expect(el.querySelector('.day-panel__climb-down').textContent).toBe('↓ 0 m');
+
+    panel.render({ trip: DOWN, day: downDay, dayCount: 4, breaks: [], fromName: 'Lenzen', climb: climbFor(downDay) });
+    expect(el.querySelector('.day-panel__climb-up').textContent).toBe('↑ 0 m');
+    expect(el.querySelector('.day-panel__climb-down').textContent).toBe('↓ 1040 m');
   });
 
   it('names a draft stop on a downstream day too', () => {

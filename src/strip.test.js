@@ -793,9 +793,9 @@ describe('createStrip - blocks', () => {
     expect(el.querySelector('.strip__block .strip__glyph')).toBeNull();
   });
 
-  // The bug: glyphs used to render only at the 'full' label tier, whose threshold
-  // is 88 px — about 39 km at desktop width. A 20 km day with a café showed
-  // nothing at all, and the tooltip did not mention it either.
+  // The bug: glyphs used to render only at the widest label tier of the day, whose
+  // threshold was then 88 px — about 39 km at desktop width. A 20 km day with a café
+  // showed nothing at all, and the tooltip did not mention it either.
   it('shows a break on a day too narrow to carry a label', () => {
     const strip = mount();
     strip.render({
@@ -805,8 +805,8 @@ describe('createStrip - blocks', () => {
       breaks: [{ name: 'Café', kind: 'food', routeDistanceKm: 10 }],
     });
 
-    // 20 km is 40 px here: the day number fits, its km does not, and the 'full'
-    // tier that used to gate glyphs starts at 88 px.
+    // 20 km is 40 px here: the day number fits, its km does not, and the two-line
+    // tier that used to gate glyphs starts at 88 px ('town' now, 'full' then).
     const narrow = el.querySelectorAll('.strip__block')[0];
     expect(narrow.querySelector('.strip__block-km')).toBeNull();
     expect(el.querySelector('.strip__glyph').style.left).toBe('20px');
@@ -986,6 +986,93 @@ describe('createStrip - elevation profile', () => {
     strip.render();
 
     expect(el.querySelector('.strip__elevation')).not.toBeNull();
+  });
+});
+
+// --- The day's climb on its own block (spec §5) -----------------------------
+//
+// The figure the profile cannot give: how much a day CLIMBS. The profile shows where a
+// day gets hard, which is a different question, so the number joins the block's second
+// label line beside the overnight town — and its title at every tier, since a narrow
+// day has no label to put it on.
+describe('createStrip - the day’s climb on its block', () => {
+  // 10 m of climb per km of road, sampled every km, so a stretch's climb is just its
+  // length × 10: every sample clears the 5 m hysteresis threshold, and no test below
+  // has to reason about the accumulation to know what it should read.
+  const SLOPE = {
+    routeId: 'slope',
+    spacingM: 1000,
+    count: 1027,
+    elevationsM: Array.from({ length: 1027 }, (_, i) => i * 10),
+  };
+
+  it('puts the day’s climb on the second label line, beside the overnight town', () => {
+    const list = tripDays(UP, 80);
+    list[0].townChoice = { name: 'Hitzacker' };
+    renderTrip(UP, list, { elevation: SLOPE });
+
+    // km 149.3 → 229.3 covers samples 150..229: 790 m of climbing.
+    const second = el.querySelector('.strip__block .strip__block-second');
+    expect(second.querySelector('.strip__block-town').textContent).toContain('Hitzacker');
+    expect(second.querySelector('.strip__block-climb').textContent).toContain('↑ 790 m');
+  });
+
+  // The headline demonstration, on the strip: ONE stretch of road, ridden both ways.
+  // The downstream trip's last day covers exactly the upstream trip's first day.
+  it('reports the same stretch as climb one way and descent the other', () => {
+    renderTrip(UP, tripDays(UP, 80), { elevation: SLOPE });
+    const upBlock = el.querySelector('.strip__block');
+    expect(upBlock.querySelector('.strip__block-climb').textContent).toContain('↑ 790 m');
+    expect(upBlock.getAttribute('title')).toContain('↑ 790 m ↓ 0 m');
+
+    // 568.3 km to km 229.3, then the last 80 km back down to the rider's finish at 149.3.
+    renderTrip(DOWN, tripDays(DOWN, 568.3, 80), { elevation: SLOPE });
+    const downBlock = el.querySelectorAll('.strip__block')[1];
+    expect(downBlock.querySelector('.strip__block-climb').textContent).toContain('↑ 0 m');
+    expect(downBlock.getAttribute('title')).toContain('↑ 0 m ↓ 790 m');
+  });
+
+  it('names the climb in the title of a block too narrow for any label', () => {
+    // 5 km is 10 px on this axis: labelTier('none'), so the block has no label at all
+    // and the tooltip is the only place the climb can be reported.
+    renderTrip(UP, tripDays(UP, 5, 100), { elevation: SLOPE });
+
+    const narrow = el.querySelector('.strip__block');
+    expect(narrow.querySelector('.strip__block-label')).toBeNull();
+    expect(narrow.getAttribute('title')).toContain('↑ 40 m');
+  });
+
+  // The degradation order spec §5 asks for: the climb goes first, then the town. A day
+  // between the two thresholds keeps the name of where it sleeps and gives up the climb.
+  it('drops the climb before the town as a block narrows', () => {
+    const list = tripDays(UP, 50, 100);
+    list[0].townChoice = { name: 'Hitzacker' };
+    list[1].townChoice = { name: 'Dömitz' };
+    renderTrip(UP, list, { elevation: SLOPE });
+
+    const [narrow, wide] = el.querySelectorAll('.strip__block');
+    // 100.3 px: room for the town, not for the climb beside it.
+    expect(narrow.querySelector('.strip__block-town')).not.toBeNull();
+    expect(narrow.querySelector('.strip__block-climb')).toBeNull();
+    // 200.5 px: both.
+    expect(wide.querySelector('.strip__block-town')).not.toBeNull();
+    expect(wide.querySelector('.strip__block-climb')).not.toBeNull();
+    // And the one that dropped it still reports it on hover.
+    expect(narrow.getAttribute('title')).toContain('↑ 490 m');
+  });
+
+  // `loadElevation()` returns null when the elevation build has never been run, and the
+  // app is meant to boot and work without a profile. Every block must still draw.
+  it('draws blocks with no climb anywhere when there is no elevation data', () => {
+    const list = tripDays(UP, 80);
+    list[0].townChoice = { name: 'Hitzacker' };
+    renderTrip(UP, list);
+
+    const block = el.querySelector('.strip__block');
+    expect(block).not.toBeNull();
+    expect(block.querySelector('.strip__block-climb')).toBeNull();
+    expect(block.querySelector('.strip__block-town').textContent).toContain('Hitzacker');
+    expect(block.getAttribute('title')).not.toContain('↑');
   });
 });
 
