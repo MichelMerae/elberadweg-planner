@@ -1,8 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { createItinerary, breakKey } from './itinerary.js';
+import { createTrip } from './trip.js';
 import { MIN_DAY_KM } from './boundaries.js';
 
 const TOTAL_KM = 380; // Hamburg -> Dresden, approx
+
+// The whole road, ridden forwards from km 0 — the trip every plan had before a plan
+// could have a window at all. The cases below are about chaining, clamping and
+// rounding rather than orientation, so they all run on it and their numbers are
+// unchanged. Orientation is proved separately, in 'oriented trips': on this trip
+// `startKm 0` could come from the trip OR from a hardcoded zero, so nothing here
+// can tell the two apart.
+const WHOLE = createTrip({ startKm: 0, destinationKm: TOTAL_KM });
 
 // A well-formed break place snapshot, per the spec's break record shape.
 function makeBreak(overrides = {}) {
@@ -18,9 +27,19 @@ function makeBreak(overrides = {}) {
   };
 }
 
+describe('createItinerary - construction', () => {
+  // Without this the model would build days at NaN km and persist them: there is no
+  // whole-road fallback to degrade to any more, because the origin every day chains
+  // from now comes from the trip.
+  it('throws without a trip rather than defaulting to some road', () => {
+    expect(() => createItinerary()).toThrow(/trip/);
+    expect(() => createItinerary({})).toThrow(/trip/);
+  });
+});
+
 describe('createItinerary - chaining', () => {
   it('chains startKm/endKm across added days', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
     itinerary.addDay(80);
@@ -33,7 +52,7 @@ describe('createItinerary - chaining', () => {
   });
 
   it('the first day starts at km 0', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     const day = itinerary.addDay(50);
     expect(day.startKm).toBe(0);
     expect(day.endKm).toBe(50);
@@ -42,16 +61,121 @@ describe('createItinerary - chaining', () => {
 
 describe('createItinerary - clamping', () => {
   it('clamps endKm to totalKm when a day overshoots Dresden', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(300);
     const day = itinerary.addDay(200); // 300 + 200 = 500, clamp to 380
     expect(day.endKm).toBe(TOTAL_KM);
   });
 });
 
+// The direction cases. Everything above rides the whole road forwards from km 0,
+// where a day chained off the trip's start is indistinguishable from one chained off
+// a hardcoded zero — these are the cases that can tell them apart.
+describe('createItinerary - oriented trips', () => {
+  const DOWN = createTrip({ startKm: 300, destinationKm: 100 }); // 200 km downstream
+
+  it('starts day 1 at the trip start, not at km 0', () => {
+    const up = createTrip({ startKm: 149.3, destinationKm: 797.6 }); // Hamburg -> Dresden
+    const itinerary = createItinerary({ trip: up });
+    itinerary.addDay(80);
+    expect(itinerary.getDays()[0].startKm).toBeCloseTo(149.3, 6);
+    expect(itinerary.getDays()[0].endKm).toBeCloseTo(229.3, 6);
+  });
+
+  it('walks DOWN in absolute km on a downstream trip', () => {
+    const itinerary = createItinerary({ trip: DOWN });
+    itinerary.addDay(80);
+    itinerary.addDay(80);
+
+    const days = itinerary.getDays();
+    // targetKm stays the positive distance ridden; only the absolute km descend.
+    expect(days[0]).toMatchObject({ startKm: 300, endKm: 220, targetKm: 80 });
+    expect(days[1]).toMatchObject({ startKm: 220, endKm: 140, targetKm: 80 });
+  });
+
+  it('clamps the last day at the destination, downstream', () => {
+    const itinerary = createItinerary({ trip: DOWN });
+    itinerary.addDay(500);
+    // Clamped at the DESTINATION, not at km 0: the road runs on past Hamburg, the
+    // trip does not.
+    expect(itinerary.getDays()[0].endKm).toBe(100);
+  });
+
+  it('reports planned distance as a positive number downstream', () => {
+    const itinerary = createItinerary({ trip: DOWN });
+    itinerary.addDay(80);
+    // Naively `last.endKm` would read 220 km planned — the absolute km of the first
+    // night — rather than the 80 km actually ridden.
+    expect(itinerary.totalPlannedKm()).toBeCloseTo(80, 6);
+  });
+
+  it('buckets breaks by absolute km on a downstream trip', () => {
+    const itinerary = createItinerary({ trip: DOWN });
+    itinerary.addDay(80); // 300 -> 220
+    itinerary.addBreak(makeBreak({ name: 'Café', routeDistanceKm: 260 }));
+
+    const day = itinerary.getDays()[0];
+    // The span arrives in trip order, so breaksInRange gets (300, 220) — a `from`
+    // above its `to`.
+    expect(itinerary.breaksInRange(day.startKm, day.endKm)).toHaveLength(1);
+  });
+
+  // The half-open rule is about which of two ADJACENT days owns the km they share,
+  // so it has to keep its meaning in trip order: the km a day starts on belongs to
+  // the day before, the km it ends on belongs to the day itself. Downstream that
+  // exclusive end is the numerically LARGER km — normalising the span with a plain
+  // min/max in absolute km would silently flip the rule over.
+  it('keeps (start, end] pointing the same way in trip order, downstream', () => {
+    const itinerary = createItinerary({ trip: DOWN });
+    itinerary.addDay(80);
+    itinerary.addDay(80); // day0 = (300, 220], day1 = (220, 140]
+    itinerary.addBreak(makeBreak({ name: 'AtStart', routeDistanceKm: 300 }));
+    itinerary.addBreak(makeBreak({ name: 'Inside', routeDistanceKm: 260 }));
+    itinerary.addBreak(makeBreak({ name: 'AtEnd', routeDistanceKm: 220 }));
+
+    const [day0, day1] = itinerary.getDays();
+    // In trip order, so 'Inside' at km 260 comes first: getBreaks() is sorted by
+    // ABSOLUTE km, which downstream is the order the rider meets them reversed.
+    expect(itinerary.breaksInRange(day0.startKm, day0.endKm).map((b) => b.name)).toEqual([
+      'Inside',
+      'AtEnd',
+    ]);
+    // The shared km at 220 went to day 0, so day 1 does not claim it too.
+    expect(itinerary.breaksInRange(day1.startKm, day1.endKm)).toHaveLength(0);
+  });
+
+  it('splits and merges days in trip order downstream', () => {
+    const itinerary = createItinerary({ trip: DOWN });
+    itinerary.addDay(100);
+    itinerary.addDay(50);
+
+    // splitDay works off the day's real span, which is a distance either way round.
+    expect(itinerary.splitDay(0)).toMatchObject({ startKm: 300, endKm: 250, targetKm: 50 });
+    expect(itinerary.getDays()[1]).toMatchObject({ startKm: 250, endKm: 200, targetKm: 50 });
+
+    // deleteDay derives the merged length from positions, so it must not come out
+    // negative — hydrate would then drop the whole plan on the next reload.
+    itinerary.deleteDay(0);
+    const days = itinerary.getDays();
+    expect(days).toHaveLength(2);
+    expect(days[0]).toMatchObject({ startKm: 300, endKm: 200, targetKm: 100 });
+    expect(days[1]).toMatchObject({ startKm: 200, endKm: 150, targetKm: 50 });
+  });
+
+  it('replays a stored plan along the trip on hydrate', () => {
+    const itinerary = createItinerary({ trip: DOWN });
+
+    itinerary.hydrate([{ targetKm: 80 }, { targetKm: 500 }]);
+
+    const days = itinerary.getDays();
+    expect(days[0]).toMatchObject({ startKm: 300, endKm: 220 });
+    expect(days[1]).toMatchObject({ startKm: 220, endKm: 100 }); // clamped at the destination
+  });
+});
+
 describe('createItinerary - moveBoundary', () => {
   it('moves one boundary and lets the next day absorb the delta', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
     itinerary.addDay(80);
@@ -67,7 +191,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('leaves days beyond the neighbour completely untouched', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     [80, 80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
     // TOTAL_KM is 380, so day 4 is clamped from the start: {320, 380}.
 
@@ -81,7 +205,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('clamps so the edited day keeps MIN_DAY_KM', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
 
@@ -91,7 +215,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('clamps so the neighbour keeps MIN_DAY_KM', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
 
@@ -103,7 +227,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('extends the plan when the last boundary moves out', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
 
     itinerary.moveBoundary(0, 120);
@@ -113,7 +237,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('clamps the last boundary to totalKm', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
 
     itinerary.moveBoundary(0, TOTAL_KM + 100);
@@ -122,7 +246,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('rounds to one decimal so stored lengths stay tidy', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80.1); // fractional, so the assignment-site rounding actually matters
     itinerary.addDay(80);
 
@@ -134,7 +258,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('keeps days beyond the neighbour put even when the target lands between rounding steps', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     [80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
 
     itinerary.moveBoundary(1, 156.25); // both halves would round up, adding 0.1 km to the pair
@@ -147,7 +271,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('ignores a sub-0.05 km jitter drag on a day whose length already matches', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
 
@@ -159,7 +283,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('still normalises an inflated length when the boundary cannot move', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(300);
     itinerary.addDay(200); // clamped to {300, 380} while targetKm stays 200
 
@@ -172,7 +296,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('moves the boundary on the first drag even when the stored length overshot the route', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(300);
     itinerary.addDay(200); // endKm clamps to 380 while targetKm stays 200
 
@@ -182,7 +306,7 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it("preserves the neighbour's end and normalises its inflated length", () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.hydrate([{ targetKm: 100 }, { targetKm: 400 }]); // day 1 clamped to {100, 380}, targetKm 400
 
     itinerary.moveBoundary(0, 150);
@@ -196,13 +320,13 @@ describe('createItinerary - moveBoundary', () => {
   });
 
   it('throws on an out-of-range index', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     expect(() => itinerary.moveBoundary(5, 50)).toThrow();
   });
 
   it('throws on a non-finite endKm', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     expect(() => itinerary.moveBoundary(0, Number.NaN)).toThrow();
   });
@@ -210,7 +334,7 @@ describe('createItinerary - moveBoundary', () => {
 
 describe('createItinerary - editDay (local, typed distance)', () => {
   it('sets the edited day length and lets the neighbour absorb it', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
     itinerary.addDay(80);
@@ -224,7 +348,7 @@ describe('createItinerary - editDay (local, typed distance)', () => {
   });
 
   it('clamps a length that would starve the neighbour', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
 
@@ -236,13 +360,13 @@ describe('createItinerary - editDay (local, typed distance)', () => {
   });
 
   it('throws on an out-of-range index', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     expect(() => itinerary.editDay(5, 50)).toThrow();
   });
 
   it('throws on an invalid targetKm', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     expect(() => itinerary.editDay(0, -10)).toThrow();
   });
@@ -250,7 +374,7 @@ describe('createItinerary - editDay (local, typed distance)', () => {
 
 describe('createItinerary - setTownChoice', () => {
   it('attaches a town choice to a day', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     const town = { name: 'Lauenburg' };
 
@@ -260,7 +384,7 @@ describe('createItinerary - setTownChoice', () => {
   });
 
   it('replaces an existing town choice', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
 
     itinerary.setTownChoice(0, { name: 'A' });
@@ -270,13 +394,13 @@ describe('createItinerary - setTownChoice', () => {
   });
 
   it('defaults townChoice to null on a fresh day', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     expect(itinerary.getDays()[0].townChoice).toBeNull();
   });
 
   it('snaps the boundary to the chosen town and lets the neighbour absorb it', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
 
@@ -288,7 +412,7 @@ describe('createItinerary - setTownChoice', () => {
   });
 
   it('clamps a snap that would starve the neighbour, keeping the town', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(8); // next boundary at km 88, so the upper clamp is 83
 
@@ -301,7 +425,7 @@ describe('createItinerary - setTownChoice', () => {
   });
 
   it('leaves the boundary alone for a town with no route position', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
 
     itinerary.setTownChoice(0, { name: 'Nowhere' });
@@ -310,7 +434,7 @@ describe('createItinerary - setTownChoice', () => {
   });
 
   it('resizes the plan when the last day gets a town', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80); // plan ends at km 160
 
@@ -326,7 +450,7 @@ describe('createItinerary - setTownChoice', () => {
   });
 
   it('clamps a town that sits before the day can legally end', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
 
@@ -340,7 +464,7 @@ describe('createItinerary - setTownChoice', () => {
   });
 
   it('records a town even when the boundary has nowhere legal to move', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(6);
     itinerary.addDay(3); // the pair spans 9 km, under 2 x MIN_DAY_KM
 
@@ -356,7 +480,7 @@ describe('createItinerary - setTownChoice', () => {
   });
 
   it('ignores a town whose route position is not a real number', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
 
     // Pins the Number.isFinite half of the guard specifically. A `typeof === 'number'`
@@ -368,7 +492,7 @@ describe('createItinerary - setTownChoice', () => {
   });
 
   it('leaves the boundary alone when the town choice is cleared', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.setTownChoice(0, { name: 'Boizenburg/Elbe', routeDistanceKm: 76.2 });
 
@@ -382,7 +506,7 @@ describe('createItinerary - setTownChoice', () => {
 
 describe('createItinerary - removeLastDay / reset', () => {
   it('drops the last day', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(60);
 
@@ -394,13 +518,13 @@ describe('createItinerary - removeLastDay / reset', () => {
   });
 
   it('is a no-op when there are no days', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     expect(() => itinerary.removeLastDay()).not.toThrow();
     expect(itinerary.getDays()).toHaveLength(0);
   });
 
   it('reset clears all days', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
 
@@ -411,7 +535,7 @@ describe('createItinerary - removeLastDay / reset', () => {
   });
 
   it('reset clears breaks too', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addBreak(makeBreak());
 
@@ -423,12 +547,12 @@ describe('createItinerary - removeLastDay / reset', () => {
 
 describe('createItinerary - totalPlannedKm', () => {
   it('is 0 with no days', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     expect(itinerary.totalPlannedKm()).toBe(0);
   });
 
   it('is the last day endKm', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
     expect(itinerary.totalPlannedKm()).toBe(160);
@@ -437,22 +561,22 @@ describe('createItinerary - totalPlannedKm', () => {
 
 describe('createItinerary - addDay validation', () => {
   it('throws on a zero targetKm', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     expect(() => itinerary.addDay(0)).toThrow();
   });
 
   it('throws on a negative targetKm', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     expect(() => itinerary.addDay(-10)).toThrow();
   });
 
   it('throws on a NaN targetKm', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     expect(() => itinerary.addDay(NaN)).toThrow();
   });
 
   it('does not add a day when validation fails', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     expect(() => itinerary.addDay(-10)).toThrow();
     expect(itinerary.getDays()).toHaveLength(0);
   });
@@ -460,7 +584,7 @@ describe('createItinerary - addDay validation', () => {
 
 describe('createItinerary - getDays defensive copy', () => {
   it('mutating the returned array/objects does not affect internal state', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
 
     const days = itinerary.getDays();
@@ -475,7 +599,7 @@ describe('createItinerary - getDays defensive copy', () => {
 
 describe('createItinerary - hydrate', () => {
   it('replays entries into a chained itinerary with town choices', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.hydrate([
       { targetKm: 80, townChoice: { name: 'A' } },
@@ -489,7 +613,7 @@ describe('createItinerary - hydrate', () => {
   });
 
   it('replays clamp against the current totalKm', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.hydrate([
       { targetKm: 300, townChoice: null },
@@ -502,7 +626,7 @@ describe('createItinerary - hydrate', () => {
   });
 
   it('hydrates to empty on a malformed entry (negative targetKm), without throwing', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     expect(() =>
       itinerary.hydrate([
@@ -515,7 +639,7 @@ describe('createItinerary - hydrate', () => {
   });
 
   it('hydrates to empty when passed a non-array, without throwing', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
 
     expect(() => itinerary.hydrate(null)).not.toThrow();
@@ -524,7 +648,7 @@ describe('createItinerary - hydrate', () => {
   });
 
   it('replaces any existing days', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(50);
     itinerary.addDay(50);
     itinerary.addDay(50);
@@ -537,7 +661,7 @@ describe('createItinerary - hydrate', () => {
   });
 
   it('defaults townChoice to null when an entry omits it', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.hydrate([{ targetKm: 80 }]);
 
@@ -553,7 +677,7 @@ describe('breakKey', () => {
 
 describe('createItinerary - addBreak', () => {
   it('inserts breaks sorted by routeDistanceKm regardless of add order', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.addBreak(makeBreak({ name: 'Third', routeDistanceKm: 120 }));
     itinerary.addBreak(makeBreak({ name: 'First', routeDistanceKm: 10 }));
@@ -563,33 +687,33 @@ describe('createItinerary - addBreak', () => {
   });
 
   it('throws when routeDistanceKm is missing', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     const bad = makeBreak();
     delete bad.routeDistanceKm;
     expect(() => itinerary.addBreak(bad)).toThrow();
   });
 
   it('throws when routeDistanceKm is negative', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     expect(() => itinerary.addBreak(makeBreak({ routeDistanceKm: -5 }))).toThrow();
   });
 
   it('throws when lat is missing', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     const bad = makeBreak();
     delete bad.lat;
     expect(() => itinerary.addBreak(bad)).toThrow();
   });
 
   it('throws when lng is missing', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     const bad = makeBreak();
     delete bad.lng;
     expect(() => itinerary.addBreak(bad)).toThrow();
   });
 
   it('is a no-op when adding an existing key (name@routeDistanceKm), no duplicate', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42 }));
     itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42, offsetKm: 9.9 }));
@@ -600,7 +724,7 @@ describe('createItinerary - addBreak', () => {
   });
 
   it('treats the same name at a different km as a distinct break', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.addBreak(makeBreak({ name: 'Bäckerei', routeDistanceKm: 10 }));
     itinerary.addBreak(makeBreak({ name: 'Bäckerei', routeDistanceKm: 20 }));
@@ -611,7 +735,7 @@ describe('createItinerary - addBreak', () => {
 
 describe('createItinerary - removeBreak', () => {
   it('removes the break matching the key', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42 }));
     itinerary.addBreak(makeBreak({ name: 'Café Y', routeDistanceKm: 70 }));
 
@@ -621,7 +745,7 @@ describe('createItinerary - removeBreak', () => {
   });
 
   it('is a no-op for an unknown key', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42 }));
 
     expect(() => itinerary.removeBreak('Nope@999')).not.toThrow();
@@ -631,7 +755,7 @@ describe('createItinerary - removeBreak', () => {
 
 describe('createItinerary - getBreaks defensive copy', () => {
   it('mutating the returned array/objects does not affect internal state', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ name: 'Café X', routeDistanceKm: 42 }));
 
     const breaks = itinerary.getBreaks();
@@ -646,7 +770,7 @@ describe('createItinerary - getBreaks defensive copy', () => {
 
 describe('createItinerary - breaksInRange', () => {
   it('uses (start, end] semantics: excludes a break exactly at start, includes one exactly at end', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ name: 'AtStart', routeDistanceKm: 80 }));
     itinerary.addBreak(makeBreak({ name: 'Inside', routeDistanceKm: 120 }));
     itinerary.addBreak(makeBreak({ name: 'AtEnd', routeDistanceKm: 160 }));
@@ -655,19 +779,33 @@ describe('createItinerary - breaksInRange', () => {
     expect(names).toEqual(['Inside', 'AtEnd']);
   });
 
-  it('returns [] for equal or reversed bounds (empty range)', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+  it('returns [] for equal bounds: a zero-length span owns nothing', () => {
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ name: 'A', routeDistanceKm: 100 }));
     itinerary.addBreak(makeBreak({ name: 'B', routeDistanceKm: 120 }));
 
     expect(itinerary.breaksInRange(100, 100)).toEqual([]);
-    expect(itinerary.breaksInRange(160, 80)).toEqual([]);
+  });
+
+  // The one assertion in this file whose EXPECTATION changed rather than its
+  // construction, and deliberately: `breaksInRange(160, 80)` used to return [],
+  // because on an ascending trip only a caller bug produced a span given high to
+  // low. A downstream day's span arrives high to low legitimately — day 0 of a
+  // Dresden -> Hamburg trip is (300, 220] — so the span is normalised into trip
+  // order now instead of read as empty. Downstream is proved in 'oriented trips';
+  // this pins the ascending side of the same normalisation.
+  it('normalises a span handed over the wrong way round rather than emptying it', () => {
+    const itinerary = createItinerary({ trip: WHOLE });
+    itinerary.addBreak(makeBreak({ name: 'A', routeDistanceKm: 100 }));
+    itinerary.addBreak(makeBreak({ name: 'B', routeDistanceKm: 120 }));
+
+    expect(itinerary.breaksInRange(160, 80).map((b) => b.name)).toEqual(['A', 'B']);
   });
 });
 
 describe('createItinerary - hydrate with breaks', () => {
   it('object form restores both days and breaks', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.hydrate({
       days: [{ targetKm: 80, townChoice: { name: 'A' } }],
@@ -682,7 +820,7 @@ describe('createItinerary - hydrate with breaks', () => {
   });
 
   it('drops malformed break entries silently while keeping valid ones', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.hydrate({
       days: [{ targetKm: 80, townChoice: null }],
@@ -699,7 +837,7 @@ describe('createItinerary - hydrate with breaks', () => {
   });
 
   it('plain-array form hydrates days only (back-compat), leaving existing breaks intact', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ name: 'Kept', routeDistanceKm: 40 }));
 
     itinerary.hydrate([{ targetKm: 80, townChoice: null }]);
@@ -710,7 +848,7 @@ describe('createItinerary - hydrate with breaks', () => {
   });
 
   it('object form with an omitted breaks field restores days and clears existing breaks', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ name: 'Wiped', routeDistanceKm: 40 }));
 
     itinerary.hydrate({ days: [{ targetKm: 80, townChoice: null }] });
@@ -721,7 +859,7 @@ describe('createItinerary - hydrate with breaks', () => {
   });
 
   it('collapses malformed days to empty yet still restores valid breaks (breaks independent of days)', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
 
     itinerary.hydrate({
       days: [{ targetKm: 80, townChoice: null }, { targetKm: -5, townChoice: null }],
@@ -735,7 +873,7 @@ describe('createItinerary - hydrate with breaks', () => {
 
 describe('createItinerary - break re-bucketing across day edits', () => {
   it('re-derives which day a break falls in when a day distance changes', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80); // day0 = (0,80], day1 = (80,160]
     itinerary.addBreak(makeBreak({ name: 'Stop', routeDistanceKm: 70 }));
@@ -774,7 +912,7 @@ describe('cross-module key contract', () => {
 
 describe('createItinerary - break notes & custom stops', () => {
   it('keeps note and custom kind through addBreak/getBreaks', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ note: '15 min coffee' }));
     itinerary.addBreak({ kind: 'custom', name: 'lunch, 2h at the top', routeDistanceKm: 55.5, lat: 53.1, lng: 10.2 });
 
@@ -784,11 +922,11 @@ describe('createItinerary - break notes & custom stops', () => {
   });
 
   it('keeps note through a hydrate round-trip', () => {
-    const a = createItinerary({ totalKm: TOTAL_KM });
+    const a = createItinerary({ trip: WHOLE });
     a.addDay(80);
     a.addBreak(makeBreak({ note: 'try the cake' }));
 
-    const b = createItinerary({ totalKm: TOTAL_KM });
+    const b = createItinerary({ trip: WHOLE });
     b.hydrate({ days: a.getDays().map((d) => ({ targetKm: d.targetKm })), breaks: a.getBreaks() });
 
     expect(b.getBreaks()[0].note).toBe('try the cake');
@@ -797,7 +935,7 @@ describe('createItinerary - break notes & custom stops', () => {
 
 describe('createItinerary - updateBreak', () => {
   it('sets a note without changing the key or order', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ name: 'A', routeDistanceKm: 10 }));
     itinerary.addBreak(makeBreak({ name: 'B', routeDistanceKm: 20 }));
 
@@ -809,7 +947,7 @@ describe('createItinerary - updateBreak', () => {
   });
 
   it('clears the note when given an empty string', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ note: 'old' }));
     const key = breakKey(itinerary.getBreaks()[0]);
 
@@ -819,7 +957,7 @@ describe('createItinerary - updateBreak', () => {
   });
 
   it('renames a break and returns the new key', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak({ kind: 'custom', name: 'lunch', routeDistanceKm: 30, lat: 53, lng: 10 });
 
     const newKey = itinerary.updateBreak('lunch@30', { name: 'lunch, 2h' });
@@ -829,7 +967,7 @@ describe('createItinerary - updateBreak', () => {
   });
 
   it('returns null and changes nothing for an unknown key', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak(makeBreak({ name: 'A', routeDistanceKm: 10 }));
 
     expect(itinerary.updateBreak('nope@99', { note: 'x' })).toBeNull();
@@ -838,7 +976,7 @@ describe('createItinerary - updateBreak', () => {
   });
 
   it('returns null for an empty or whitespace-only name', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak({ kind: 'custom', name: 'lunch', routeDistanceKm: 30, lat: 53, lng: 10 });
 
     expect(itinerary.updateBreak('lunch@30', { name: '   ' })).toBeNull();
@@ -846,7 +984,7 @@ describe('createItinerary - updateBreak', () => {
   });
 
   it('returns null when a rename collides with an existing break', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak({ kind: 'custom', name: 'X', routeDistanceKm: 30, lat: 53, lng: 10 });
     itinerary.addBreak({ kind: 'custom', name: 'Y', routeDistanceKm: 30, lat: 53, lng: 10 });
 
@@ -855,14 +993,14 @@ describe('createItinerary - updateBreak', () => {
   });
 
   it('trims the new name before applying it', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak({ kind: 'custom', name: 'lunch', routeDistanceKm: 30, lat: 53, lng: 10 });
 
     expect(itinerary.updateBreak('lunch@30', { name: '  picnic  ' })).toBe('picnic@30');
   });
 
   it('applies a combined name+note patch in one call', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addBreak({ kind: 'custom', name: 'lunch', routeDistanceKm: 30, lat: 53, lng: 10 });
 
     const newKey = itinerary.updateBreak('lunch@30', { name: 'lunch, 2h', note: 'bring sandwiches' });
@@ -874,7 +1012,7 @@ describe('createItinerary - updateBreak', () => {
 
 describe('createItinerary - splitDay', () => {
   it('splits a day in half, preserving the total', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(100);
     itinerary.addDay(80);
 
@@ -891,7 +1029,7 @@ describe('createItinerary - splitDay', () => {
   });
 
   it('gives the overnight town to the second half and none to the first', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(100);
     itinerary.setTownChoice(0, { name: 'Lenzen' });
 
@@ -903,7 +1041,7 @@ describe('createItinerary - splitDay', () => {
   });
 
   it('refuses to split a day shorter than two minimum days', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(9);
 
     expect(itinerary.splitDay(0)).toBeNull();
@@ -915,7 +1053,7 @@ describe('createItinerary - splitDay', () => {
   // day panel's Split button (enabled on `length >= 2 * MIN_DAY_KM`) would then
   // offer a split the model refuses.
   it('splits a day of exactly two minimum days into two minimum days', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(2 * MIN_DAY_KM);
 
     expect(itinerary.splitDay(0)).not.toBeNull();
@@ -927,7 +1065,7 @@ describe('createItinerary - splitDay', () => {
   });
 
   it('handles an odd length without losing a tenth of a km', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(75.5);
 
     itinerary.splitDay(0);
@@ -938,7 +1076,7 @@ describe('createItinerary - splitDay', () => {
   });
 
   it('splits by real span, not by an inflated stored length', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(300);
     itinerary.addDay(200); // clamped to {300, 380}: span 80, stored targetKm 200
 
@@ -951,14 +1089,14 @@ describe('createItinerary - splitDay', () => {
   });
 
   it('throws on an out-of-range index', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     expect(() => itinerary.splitDay(0)).toThrow();
   });
 });
 
 describe('createItinerary - deleteDay', () => {
   it('merges a middle day into the next one and leaves the rest put', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     [80, 80, 80, 80].forEach((km) => itinerary.addDay(km));
 
     itinerary.deleteDay(1);
@@ -971,7 +1109,7 @@ describe('createItinerary - deleteDay', () => {
   });
 
   it('keeps the surviving day its overnight town', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
     itinerary.setTownChoice(1, { name: 'Lenzen' });
@@ -982,7 +1120,7 @@ describe('createItinerary - deleteDay', () => {
   });
 
   it('truncates the plan when the last day is deleted', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(60);
 
@@ -994,7 +1132,7 @@ describe('createItinerary - deleteDay', () => {
   });
 
   it('empties the plan when the only day is deleted', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
 
     itinerary.deleteDay(0);
@@ -1003,7 +1141,7 @@ describe('createItinerary - deleteDay', () => {
   });
 
   it('is the inverse of splitDay', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(100);
     itinerary.addDay(80);
 
@@ -1017,7 +1155,7 @@ describe('createItinerary - deleteDay', () => {
   });
 
   it('keeps every break, re-bucketed across the merge', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     itinerary.addDay(80);
     itinerary.addBreak(makeBreak({ name: 'Stop', routeDistanceKm: 70 }));
@@ -1030,7 +1168,7 @@ describe('createItinerary - deleteDay', () => {
   });
 
   it("preserves the surviving day's end when its stored length was inflated", () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.hydrate([{ targetKm: 100 }, { targetKm: 400 }]); // day 1 clamped to {100, 380}
 
     itinerary.deleteDay(0);
@@ -1043,7 +1181,7 @@ describe('createItinerary - deleteDay', () => {
   });
 
   it('does not move later days when merging a pair shorter than a minimum day', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(2);
     itinerary.addDay(2);
     itinerary.addDay(50);
@@ -1059,7 +1197,7 @@ describe('createItinerary - deleteDay', () => {
   });
 
   it('throws on an out-of-range index', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(80);
     expect(() => itinerary.deleteDay(3)).toThrow();
   });
@@ -1071,7 +1209,7 @@ describe('createItinerary - deleteDay', () => {
 describe('createItinerary - every emitted plan survives a reload', () => {
   function reloadCount(itinerary) {
     const stored = itinerary.getDays().map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice }));
-    const fresh = createItinerary({ totalKm: TOTAL_KM });
+    const fresh = createItinerary({ trip: WHOLE });
     fresh.hydrate(stored);
     return fresh.getDays().length;
   }
@@ -1086,7 +1224,7 @@ describe('createItinerary - every emitted plan survives a reload', () => {
   }
 
   it('survives a distance edit on a sub-minimum pair', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.addDay(2);
     itinerary.addDay(2);
     itinerary.addDay(50);
@@ -1097,7 +1235,7 @@ describe('createItinerary - every emitted plan survives a reload', () => {
   });
 
   it('survives deleting a vestigial day left past a shrunk route', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     itinerary.hydrate([{ targetKm: 400 }, { targetKm: 10 }, { targetKm: 10 }]);
 
     itinerary.deleteDay(1);
@@ -1106,7 +1244,7 @@ describe('createItinerary - every emitted plan survives a reload', () => {
   });
 
   it('survives split, delete and boundary moves across a normal plan', () => {
-    const itinerary = createItinerary({ totalKm: TOTAL_KM });
+    const itinerary = createItinerary({ trip: WHOLE });
     [80, 80, 80].forEach((km) => itinerary.addDay(km));
 
     itinerary.moveBoundary(0, 76.25);
