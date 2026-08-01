@@ -128,6 +128,26 @@ body {
   background: #e7e4dd; /* soft tone under the tiles while they load */
 }
 
+/* Armed for a pick (spec §6): the cursor is the only thing on the map that says the
+   next click means something different.
+
+   The id is load-bearing, not habit. Leaflet's own `.leaflet-grab` sits on this very
+   element and `.leaflet-interactive` on the route line, both single-class selectors —
+   and leaflet.css is imported from src/map.js, which the module graph reaches AFTER
+   main.js's own `import './style.css'`. Equal specificity, later sheet: a plain
+   `.map--picking` would lose, silently, to the grab cursor it is trying to replace. */
+#map.map--picking,
+#map.map--picking .leaflet-interactive {
+  cursor: crosshair;
+}
+
+/* Nothing on the map may eat an armed click. A POI dot, a ⭐ or a day pin sitting over
+   the route would otherwise swallow the pick and the rider would press again, harder,
+   at the same place. */
+#map.map--picking .leaflet-marker-pane {
+  pointer-events: none;
+}
+
 /* --- Panel shells --------------------------------------------------------
    Right panel (#panel) owns the trip: controls, overnight towns, itinerary.
    Left panel (#panel-left) owns what's along the way: food stops + sights. */

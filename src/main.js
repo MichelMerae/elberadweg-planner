@@ -140,9 +140,11 @@ async function boot() {
   // edit) leave the user's own zoom where it is.
   let lastFramedStretch = null;
 
+  // onPickPoint has no handler until Task 11, and nothing can arm the mode yet, so
+  // picking is exercised by map.test.js only for now — the browser proof lands with
+  // the control that arms it.
   const map = createMap({
     routeFeature: route,
-    originName: ORIGIN_NAME,
     onRouteClick: handleRouteClick,
     onPoiClick: handleSelectPoi,
     // Map-marker hover highlights the matching row in the left panel.
@@ -396,10 +398,34 @@ async function boot() {
     return itinerary.totalPlannedKm() >= trip.lengthKm - ARRIVED_EPSILON_KM;
   }
 
-  // "from X" for a day: the previous day's overnight town, the route's origin for
+  // What to call one end of the trip: the RIDER's ends, not the road's — on a
+  // downstream trip the start IS the road's destination.
+  //
+  // Derived from the km, never stored. Spec's own definition is "a startKm, a
+  // destinationKm, and nothing else", and a stored name would be a second source for
+  // something the km already say. Task 12 adds the town half; until then an end that
+  // is not a road end has no name, and every consumer already has a word for that.
+  //
+  // The road-end test is rounded to 0.1 km because that is the gate strip-markup's
+  // `roadContinues` uses to decide whether an end is a road end (and so whether to
+  // draw a stub past it). Two questions — "what is this end called" and "is there
+  // road past it" — sharing one comparison. Change one, change the other, or the app
+  // will name one end two ways on one screen.
+  function nameForTripEnd(tripEnd) {
+    const km = tripEnd === 'start' ? trip.startKm : trip.destinationKm;
+    if (round1(km) <= 0) return ORIGIN_NAME;
+    if (round1(totalKm - km) <= 0) return DESTINATION_NAME;
+    return null;
+  }
+
+  // "from X" for a day: the previous day's overnight town, the rider's own start for
   // day 0, "your last stop" when the previous day has no town chosen.
+  //
+  // Day 0 used to read the ROAD's origin, which was a lie on every window that does
+  // not begin at km 0: "from Cuxhaven · km 0 → 648.3" on a plan starting in Hamburg,
+  // and "from Cuxhaven" on a whole-road plan ridden from Prague.
   function fromNameFor(index) {
-    if (index === 0) return ORIGIN_NAME;
+    if (index === 0) return nameForTripEnd('start') ?? 'your start';
     return itinerary.getDays()[index - 1].townChoice?.name ?? 'your last stop';
   }
 
@@ -487,6 +513,13 @@ async function boot() {
     });
     map.setPoiMarkers([...food, ...sights]);
     map.setFavoriteMarkers(favs);
+  }
+
+  // Where the RIDER starts, which is only the road's origin on an upstream trip that
+  // begins at km 0. Trip state, so it is re-set on every render that is not a drag
+  // preview — the trip's start cannot move during a boundary drag.
+  function renderStartPin() {
+    map.setStartPin({ coord: pointAtKm(routeIndex, trip.startKm), name: nameForTripEnd('start') });
   }
 
   // Numbered boundary pins, the map's twin of the strip handles. map.js emits raw
@@ -578,6 +611,7 @@ async function boot() {
     if (!dragging) {
       renderPlaces(day);
       map.setBreakMarkers(itinerary.getBreaks());
+      renderStartPin();
     }
     renderDayPins();
     renderCamera({ dragging });

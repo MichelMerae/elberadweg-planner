@@ -113,8 +113,9 @@ function poiMarkers() {
   );
 }
 
-// The one marker the constructor builds, and the only one wearing the start
-// variant — the day pins carry 'day' and the POIs are not pin icons at all.
+// The only marker wearing the start variant — the day pins carry 'day' and the
+// POIs are not pin icons at all. `createdMarkers` never forgets one, so this finds
+// the FIRST ever built; the tests that re-set the pin filter for the live one instead.
 function startPin() {
   return createdMarkers.find((m) =>
     (m.options.icon?.options?.className || '').includes('pin-icon--start'),
@@ -569,38 +570,126 @@ describe('createMap - POI markers', () => {
   });
 });
 
-describe('createMap - the start pin', () => {
-  // Where the trip starts is route DATA, not a fact about the map: the pin used to
-  // spell one place name out in this module, which is a line to get wrong quietly
-  // the next time the route changes.
-  it('names the origin in the start pin title', () => {
-    createMap({ routeFeature: ROUTE, originName: 'Cuxhaven' });
+describe('createMap - picking mode', () => {
+  function clickAt(lat, lng) {
+    capturedMap.fire('click', { latlng: L.latLng(lat, lng) });
+  }
 
-    expect(startPin().options.title).toBe('Start — Cuxhaven');
+  it('sends a click to onRouteClick when nothing is armed', () => {
+    const onRouteClick = vi.fn();
+    const onPickPoint = vi.fn();
+    createMap({ routeFeature: ROUTE, onRouteClick, onPickPoint });
+
+    clickAt(53.3, 10.5);
+
+    expect(onRouteClick).toHaveBeenCalledWith([10.5, 53.3]);
+    expect(onPickPoint).not.toHaveBeenCalled();
   });
 
-  // map.js imports nothing but Leaflet and stays mountable on its own, so a caller
-  // that passes no origin gets a pin that claims nothing — not 'Start — undefined',
-  // and not some other trip's start town left behind as a fallback.
-  it('leaves the start pin title bare when no origin name is given', () => {
+  // The exclusivity IS the feature: a route click already means "add a custom stop to
+  // the focused day", so an armed click that also did that would drop a 📌 on the plan
+  // every time the rider chose where to begin.
+  it('sends an armed click to onPickPoint INSTEAD, never to onRouteClick', () => {
+    const onRouteClick = vi.fn();
+    const onPickPoint = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onRouteClick, onPickPoint });
+
+    api.setPickingMode('start');
+    clickAt(53.3, 10.5);
+
+    expect(onPickPoint).toHaveBeenCalledWith([10.5, 53.3], 'start');
+    expect(onRouteClick).not.toHaveBeenCalled();
+  });
+
+  it('reports the end it was armed for, not a fixed one', () => {
+    const onPickPoint = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onPickPoint });
+
+    api.setPickingMode('destination');
+    clickAt(53.3, 10.5);
+
+    expect(onPickPoint).toHaveBeenCalledWith([10.5, 53.3], 'destination');
+  });
+
+  // main.js owns the mode (it holds the prompt, the two controls' pressed state and
+  // the Escape path), so nothing here disarms itself — and a mode that could be armed
+  // and not cleared would leave every later click picking instead of adding stops.
+  it('stays armed until it is disarmed, and then routes clicks normally again', () => {
+    const onRouteClick = vi.fn();
+    const onPickPoint = vi.fn();
+    const api = createMap({ routeFeature: ROUTE, onRouteClick, onPickPoint });
+
+    api.setPickingMode('start');
+    clickAt(53.3, 10.5);
+    clickAt(53.0, 11.4);
+    expect(onPickPoint).toHaveBeenCalledTimes(2);
+    expect(onRouteClick).not.toHaveBeenCalled();
+
+    api.setPickingMode(null);
+    clickAt(52.5, 12.3);
+    expect(onPickPoint).toHaveBeenCalledTimes(2);
+    expect(onRouteClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks the container while armed and unmarks it after', () => {
+    const api = createMap({ routeFeature: ROUTE });
+    const container = capturedMap.getContainer();
+
+    api.setPickingMode('start');
+    expect(container.classList.contains('map--picking')).toBe(true);
+    api.setPickingMode(null);
+    expect(container.classList.contains('map--picking')).toBe(false);
+  });
+});
+
+// The pin used to be built once, at construction, from the ROUTE's first coordinate:
+// the ROAD's origin. On a downstream trip that is the rider's DESTINATION, wearing the
+// origin's name; on any offset trip it is road they never ride. So it stops being a
+// fact about the road and becomes trip state, set from main.js — which is why all
+// three of the cases below moved from `createMap(...)` to `api.setStartPin(...)`.
+describe('createMap - the start pin follows the trip', () => {
+  const HAMBURG = [9.99, 53.55];
+  const PRAGUE = [13.74, 51.05];
+
+  it('draws no start pin until it is told where the rider starts', () => {
     createMap({ routeFeature: ROUTE });
+
+    expect(startPin()).toBeUndefined();
+  });
+
+  it('names the rider’s own start, which downstream is the road’s far end', () => {
+    const api = createMap({ routeFeature: ROUTE });
+
+    api.setStartPin({ coord: PRAGUE, name: 'Prague' });
+
+    expect(startPin().options.title).toBe('Start — Prague');
+    expect(startPin().options.icon.options.html).toContain('P');
+    expect(startPin().getLatLng().lng).toBeCloseTo(13.74, 6);
+  });
+
+  it('claims nothing for a start that has no name', () => {
+    const api = createMap({ routeFeature: ROUTE });
+
+    api.setStartPin({ coord: HAMBURG, name: null });
 
     expect(startPin().options.title).toBe('Start');
+    expect(startPin().options.icon.options.html).not.toContain('H'); // no stale initial
   });
 
-  // The pin's LETTER was a hardcoded "H" for Hamburg. Fixing the tooltip while
-  // leaving the glyph behind would have left the wrong initial on the map — the
-  // more visible of the two — so it is derived from the same name.
-  it('draws the origin initial on the pin', () => {
-    createMap({ routeFeature: ROUTE, originName: 'Cuxhaven' });
+  // The pin MOVES rather than multiplying. Every render calls this, so a missing
+  // clearLayers leaves one pin per render standing on the map — each with the name it
+  // had at the time, which is a trip's whole history drawn at once.
+  it('keeps exactly one pin across renders, at the newest position', () => {
+    const api = createMap({ routeFeature: ROUTE });
 
-    expect(startPin().options.icon.options.html).toContain('C');
-    expect(startPin().options.icon.options.html).not.toContain('H');
-  });
+    api.setStartPin({ coord: PRAGUE, name: 'Prague' });
+    api.setStartPin({ coord: HAMBURG, name: 'Hamburg' });
 
-  it('draws a neutral glyph, never a stale initial, with no origin name', () => {
-    createMap({ routeFeature: ROUTE });
-
-    expect(startPin().options.icon.options.html).not.toContain('H');
+    const pins = createdMarkers.filter((m) =>
+      (m.options.icon?.options?.className || '').includes('pin-icon--start'),
+    );
+    const live = pins.filter((m) => capturedMap.hasLayer(m) || m._map);
+    expect(live).toHaveLength(1);
+    expect(live[0].options.title).toBe('Start — Hamburg');
   });
 });
