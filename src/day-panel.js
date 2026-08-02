@@ -423,6 +423,15 @@ export function createDayPanel({ el, callbacks = {} }) {
     // disabled on every day of the plan.
     const length = round1(rideKm(trip, day.startKm, day.endKm));
     const canSplit = length >= 2 * MIN_DAY_KM;
+    // Rider km on both sides, and the predicate is "does this day already end where the
+    // trip does". In absolute km the comparison inverts downstream — `day.endKm >=
+    // trip.destinationKm` is true for every day of such a trip, disabling the button
+    // across the whole plan. In rider km the day's end and the trip's length are two
+    // distances from one origin, which is the same question whichever way the trip runs.
+    // `>=` rather than `===`: days clamp AT the destination, so nothing can exceed the
+    // length, and the rounding is what makes a boundary a few centimetres short of it
+    // still count as arrived.
+    const atFinish = round1(trip.tripKm(day.endKm)) >= round1(trip.lengthKm);
     el.innerHTML = `
       <div class="day-panel">
         <div class="day-panel__head">
@@ -456,6 +465,8 @@ export function createDayPanel({ el, callbacks = {} }) {
         <div data-custom-stop-slot></div>
         <p class="day-panel__hint">Click the route on the map to add a stop to this day.</p>
         <div class="day-panel__actions">
+          <button type="button" class="btn btn--sm" data-action="finish-here" ${atFinish ? 'disabled' : ''}
+                  title="${atFinish ? 'This day already ends at your finish' : `Finish the trip at km ${round1(trip.tripKm(day.endKm))}, dropping any later days`}">Finish here</button>
           <button type="button" class="btn btn--sm" data-action="split-day" ${canSplit ? '' : 'disabled'}
                   title="${canSplit ? 'Split this day in two' : `Too short to split (needs ${2 * MIN_DAY_KM} km)`}">Split day</button>
           <button type="button" class="btn btn--sm btn--danger" data-action="delete-day">Delete day</button>
@@ -492,6 +503,7 @@ export function createDayPanel({ el, callbacks = {} }) {
     if (e.target.closest('[data-action="set-finish"]')) return callbacks.onPickEnd?.('destination');
     if (!current.day) return;
     const index = current.day.index;
+    if (e.target.closest('[data-action="finish-here"]')) return callbacks.onFinishHere?.(index);
     if (e.target.closest('[data-action="split-day"]')) return callbacks.onSplitDay?.(index);
     if (e.target.closest('[data-action="delete-day"]')) return callbacks.onDeleteDay?.(index);
     if (e.target.closest('[data-action="focus-prev"]')) return callbacks.onFocusDay?.(index - 1);

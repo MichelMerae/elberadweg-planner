@@ -272,6 +272,9 @@ async function boot() {
       onEditBreak: handleEditBreak,
       onAddCustomStop: handleAddCustomStop,
       onCancelCustomStop: handleCancelCustomStop,
+      // Spec §6's "select this stop as destination": the day panel emits an index, and
+      // the pick it becomes goes through the same applyPickedEnd the map does.
+      onFinishHere: handleFinishHere,
       // The trip-setup step's Set start / Set finish. Same two data-actions the strip
       // uses and the same handler behind them; each module's listener is scoped to its
       // own root, so the shared names never collide.
@@ -802,6 +805,33 @@ async function boot() {
     renderAll();
   }
 
+  // Spec §6: after planning a few days, make one of them the destination. The day's own
+  // end is already a legal position on the trip, so the only guard that can bite is the
+  // length one — a first day of 3 km cannot become a 3 km trip. It goes through
+  // applyPickedEnd anyway, because a second copy of the guards is how the two drift.
+  //
+  // `offerSnap: false`, and this is the caller Task 12 kept the flag for. A map click is
+  // a MEASUREMENT: at whole-route zoom one pixel is ~0.7 km, so naming the town the
+  // rider probably meant corrects an error that is really there. A day boundary carries
+  // no such error — it is the km the plan computed from a length that was typed, dragged
+  // or snapped to a town, and it is the exact thing this button was pressed to keep.
+  //
+  // Measured with the flag flipped, on a five-day whole-road plan whose day 3 ends at
+  // km 240 with Sumte as its overnight: the offer read "Alt Garge is 0.2 km behind your
+  // finish — use it instead?", and one press moved the finish to 239.8, re-ran
+  // fitDaysToLength against a length 0.2 km shorter, clamped day 3 from 80 km to 79.8,
+  // and left it reading "Sumte sits at km 240; this day ends at km 239.8". The trip
+  // ended up named after a town the rider had not chosen and was not sleeping in.
+  //
+  // The finish still gets NAMED when it lands on a town — nameAtKm is a separate
+  // question, asked of the km rather than of the pick, and the same plan finishing at
+  // km 239.5 reads "Cuxhaven → Stiepelse". What is declined is only the offer to MOVE it.
+  function handleFinishHere(index) {
+    const day = itinerary.getDays()[index];
+    if (!day) return;
+    applyPickedEnd('destination', round1(day.endKm), { offerSnap: false });
+  }
+
   function handleSplitDay(index) {
     if (!itinerary.splitDay(index)) return; // too short — the model refused
     persistPlan();
@@ -957,7 +987,7 @@ async function boot() {
 
   // The one path from a picked km to a new window: the guards, the reflow, the save and
   // the sentence saying what happened. Three callers — a map pick, the snap offer and
-  // Finish here (Task 13) — so a guard added here covers all three.
+  // Finish here — so a guard added here covers all three.
   //
   // `offerSnap` is how a caller says "this km is already the answer, do not offer to
   // move it". The plan justified it as what stops the offer looping — a snap landing
@@ -965,9 +995,10 @@ async function boot() {
   // does: every town in the dataset sits on the 0.1 km grid (checked: 0 of 887 off it),
   // so a snap lands exactly ON its town, `nearestTown` answers that same town, and the
   // `gap !== 0` guard below already suppresses the second offer. It stays because the
-  // knob is real for the OTHER callers: Task 13's `Finish here` hands over a day's end
-  // km, which is a boundary the rider chose rather than a town, and offering to shift it
-  // onto a town 0.4 km away would undo the thing they just asked for.
+  // knob is real for the OTHER callers, and `Finish here` is the one that uses it: it
+  // hands over a day's end km, which is a boundary the rider chose rather than a town,
+  // and offering to shift it onto a town 0.4 km away would undo the thing they just
+  // asked for. See handleFinishHere.
   function applyPickedEnd(tripEnd, km, { offerSnap = true } = {}) {
     const decided = proposeEnd(trip, tripEnd, km, {
       dayCount: itinerary.getDays().length,

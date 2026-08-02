@@ -29,6 +29,7 @@ function mount() {
     onAddCustomStop: vi.fn(),
     onCancelCustomStop: vi.fn(),
     onPickEnd: vi.fn(),
+    onFinishHere: vi.fn(),
   };
   return createDayPanel({ el, callbacks });
 }
@@ -1146,5 +1147,91 @@ describe('createDayPanel - oriented trips', () => {
     const title = el.querySelector('.custom-stop__title').textContent;
     expect(title).toContain('New stop at km 120');
     expect(title).toContain('40 km into the day');
+  });
+});
+
+// Spec §6's "after planning some days, select this stop as destination". The panel only
+// EMITS the day's index; main.js turns that into a pick through the same applyPickedEnd
+// the map uses, so every guard and the day-trimming come for free.
+//
+// A 300 km window offset 100 km along the road, ridden both ways, so no day's rider km
+// is ever equal to its absolute km — an implementation that compared the two in absolute
+// km would have to get lucky twice.
+describe('createDayPanel - Finish here', () => {
+  const UP = createTrip({ startKm: 100, destinationKm: 400, totalKm: 1026.5 });
+  const DOWN = createTrip({ startKm: 400, destinationKm: 100, totalKm: 1026.5 });
+  const button = () => el.querySelector('[data-action="finish-here"]');
+  // Three days of 100 km on UP; the third arrives.
+  const DAY_1_OF_3 = { index: 0, targetKm: 100, startKm: 100, endKm: 200, townChoice: null };
+  const DAY_2_OF_3 = { index: 1, targetKm: 100, startKm: 200, endKm: 300, townChoice: null };
+  const LAST_DAY_AT_DESTINATION = { index: 2, targetKm: 100, startKm: 300, endKm: 400, townChoice: null };
+  // The same plan stopping 20 km short of the finish — the ordinary half-planned trip.
+  const LAST_DAY_SHORT_OF_DESTINATION = { index: 2, targetKm: 80, startKm: 300, endKm: 380, townChoice: null };
+  // Day 1 of the DOWNSTREAM trip: it ends at absolute km 300, which is 200 km PAST the
+  // road position of that trip's destination (km 100) and 100 rider km into its 300.
+  const DOWNSTREAM_DAY_1 = { index: 0, targetKm: 100, startKm: 400, endKm: 300, townChoice: null };
+  const show = (day, trip = UP) =>
+    ({ trip, day, dayCount: 3, breaks: [], fromName: 'Lenzen' });
+
+  it('offers to finish the trip at this day’s end', () => {
+    const panel = mount();
+    panel.render(show(DAY_1_OF_3));
+
+    button().click();
+
+    expect(callbacks.onFinishHere).toHaveBeenCalledWith(0);
+  });
+
+  // Not a duplicate of the above: a hardcoded 0 passes it, and so does a button wired to
+  // the panel's own first day rather than to the focused one.
+  it('names the day whose end it would use, not the focused index', () => {
+    const panel = mount();
+    panel.render(show(DAY_2_OF_3));
+
+    button().click();
+
+    expect(callbacks.onFinishHere).toHaveBeenCalledWith(1);
+  });
+
+  // A day already ending at the finish has nothing to offer, and a button that does
+  // nothing is worse than no button.
+  it('is disabled on a day that already ends at the trip’s finish', () => {
+    const panel = mount();
+    panel.render(show(LAST_DAY_AT_DESTINATION));
+
+    expect(button().disabled).toBe(true);
+  });
+
+  it('is enabled on the last day when the plan stops short of the finish', () => {
+    const panel = mount();
+    panel.render(show(LAST_DAY_SHORT_OF_DESTINATION));
+
+    expect(button().disabled).toBe(false);
+  });
+
+  // The direction case. `day.endKm >= trip.destinationKm` — the shape someone writes
+  // without thinking — is true for EVERY day of a downstream trip, so it would disable
+  // the button across the whole plan while passing every upstream case above.
+  it('is enabled on a downstream day that ends short of the finish', () => {
+    const panel = mount();
+    panel.render(show(DOWNSTREAM_DAY_1, DOWN));
+
+    expect(button().disabled).toBe(false);
+  });
+
+  // The km in the title is the only km this button displays, and the file's whole
+  // contract is that a displayed km is counted from the rider's start. Day 2 ends at
+  // absolute km 300 and rider km 200, so an absolute-km title fails on both halves.
+  it('titles the button with the rider km it would finish at, and says why when it cannot', () => {
+    const panel = mount();
+    panel.render(show(DAY_2_OF_3));
+
+    expect(button().title).toContain('km 200');
+    expect(button().title).not.toContain('300');
+
+    panel.render(show(LAST_DAY_AT_DESTINATION));
+
+    expect(button().title).toContain('already ends at your finish');
+    expect(button().title).not.toContain('Finish the trip at');
   });
 });
