@@ -131,31 +131,84 @@ The route and towns are **generated**, not hand-drawn:
   is 26 km shorter than the OSM composite it replaced, most of it doubling-back that
   the official routing does not have: 1.2 km of the route retraces itself, against
   11.8 km before.
+- The **other bank** is `route.alt.json`: the left bank from the first crossing to
+  the last, with its own km axis. It exists only where crossings bound it — nothing
+  north of Hamburg (see below) and nothing in Czechia.
+- **Crossings** are derived, not hand-kept: OSM bridges that admit bicycles, plus
+  ferries, keeping only those with one end within 250 m of one bank and the other
+  end within 250 m of the other. **33** survive, 14 ferries and 19 bridges. The
+  geometric test is the whole filter and it has to be strict — the banks touch in 33
+  places, and where they do, a 6 m ditch bridge technically "connects" them, so a
+  crossing must also span at least 80 m of water.
 - Towns are OSM `place=city|town|village` nodes within ~5 km of the route, each
   annotated with its distance *along* the route so the app can window them to the
-  stretch you're planning.
+  stretch you're planning. Every place is located against **both** lines and tagged
+  with the bank it is on (`left`, `right`, `both`, or `null` in Czechia); a place
+  reachable only from the far bank keys its canonical km through the crossing table,
+  so day assignment still runs on the one stored axis.
 - Food stops (cafés, bakeries, restaurants, biergartens — within ~2 km) and
   sights (viewpoints, castles, historic sites, named bridges — within ~3 km) are
   pulled the same way and precomputed into `pois.json`.
+
+### Riding the other bank
+
+Crossing the river is a **day-planning action**, peer to ending the day: open a day
+and its panel lists the crossings that day passes, each with a **⇄ Cross** button.
+Press one and it becomes a leg of the day — "18.2 km → ⇄ Cross to the other bank ·
+Sternbrücke" — and the rest of the day continues on the far side. ✕ takes it back.
+The map's ⇄ markers are a shortcut for the same thing, and the strip's ribbon shows
+which bank each stretch rides.
+
+Distances stay honest: the two banks are not the same length, so the km you read are
+the km on the bank you actually ride, the crossing itself included. Choosing the
+Magdeburg Sternbrücke on a Hamburg → Dresden trip shortens it from 633 to 617.7 km,
+and the days after it re-flow to match.
+
+Only the crossings you chose are stored (as ids). Where the alt bank ends, the path
+rejoins the canonical bank on its own — the rider never chose that, so it is drawn
+and ridden but never saved as a decision.
+
+**Not covered:** the stretch north of Hamburg. There *is* a second bank there — the
+right bank from Brunsbüttel, with real crossings like the Glückstadt–Wischhafen
+ferry — but north of Hamburg the canonical line already *is* the left bank, and one
+alt file tagged `left` cannot also be the right bank. The empty northern stretch is
+a consequence of the one-alt-line model, not a derivation bug.
 
 Distance-along-route maths (snapping a click to the line, finding the point at a
 given kilometre, windowing towns) is done with [Turf.js](https://turfjs.org/).
 
 ## Rebuilding the data
 
-The generated data lives in `src/data/` (`route.json`, `route.meta.json`,
-`towns.json`, `pois.json`) and is already committed. To regenerate it from OpenStreetMap:
+The generated data lives in `src/data/` and is already committed:
+
+| File | What it holds |
+| --- | --- |
+| `route.json` | the canonical line — the km axis every stored distance refers to |
+| `route.alt.json` | the other bank, between the outermost crossings, with its own km axis |
+| `crossings.json` | the 33 derived crossings, each with its km on **both** axes |
+| `route.meta.json` | route id, length, the segments and their banks, the declared joins |
+| `towns.json`, `pois.json` | places along either bank, each tagged with its bank |
+| `elevation.json` | the canonical profile, keyed by route id |
+
+To regenerate:
 
 ```bash
-npm run build:data            # uses cached raw OSM if present
-npm run build:data -- --refresh   # force a fresh fetch from Overpass
+npm run build:data            # uses cached raw sources if present
+npm run build:data -- --refresh   # force a fresh fetch
+npm run build:elevation       # after any change to the line itself
 ```
 
-`scripts/build-data.mjs` queries the [Overpass API](https://overpass-api.de/)
-(with retries, backoff, and mirror fallback, since Overpass is flaky) and caches
-the raw response so repeat runs are fast and offline-friendly. The route cache
-(`src/data/route.raw.osm.json`) is gitignored; the towns cache lives in your OS
-temp directory. Use `--refresh` to bypass both caches and pull current OSM data.
+`scripts/build-data.mjs` downloads the 30 official GPX files and queries the
+[Overpass API](https://overpass-api.de/) (with retries, backoff, and mirror
+fallback, since Overpass is flaky), caching both so repeat runs are fast and
+offline-friendly. The GPX cache (`src/data/gpx.raw/`) and the route cache
+(`src/data/route.raw.osm.json`) are gitignored; Overpass responses live in your OS
+temp directory, keyed by bounding box. `--refresh` bypasses all of them.
+
+Changing the line changes the km axis, so `route.meta.json`'s `routeId` is part of
+the data's identity: when it changes, saved plans are archived and reset rather than
+being silently reinterpreted against a different road. `elevation.json` carries the
+same id and is rejected if it does not match — rebuild it whenever the line moves.
 
 ## Tech
 
@@ -167,7 +220,12 @@ temp directory. Use `--refresh` to bypass both caches and pull current OSM data.
 
 ## Data & attribution
 
-- **Route and town data** © [OpenStreetMap](https://www.openstreetmap.org/)
+- **Both German bank routes** come from the official
+  [elberadweg.de GPX downloads](https://www.elberadweg.de/planen-buchen/interaktive-karte-gps/).
+  The site states no licence terms on that page, so treat the derived route data as
+  theirs and ask before redistributing it — if that becomes a problem, the same
+  banks can be rebuilt from OSM, which is where every other layer already comes from.
+- **Czech route, town, crossing and POI data** © [OpenStreetMap](https://www.openstreetmap.org/)
   contributors, available under the
   [Open Database License (ODbL)](https://www.openstreetmap.org/copyright).
 - **Map tiles** are served by openstreetmap.org and are used under the
