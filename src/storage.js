@@ -3,12 +3,13 @@ import { favKey } from './favorites.js';
 const PLANS_KEY = 'elberadweg-plans';
 const LEGACY_KEY = 'elberadweg-itinerary';
 const FAVORITES_KEY = 'elberadweg-favorites';
-const SCHEMA_VERSION = 4;
-// Older blobs are still readable as they stand, and are rewritten as v4 on the
-// first load. Schema 3 records no trip window, which normalizePlan reads as the
+const SCHEMA_VERSION = 5;
+// Older blobs are still readable as they stand, and are rewritten as v5 on the
+// first load. Schema 4 records no crossings, which normalizePlan reads as an
+// empty list; schema 3 records no trip window, which normalizePlan reads as the
 // whole road; schema 2 records no routeId either, which the corridor check in
 // load() treats as "a different corridor".
-const READABLE_SCHEMA_VERSIONS = new Set([SCHEMA_VERSION, 3, 2]);
+const READABLE_SCHEMA_VERSIONS = new Set([SCHEMA_VERSION, 4, 3, 2]);
 const LEGACY_SCHEMA_VERSION = 1;
 const FAVORITES_SCHEMA_VERSION = 1;
 // Suffix for archives of a blob that records no corridor at all.
@@ -41,6 +42,18 @@ function normalizeDays(days) {
   return Array.isArray(days) ? days.map(normalizeDay) : [];
 }
 
+// Keeps only string ids, then keeps the first occurrence of each - a
+// duplicated id would otherwise compose as two crossings at the same km, a
+// zero-length stretch on the far bank charged twice. Unreachable from the
+// toggle UI today, but the persistence layer is the one place that can rule
+// it out for every caller rather than trusting each to be careful, so both
+// the read path (normalizePlan) and the write path (saveActivePlan) run
+// every crossings list through this.
+function normalizeCrossings(crossings) {
+  const ids = Array.isArray(crossings) ? crossings.filter((id) => typeof id === 'string') : [];
+  return [...new Set(ids)];
+}
+
 // Enforces the plan record shape on data read back from storage so the rest of
 // the app can rely on days/breaks being arrays. Unknown fields are dropped.
 // `wholeRoad` is the window to fall back to, end by end - the store's own
@@ -55,6 +68,12 @@ function normalizePlan(plan, wholeRoad) {
     routeVersion: plan.routeVersion,
     days: normalizeDays(plan.days),
     breaks: Array.isArray(plan.breaks) ? plan.breaks : [],
+    // Crossing ids the rider chose. Ids only - km, name and kind live in
+    // crossings.json, and an id the table no longer knows is main.js's problem
+    // (dropped with a warning there), not a reason to reject the plan here. A
+    // plan that predates the field (schema 4 and earlier) has none, which
+    // normalizeCrossings reads as an empty list, same as it does for garbage.
+    crossings: normalizeCrossings(plan.crossings),
     // Absolute route km. A plan that predates the window spans the whole road,
     // which is exactly what it did before the field existed. Either order is
     // legal - destinationKm below startKm is a downstream ride, not a mistake to
@@ -69,7 +88,7 @@ function normalizePlan(plan, wholeRoad) {
 
 /**
  * Creates the multi-plan storage layer for the Elberadweg planner. Owns the
- * `elberadweg-plans` blob (schema 4; schemas 3 and 2 still readable) and the
+ * `elberadweg-plans` blob (schema 5; schemas 4, 3 and 2 still readable) and the
  * one-time migration from the v1 `elberadweg-itinerary` payload. All
  * reads/writes are guarded: a corrupted or wrong-schema blob starts a fresh
  * store (one empty "My plan") rather than throwing, and a failing setItem
@@ -106,7 +125,7 @@ function normalizePlan(plan, wholeRoad) {
  *   duplicatePlan: (id: string, name?: string) => object|null,
  *   deletePlan: (id: string) => object|null,
  *   renamePlan: (id: string, name: string) => object|null,
- *   saveActivePlan: (payload: {days: any[], breaks: any[], startKm?: number, destinationKm?: number}) => object|null,
+ *   saveActivePlan: (payload: {days: any[], breaks: any[], crossings?: string[], startKm?: number, destinationKm?: number}) => object|null,
  * }}
  */
 export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}) {
@@ -144,6 +163,7 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
       routeVersion,
       days: [],
       breaks: [],
+      crossings: [],
       ...wholeRoad(),
     };
   }
@@ -233,6 +253,7 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
       routeVersion: legacy.routeVersion,
       days: legacy.days.map(normalizeDay),
       breaks: [],
+      crossings: [],
       // A v1 payload predates the window by two schemas.
       ...wholeRoad(),
     };
@@ -262,7 +283,7 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
     return { activePlanId: plan.id, plans: [plan] };
   }
 
-  // Parses the stored plans blob (schema 4, or an older one still readable);
+  // Parses the stored plans blob (schema 5, or an older one still readable);
   // returns `{routeId, state}` - the corridor the plans were measured against,
   // null when the blob records none, next to the normalized state - or null on
   // any problem (missing key, invalid JSON, unknown schema, empty plans list).
@@ -390,6 +411,7 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
       routeVersion: source.routeVersion,
       days: clone(source.days),
       breaks: clone(source.breaks),
+      crossings: clone(source.crossings),
       // A copy of a plan is a copy of its trip, ends and order alike.
       startKm: source.startKm,
       destinationKm: source.destinationKm,
@@ -428,11 +450,16 @@ export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}
     return clone(plan);
   }
 
-  function saveActivePlan({ days, breaks, startKm, destinationKm } = {}) {
+  function saveActivePlan({ days, breaks, crossings, startKm, destinationKm } = {}) {
     const plan = findPlan(state?.activePlanId);
     if (!plan) return null;
     plan.days = normalizeDays(days);
     plan.breaks = Array.isArray(breaks) ? clone(breaks) : [];
+    // Like the window below and unlike days/breaks: a save that names no
+    // crossings leaves the rider's existing choices alone rather than wiping
+    // them, for the same reason - a caller thinking only about days must not
+    // erase a choice it never touched.
+    if (Array.isArray(crossings)) plan.crossings = normalizeCrossings(crossings);
     // The window survives a save that does not name one - deliberately unlike
     // days and breaks, which a save does replace wholesale. Every plan in state
     // already carries a window the rider chose, and a caller with only days in

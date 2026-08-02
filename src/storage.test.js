@@ -131,7 +131,7 @@ describe('createPlanStore - fresh start', () => {
     store.load();
 
     const parsed = JSON.parse(storage.store[PLANS_KEY]);
-    expect(parsed.schemaVersion).toBe(4);
+    expect(parsed.schemaVersion).toBe(5);
     expect(parsed.plans).toHaveLength(1);
     expect(parsed.activePlanId).toBe(parsed.plans[0].id);
   });
@@ -679,7 +679,7 @@ describe('createPlanStore - snapped fractional lengths', () => {
     store.load();
     store.saveActivePlan({ days: [{ targetKm: 76.2, townChoice: null }], breaks: [] });
 
-    expect(JSON.parse(storage.getItem(PLANS_KEY)).schemaVersion).toBe(4);
+    expect(JSON.parse(storage.getItem(PLANS_KEY)).schemaVersion).toBe(5);
   });
 });
 
@@ -832,7 +832,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
     store.saveActivePlan({ days: [{ targetKm: 90, townChoice: null }], breaks: [] });
     const persisted = JSON.parse(storage.store[PLANS_KEY]);
     expect(persisted.routeId).toBe(CURRENT_ROUTE_ID);
-    expect(persisted.schemaVersion).toBe(4);
+    expect(persisted.schemaVersion).toBe(5);
   });
 
   it('records no corridor when none is configured', () => {
@@ -954,10 +954,11 @@ describe('storage v4 - trip window', () => {
     expect(Object.keys(storage.store).filter((key) => key.includes('-backup-'))).toEqual([]);
     expect(storage.store[FAVORITES_KEY]).toBe(OLD_FAVORITES);
 
-    // The live key is now v4, with the whole-road window written into it.
+    // The live key is now v5, with the whole-road window and an empty
+    // crossings list written into it.
     const persisted = JSON.parse(storage.store[PLANS_KEY]);
-    expect(persisted.schemaVersion).toBe(4);
-    expect(persisted.plans[0]).toMatchObject({ id: 'p-old', startKm: 0, destinationKm: TOTAL_KM });
+    expect(persisted.schemaVersion).toBe(5);
+    expect(persisted.plans[0]).toMatchObject({ id: 'p-old', startKm: 0, destinationKm: TOTAL_KM, crossings: [] });
   });
 
   it('round-trips a window through save and load', () => {
@@ -1126,5 +1127,100 @@ describe('createPlanStore - break notes & custom stops', () => {
     const reloaded = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     reloaded.load();
     expect(reloaded.getActivePlan().breaks).toEqual(breaks);
+  });
+});
+
+describe('crossings on the plan (schema 5)', () => {
+  it('a fresh plan has an empty crossings list', () => {
+    const store = createPlanStore({ storage: createFakeStorage(), routeId: 'r1', totalKm: 1000 });
+    store.load();
+    expect(store.getActivePlan().crossings).toEqual([]);
+  });
+
+  it('saveActivePlan round-trips crossing ids', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], crossings: ['magdeburg-sternbruecke-479'] });
+    const again = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    again.load();
+    expect(again.getActivePlan().crossings).toEqual(['magdeburg-sternbruecke-479']);
+  });
+
+  it('non-string entries are dropped on read, silently', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], crossings: ['ok-1', 42, null, 'ok-2'] });
+    const again = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    again.load();
+    expect(again.getActivePlan().crossings).toEqual(['ok-1', 'ok-2']);
+  });
+
+  it('a v4 blob (no crossings field) reads as an empty list', () => {
+    // craft a v4 blob through a store, then strip the field the way an old build left it
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    store.load();
+    const blob = JSON.parse(storage.getItem('elberadweg-plans'));
+    blob.schemaVersion = 4;
+    for (const p of blob.plans) delete p.crossings;
+    storage.setItem('elberadweg-plans', JSON.stringify(blob));
+    const again = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    again.load();
+    expect(again.getActivePlan().crossings).toEqual([]);
+  });
+
+  // A duplicated id composes as two crossings at the same km: a zero-length
+  // stretch on the far bank, charged twice. Unreachable from the toggle UI
+  // today, but the persistence layer is the right place to rule it out rather
+  // than trusting every future caller to de-dupe on its own - so both the
+  // write path (saveActivePlan) and the read path (a blob written before this
+  // rule existed, or edited by hand) are covered separately below.
+  it('drops a duplicate crossing id on save, preserving order', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], crossings: ['a', 'b', 'a'] });
+    const again = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    again.load();
+    expect(again.getActivePlan().crossings).toEqual(['a', 'b']);
+  });
+
+  it('drops a duplicate crossing id already sitting in a stored blob, preserving order', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    store.load();
+    const blob = JSON.parse(storage.getItem('elberadweg-plans'));
+    for (const p of blob.plans) p.crossings = ['a', 'b', 'a'];
+    storage.setItem('elberadweg-plans', JSON.stringify(blob));
+    const again = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    again.load();
+    expect(again.getActivePlan().crossings).toEqual(['a', 'b']);
+  });
+
+  // migrateV1() and duplicatePlan() each build a plan record by hand rather
+  // than through normalizePlan; both need their own `crossings: []` /
+  // `crossings: clone(...)` line, or the plan they hand back would be missing
+  // the key entirely - not merely empty - and `plan.crossings.length` would
+  // throw the first time the UI looked at it.
+  it('gives a plan migrated from v1 an empty crossings list', () => {
+    const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(LEGACY_V1) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: 1000 });
+    store.load();
+
+    expect(store.getActivePlan().crossings).toEqual([]);
+  });
+
+  it('carries the source crossings through duplicatePlan', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeId: 'r1', totalKm: 1000 });
+    const { activePlanId } = store.load();
+    store.saveActivePlan({ days: [], breaks: [], crossings: ['x-1'] });
+
+    const copy = store.duplicatePlan(activePlanId);
+
+    expect(copy.crossings).toEqual(['x-1']);
+    expect(store.getActivePlan().crossings).toEqual(['x-1']);
   });
 });
