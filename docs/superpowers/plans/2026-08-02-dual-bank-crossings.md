@@ -29,6 +29,18 @@ Recorded here rather than silently applied.
 
 ---
 
+## Task 0 findings (spike run 2026-08-02 — the plan's assumptions, measured)
+
+- **URL pattern works unchanged.** All 30 combinations (sections A–O × `links`/`rechts`) return HTTP 200 at `https://www.elberadweg.de/gps/` + `encodeURIComponent('Elberadweg - Labská stezka [Abschnitt {S} {side}].gpx')`. No section is missing on either side.
+- **Joins are clean.** Worst gaps: `links` G = 203 m, `rechts` D = 168 m; the rest single digits to ~80 m. `GAP_SOFT` is 800 m (`build-data.mjs:264`), so `stitchBank` throws on none of them. Per-section reversal never triggered — the natural order is already Cuxhaven→border on both banks.
+- **Banks are shorter than estimated: `links` 827.0 km (17 171 pts), `rechts` 799.0 km (16 481 pts)** — not the guessed 840–900. The composite canonical line will land near the current 1026 km rather than above it, so `LEN_NOMINAL_MIN = 1000` is the constant at risk, not the hard bounds. **Task 5: re-base the nominal window from the first real build number instead of trusting the guess.**
+- **Endpoints confirm the planned segmentation.** `links` starts at Cuxhaven `[8.682, 53.892]`; `rechts` starts at **Brunsbüttel** `[9.137, 53.897]`, not Cuxhaven — which is exactly why the canonical line takes the left bank down to the Hamburg junction (the deferred Brunsbüttel arm, spec §"out of scope"). Both banks end at `[~14.23, ~50.87]` = Hřensko/Schmilka at the Czech border, precisely where the CZ EV7 segment picks up. No clipping needed.
+- **Candidates exist but the geometry filter is load-bearing.** A wide Hamburg-band probe returned 9 510 bridge/ferry elements, of which only a handful touch the Elbe (Köhlbrandbrücke, Kattwykdamm, the Lühe–Schulau and other Unterelbe ferries all present). Task 6's real query is chunked with `padKm: 3` around the right bank, far tighter than that probe — but the `maxSnapM: 250` "close to BOTH lines" test in `deriveCrossings` is what actually produces a crossing table, not the Overpass count. Do not read a large element count as a large crossing count.
+- **Overpass rejects Node's default `fetch` User-Agent with HTTP 406.** `build-data.mjs` already sends `USER_AGENT` on every fetch (`:319`), so this is a non-issue for the build — recorded only so the next spike author does not lose an hour to it.
+- **Section point density is uneven** (439 pts for E-`rechts` vs 1 887 for M-`links`). Harmless for stitching; a reminder that no downstream step may assume uniform vertex spacing before `SIMPLIFY_TOLERANCE` normalizes it.
+
+---
+
 ## File Structure
 
 **Create:**
