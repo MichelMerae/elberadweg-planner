@@ -183,7 +183,22 @@ export function createPlaces({ el, callbacks = {} }) {
   let lastRowHoverKey = null;
   let highlightKey = null;
 
-  function section(name, label, items, emptyText, renderRow) {
+  // `trueTotal` is how many places the day actually holds, for a list that arrived as a
+  // SELECTION from a larger one — main.js thins food and sights spatially before either
+  // this panel or the map sees them (pois.js's thinAlongRoute: five per 5 km ridden). Day
+  // 1 out of Hamburg holds 771 food places and 63 reach here, and counted off the array as
+  // given the header said "(63)": the rider was shown a choice made on their behalf with
+  // nothing saying a choice had been made. Omitted, or no larger than the list itself, the
+  // count is the plain (N) it always was — every section nothing thins passes nothing.
+  //
+  // There is deliberately NO "show all" for a thinned list, and it must not be added back
+  // by measuring the footer against trueTotal. main.js thins ONCE, upstream of both this
+  // panel and the map, so that the rows and the pins ARE the same set; a marker hover
+  // highlights a row by key, so expanding to all 771 would put 708 rows on screen with no
+  // marker behind them and invert the very invariant the single thinning exists to hold.
+  // 771 rows is also not a list anyone can read. The footer therefore stays measured
+  // against the list as given — which is the escape hatch for the sections that have one.
+  function section(name, label, items, emptyText, renderRow, trueTotal = null) {
     const capped = expanded.has(name) ? items : items.slice(0, ROW_CAP);
     const body = capped.length
       ? capped.map(renderRow).join('')
@@ -193,9 +208,16 @@ export function createPlaces({ el, callbacks = {} }) {
         ? `<p class="places__more">showing the first ${capped.length} of ${items.length} ·
              <button type="button" data-action="show-all" data-section="${name}">show all</button></p>`
         : '';
+    // The first number keeps the meaning it has everywhere else in this header — the
+    // length of the section's own list, not of the rendered prefix — so a thinned list
+    // long enough to also hit ROW_CAP reads "(200 of 771)" over "showing the first 150
+    // of 200", and the two agree about what 200 is.
+    const count = trueTotal != null && trueTotal > items.length
+      ? `${items.length} of ${trueTotal}`
+      : `${items.length}`;
     return `
       <details class="pois pois--${name}" open>
-        <summary class="pois__summary">${label} <span class="pois__count">(${items.length})</span></summary>
+        <summary class="pois__summary">${label} <span class="pois__count">(${count})</span></summary>
         <div class="pois__body">${body}${more}</div>
       </details>`;
   }
@@ -274,6 +296,10 @@ export function createPlaces({ el, callbacks = {} }) {
       selectedTownKey = null,
       food: foodIn,
       sights: sightsIn,
+      // How many food places and sights the day really holds, before main.js thinned
+      // them along the route. See section(): they only reach the header.
+      foodTotal = null,
+      sightsTotal = null,
       favorites: favoritesIn,
       // itinerary.dayOwnsKm's answer for a km, 1-based, from main.js. See dayTagFor.
       dayNumberForKm,
@@ -316,8 +342,8 @@ export function createPlaces({ el, callbacks = {} }) {
     // sections say so rather than pretending the stretch is empty.
     const poiSections = poisMissing
       ? '<p class="pois__note">No POI data — run npm run build:data</p>'
-      : section('food', '☕ Food on the way', food, 'No food stops on this stretch.', (p, i) => poiRow(p, i, 'food', ctx)) +
-        section('sight', '📷 Worth seeing', sights, 'No sights on this stretch.', (p, i) => poiRow(p, i, 'sight', ctx));
+      : section('food', '☕ Food on the way', food, 'No food stops on this stretch.', (p, i) => poiRow(p, i, 'food', ctx), foodTotal) +
+        section('sight', '📷 Worth seeing', sights, 'No sights on this stretch.', (p, i) => poiRow(p, i, 'sight', ctx), sightsTotal);
 
     el.innerHTML = `
       <div class="places__scope">${scope}</div>

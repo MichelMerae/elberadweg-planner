@@ -83,11 +83,17 @@ export function thinAlongRoute(pois, fromKm, { bucketKm = 5, perBucket = 5 } = {
     const groups = [...byCategory.entries()]
       .map(([category, indices]) => ({
         category,
-        // Least detour first. The index tie-break says what happens to two places the
-        // same distance off route: the one the rider reaches first. Array.sort is stable
-        // and these arrive in ride order, so it is documentation as much as code — but a
-        // comparator that answers 0 for a real difference is the kind of thing a later
-        // reader "simplifies" into a bug, and this one is cheap.
+        // Least detour first, and on a tie the place the rider reaches first.
+        //
+        // `|| a - b` is BELT AND BRACES, and deliberately so: sort has been stable by
+        // spec since ES2019 and these indices are pushed in ride order above, so removing
+        // it cannot change any answer this function produces. No test can kill it — a
+        // mutation sweep will report deleting it as survived every single time, and that
+        // is a fact about the expression, not a hole in the suite. ('breaks a tie between
+        // equal detours by ride order' pins the behaviour, and passes either way.) It is
+        // kept because it states the comparator's whole intent at the comparator, and
+        // because it is what would still hold ride order if the groups above ever stopped
+        // being built in it.
         indices: indices.slice().sort((a, b) => pois[a].offsetKm - pois[b].offsetKm || a - b),
       }))
       // Rarest first, counted WITHIN THIS BUCKET — the day's totals are the wrong

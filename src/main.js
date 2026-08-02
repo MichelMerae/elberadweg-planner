@@ -615,9 +615,24 @@ async function boot() {
     // diverge. Day 1 out of Hamburg is what this is for — 771 food POIs of which 540 sit
     // in the first 5 km, so the old prefix put every one of its 40 rows on km 155.8 and
     // left the other 75 km of the day with nothing.
-    const alongDay = (kind) => thinAlongRoute(poisInRange(poiData, startKm, endKm, { kind }), startKm);
-    const food = day && !poisMissing ? alongDay('food') : [];
-    const sights = day && !poisMissing ? alongDay('sight') : [];
+    //
+    // The day's WHOLE list is kept alongside the thinned one, and only its length travels
+    // on: the panel's header names it ("Food on the way (63 of 771)"), so the rider can
+    // see that a choice was made on their behalf. Nothing downstream is handed the whole
+    // list — see places.js's section() for why there is no "show all" behind that 771.
+    //
+    // `startKm`, NOT 0, is the second argument, and this line is the only thing guarding
+    // it: no test imports this module, and thinAlongRoute answers plausibly either way.
+    // Day 1 starts at km 155.8, which is not a multiple of the 5 km bucket, so counting
+    // buckets from the road's origin shifts every boundary 0.8 km and keeps a different
+    // set — 68 food places instead of 63, still spread over the whole day, so nothing on
+    // screen looks wrong. pois.test.js's 'counts its buckets from the day start, not from
+    // the road origin' pins the function; only this comment pins the call.
+    const onDay = (kind) => (day && !poisMissing ? poisInRange(poiData, startKm, endKm, { kind }) : []);
+    const foodAll = onDay('food');
+    const sightsAll = onDay('sight');
+    const food = thinAlongRoute(foodAll, startKm);
+    const sights = thinAlongRoute(sightsAll, startKm);
     // Which day owns a favorite's km — the favorites list's "Day 3" / "beyond plan" tag.
     // Asked of the model, once, rather than re-spelled in places.js; the day list is
     // captured here so the lookup does not rebuild it per favorite.
@@ -638,6 +653,10 @@ async function boot() {
       selectedTownKey: day?.townChoice ? townKey(day.townChoice) : null,
       food,
       sights,
+      // Before the thinning, not after: the point of these is to say how much the two
+      // lists above are a selection FROM.
+      foodTotal: foodAll.length,
+      sightsTotal: sightsAll.length,
       favorites: favs,
       dayNumberForKm,
       breakKeys,

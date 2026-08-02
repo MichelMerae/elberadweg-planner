@@ -358,6 +358,83 @@ describe('createPlaces - the 150-row cap', () => {
   });
 });
 
+// What the rider is NOT shown, and how they find out. main.js thins food and sights
+// spatially before either this panel or the map sees them (pois.js's thinAlongRoute:
+// five per 5 km ridden), so day 1 out of Hamburg's 771 food places arrive here as 63.
+// Counted off the array as given, the header read "Food on the way (63)" and the footer
+// stayed away because 63 is under the cap: the rider was shown a selection made on their
+// behalf with nothing at all saying so.
+describe('createPlaces - a thinned list says how many there really are', () => {
+  const THINNED = [poi('Kaffeeklappe', 161), poi('Deichkrug', 178), poi('Fahrhaus', 231)];
+
+  it('names the true total beside the rendered count', () => {
+    const places = mount();
+    places.render(renderArgs({ food: THINNED, foodTotal: 771 }));
+
+    expect(el.querySelector('.pois--food .pois__count').textContent).toBe('(3 of 771)');
+    // Both numbers, in that order: "(771 of 3)" and a bare "(771)" are each one edit away
+    // and each tells the rider something false about the list under it.
+    expect(el.querySelector('.pois--food .pois__summary').textContent).toContain('Food on the way (3 of 771)');
+  });
+
+  it('names the true total for sights too', () => {
+    const places = mount();
+    places.render(renderArgs({ sights: THINNED, sightsTotal: 138 }));
+
+    expect(el.querySelector('.pois--sight .pois__count').textContent).toBe('(3 of 138)');
+  });
+
+  // A quiet stretch: thinning had nothing to drop, so there is no "of" to report. The
+  // header must read exactly as it always did rather than "(3 of 3)".
+  it('keeps the plain count when the day was small enough to show whole', () => {
+    const places = mount();
+    places.render(renderArgs({ food: THINNED, foodTotal: 3, sights: THINNED, sightsTotal: 3 }));
+
+    expect(el.querySelector('.pois--food .pois__count').textContent).toBe('(3)');
+    expect(el.querySelector('.pois--sight .pois__count').textContent).toBe('(3)');
+  });
+
+  it('keeps the plain count when no total is named at all', () => {
+    const places = mount();
+    places.render(renderArgs({ food: THINNED }));
+
+    expect(el.querySelector('.pois--food .pois__count').textContent).toBe('(3)');
+  });
+
+  // Deliberately no escape hatch, and this is what says so. Expanding to all 771 would
+  // render 708 rows with no marker behind them: main.js thins ONCE, upstream of both this
+  // panel and the map, precisely so that every row has a pin and every pin has a row, and
+  // a marker hover highlights a row by key. (771 rows is also not a list anyone can read.)
+  // The footer measures the cap against the list as given, never against the true total.
+  it('offers no "show all" for a thinned list, whose rows are all the map has pins for', () => {
+    const places = mount();
+    places.render(renderArgs({ food: THINNED, foodTotal: 771, sights: THINNED, sightsTotal: 138 }));
+
+    expect(el.querySelector('.pois--food .places__more')).toBeNull();
+    expect(el.querySelector('.pois--sight .places__more')).toBeNull();
+    expect(el.textContent).not.toContain('show all');
+  });
+
+  // The lists main.js does NOT thin — the overnight candidates and the favorites — must
+  // be untouched by the new parameter: the whole list is on the map either way, so their
+  // count is still the plain one and their "show all" is still there and still works.
+  it('leaves the sections nothing thinned counting and expanding as they always did', () => {
+    const places = mount();
+    const manyTowns = Array.from({ length: 160 }, (_, i) => town(`Town ${i}`, 161 + i * 0.2));
+    places.render(renderArgs({ towns: manyTowns, favorites: MANY, dayNumberForKm: () => 3 }));
+
+    expect(el.querySelector('.pois--town .pois__count').textContent).toBe('(160)');
+    expect(el.querySelector('.pois--fav .pois__count').textContent).toBe('(451)');
+    expect(el.querySelector('.pois--town .places__more').textContent).toContain('showing the first 150 of 160');
+    expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 150 of 451');
+
+    el.querySelector('.pois--town [data-action="show-all"]').click();
+
+    expect(el.querySelectorAll('[data-place-section="town"]')).toHaveLength(160);
+    expect(el.querySelector('.pois--town .pois__count').textContent).toBe('(160)');
+  });
+});
+
 describe('createPlaces - missing POI data', () => {
   it('says the data is missing instead of pretending the stretch is empty', () => {
     const places = mount();

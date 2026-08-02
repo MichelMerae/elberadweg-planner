@@ -357,6 +357,35 @@ describe('thinAlongRoute', () => {
     expect(kms[0]).toBe(200);
   });
 
+  // The buckets are counted from THE DAY'S OWN START, and every fixture above begins on a
+  // multiple of bucketKm, where counting from the road's origin instead lands on exactly
+  // the same boundaries. Real days do not: day 1 out of Hamburg starts at km 155.8, and
+  // 155.8 mod 5 = 0.8, so its first bucket ends at km 160.8 where an origin of 0 would end
+  // it at 160.0. Three places either side of that 0.8 km gap are enough to tell the two
+  // apart — and they have to be told apart by NAME, because both origins keep two.
+  const OFF_GRID_START = 155.8;
+  const OFF_GRID = [
+    at('Deichkrug', 156.0, 'cafe', 0.9), // 0.2 km into the ride
+    at('Elbterrasse', 160.4, 'cafe', 0.3), // 4.6 km in — still the day's first 5 km
+    at('Fahrhaus Cafe', 161.0, 'cafe', 0.5), // 5.2 km in — the second
+  ];
+
+  test('counts its buckets from the day start, not from the road origin', () => {
+    // One slot per bucket. Deichkrug and Elbterrasse share the day's first 5 km, so the
+    // shorter detour takes that slot; Fahrhaus Cafe has the second bucket to itself.
+    expect(namesOf(thinAlongRoute(OFF_GRID, OFF_GRID_START, { perBucket: 1 }))).toEqual([
+      'Elbterrasse',
+      'Fahrhaus Cafe',
+    ]);
+    // From km 0 the boundary falls at 160.0 instead: Deichkrug is alone in [155, 160) and
+    // wins by default, and the other two share [160, 165). Two rows either way, spread
+    // either way — a count or a spread check cannot see the difference, only the names.
+    expect(namesOf(thinAlongRoute(OFF_GRID, 0, { perBucket: 1 }))).toEqual([
+      'Deichkrug',
+      'Elbterrasse',
+    ]);
+  });
+
   test('does not mutate the input array or its POI objects', () => {
     const snapshot = JSON.stringify(THREE_BUCKETS);
     const before = [...THREE_BUCKETS];
