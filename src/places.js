@@ -10,10 +10,11 @@
 // produce, and it produces it silently — every number still looks like a number.
 //
 // Every km-ordered list here runs in the rider's DIRECTION OF TRAVEL — the first row is
-// the first place they will reach — which matters twice over, because the 40-row cap
-// keeps the front of each list (see ROW_CAP). Food and sights arrive that way already
-// (poisInRange orders them); favorites are ordered here, being the one list with no
-// stretch to carry a direction (see inRideOrder).
+// the first place they will reach — which matters twice over, because the row cap keeps
+// the front of each list (see ROW_CAP). Food and sights arrive that way already
+// (poisInRange orders them, and thinAlongRoute thins them without disturbing that);
+// favorites are ordered here, being the one list with no stretch to carry a direction
+// (see inRideOrder).
 //
 // The overnight candidates are the deliberate exception: towns.js ranks them by how well
 // each suits the day's END — distance to it, weighted against the detour off route — and
@@ -33,11 +34,18 @@ import { esc, round1, townKey, poiKey, favGlyphFor } from './ui-util.js';
 // star switches off with the suite still green.
 import { favKey } from './favorites.js';
 
-// Presentation-only stopgap: a dense stretch can hold 450+ food POIs, and a panel
-// that scrolls 50,000 px is unusable. Ranking/grouping is a separate project —
-// until then, show the first 40 along the stretch and say how many there are.
+// A BACKSTOP, not the real cap. What bounds the food and sights lists now is the spatial
+// thinning in pois.js (thinAlongRoute): at most five places per 5 km ridden, spread
+// across categories, which turns day 1 out of Hamburg's 771 food POIs into 63 rows spread
+// over the whole 80 km. This number only bites on a list nothing thinned — an unusually
+// long day, or the favorites, which are global and have no stretch to thin along.
 //
-// A PREFIX of each list, which is what makes those 40 the first 40 the rider will
+// It was 40, and at 40 it undid the thinning: a thinned day already runs the length of
+// the ride, so cutting it back to 40 rows restored exactly the bug thinning fixes — every
+// row in the first few km and none in the last 75. Whatever this number is, it has to sit
+// clear of what a thinned day produces.
+//
+// A PREFIX of each list, which is what makes those rows the first ones the rider will
 // reach: every list here already runs in the rider's direction of travel, so the cap
 // has only to take the front of it. It used to take the front of an absolute-km
 // ascending list, which downstream is the far end of the day — a rider looking for
@@ -46,10 +54,11 @@ import { favKey } from './favorites.js';
 // The order, not nearest-by-detour, and map.js's POI_MAP_CAP must agree on both the
 // number and the criterion: the map draws that same set, and marker-hover highlights a
 // row by key, so a marker whose row was never rendered highlights nothing. They agree
-// by construction rather than by coincidence — main.js hands both this panel and the
-// map the one array poisInRange returned, and each takes its first 40. (map.js imports
-// nothing but Leaflet, which is why the constant is duplicated rather than shared.)
-const ROW_CAP = 40;
+// by construction rather than by coincidence — main.js thins ONCE, upstream of both, and
+// hands this panel and the map the one array, and each takes its first 150. THE TWO
+// NUMBERS MUST STAY EQUAL. (map.js imports nothing but Leaflet, which is why the constant
+// is duplicated rather than shared.)
+const ROW_CAP = 150;
 
 // Distance ridden from one absolute km to another, counted the rider's way: positive
 // along the trip whichever direction it runs. tripKm is linear, so the difference of
@@ -121,9 +130,9 @@ function rowActions(name, isBreak, isFav) {
 // whole reason this is not a plain sort. The front of a signed list is not the first
 // place the rider reaches: it is the place furthest behind them, which they will never
 // reach at all. `section`'s cap takes the FRONT of this list, so a plain sort spent the
-// 40 rows on places off the trip before it reached places on it — the same false
+// capped rows on places off the trip before it reached places on it — the same false
 // promise the caps themselves used to make, one layer in, and printed under the same
-// "showing the first 40" footer. Grouped, the cap fills itself with the trip first and
+// "showing the first N" footer. Grouped, the cap fills itself with the trip first and
 // only spends what is left over on the road behind, so the promise is true again.
 //
 // Reachable by design rather than exotic: the starred list is global and
@@ -174,7 +183,22 @@ export function createPlaces({ el, callbacks = {} }) {
   let lastRowHoverKey = null;
   let highlightKey = null;
 
-  function section(name, label, items, emptyText, renderRow) {
+  // `trueTotal` is how many places the day actually holds, for a list that arrived as a
+  // SELECTION from a larger one — main.js thins food and sights spatially before either
+  // this panel or the map sees them (pois.js's thinAlongRoute: five per 5 km ridden). Day
+  // 1 out of Hamburg holds 771 food places and 63 reach here, and counted off the array as
+  // given the header said "(63)": the rider was shown a choice made on their behalf with
+  // nothing saying a choice had been made. Omitted, or no larger than the list itself, the
+  // count is the plain (N) it always was — every section nothing thins passes nothing.
+  //
+  // There is deliberately NO "show all" for a thinned list, and it must not be added back
+  // by measuring the footer against trueTotal. main.js thins ONCE, upstream of both this
+  // panel and the map, so that the rows and the pins ARE the same set; a marker hover
+  // highlights a row by key, so expanding to all 771 would put 708 rows on screen with no
+  // marker behind them and invert the very invariant the single thinning exists to hold.
+  // 771 rows is also not a list anyone can read. The footer therefore stays measured
+  // against the list as given — which is the escape hatch for the sections that have one.
+  function section(name, label, items, emptyText, renderRow, trueTotal = null) {
     const capped = expanded.has(name) ? items : items.slice(0, ROW_CAP);
     const body = capped.length
       ? capped.map(renderRow).join('')
@@ -184,9 +208,16 @@ export function createPlaces({ el, callbacks = {} }) {
         ? `<p class="places__more">showing the first ${capped.length} of ${items.length} ·
              <button type="button" data-action="show-all" data-section="${name}">show all</button></p>`
         : '';
+    // The first number keeps the meaning it has everywhere else in this header — the
+    // length of the section's own list, not of the rendered prefix — so a thinned list
+    // long enough to also hit ROW_CAP reads "(200 of 771)" over "showing the first 150
+    // of 200", and the two agree about what 200 is.
+    const count = trueTotal != null && trueTotal > items.length
+      ? `${items.length} of ${trueTotal}`
+      : `${items.length}`;
     return `
       <details class="pois pois--${name}" open>
-        <summary class="pois__summary">${label} <span class="pois__count">(${items.length})</span></summary>
+        <summary class="pois__summary">${label} <span class="pois__count">(${count})</span></summary>
         <div class="pois__body">${body}${more}</div>
       </details>`;
   }
@@ -265,6 +296,10 @@ export function createPlaces({ el, callbacks = {} }) {
       selectedTownKey = null,
       food: foodIn,
       sights: sightsIn,
+      // How many food places and sights the day really holds, before main.js thinned
+      // them along the route. See section(): they only reach the header.
+      foodTotal = null,
+      sightsTotal = null,
       favorites: favoritesIn,
       // itinerary.dayOwnsKm's answer for a km, 1-based, from main.js. See dayTagFor.
       dayNumberForKm,
@@ -307,8 +342,8 @@ export function createPlaces({ el, callbacks = {} }) {
     // sections say so rather than pretending the stretch is empty.
     const poiSections = poisMissing
       ? '<p class="pois__note">No POI data — run npm run build:data</p>'
-      : section('food', '☕ Food on the way', food, 'No food stops on this stretch.', (p, i) => poiRow(p, i, 'food', ctx)) +
-        section('sight', '📷 Worth seeing', sights, 'No sights on this stretch.', (p, i) => poiRow(p, i, 'sight', ctx));
+      : section('food', '☕ Food on the way', food, 'No food stops on this stretch.', (p, i) => poiRow(p, i, 'food', ctx), foodTotal) +
+        section('sight', '📷 Worth seeing', sights, 'No sights on this stretch.', (p, i) => poiRow(p, i, 'sight', ctx), sightsTotal);
 
     el.innerHTML = `
       <div class="places__scope">${scope}</div>

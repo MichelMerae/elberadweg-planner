@@ -1,7 +1,7 @@
 import './style.css';
 import { loadRoute, createRouteIndex, pointAtKm, stretchCoords, snap } from './route.js';
 import { loadTowns, townsNear, nearestTown } from './towns.js';
-import { loadPois, poisInRange } from './pois.js';
+import { loadPois, poisInRange, thinAlongRoute } from './pois.js';
 import { createTrip, proposeEnd } from './trip.js';
 import { createItinerary, breakKey, fitDaysToLength } from './itinerary.js';
 import { ARRIVED_EPSILON_KM, MIN_DAY_KM } from './boundaries.js';
@@ -606,8 +606,33 @@ async function boot() {
     // The span is in TRIP order, so it descends on a downstream trip; poisInRange
     // normalises it (it used to answer [] — an empty Food and Sights section for every
     // day of such a trip).
-    const food = day && !poisMissing ? poisInRange(poiData, startKm, endKm, { kind: 'food' }) : [];
-    const sights = day && !poisMissing ? poisInRange(poiData, startKm, endKm, { kind: 'sight' }) : [];
+    //
+    // Then thinned ALONG the day — five per 5 km ridden, spread across categories — and
+    // thinned HERE, once, rather than in the panel and the map. Both of them cap what
+    // they are given to a prefix, and a marker hover highlights a panel row by key, so a
+    // marker whose row was never rendered highlights nothing: the two sets stay identical
+    // only because they are the same array. Thinning twice would be two chances to
+    // diverge. Day 1 out of Hamburg is what this is for — 771 food POIs of which 540 sit
+    // in the first 5 km, so the old prefix put every one of its 40 rows on km 155.8 and
+    // left the other 75 km of the day with nothing.
+    //
+    // The day's WHOLE list is kept alongside the thinned one, and only its length travels
+    // on: the panel's header names it ("Food on the way (63 of 771)"), so the rider can
+    // see that a choice was made on their behalf. Nothing downstream is handed the whole
+    // list — see places.js's section() for why there is no "show all" behind that 771.
+    //
+    // `startKm`, NOT 0, is the second argument, and this line is the only thing guarding
+    // it: no test imports this module, and thinAlongRoute answers plausibly either way.
+    // Day 1 starts at km 155.8, which is not a multiple of the 5 km bucket, so counting
+    // buckets from the road's origin shifts every boundary 0.8 km and keeps a different
+    // set — 68 food places instead of 63, still spread over the whole day, so nothing on
+    // screen looks wrong. pois.test.js's 'counts its buckets from the day start, not from
+    // the road origin' pins the function; only this comment pins the call.
+    const onDay = (kind) => (day && !poisMissing ? poisInRange(poiData, startKm, endKm, { kind }) : []);
+    const foodAll = onDay('food');
+    const sightsAll = onDay('sight');
+    const food = thinAlongRoute(foodAll, startKm);
+    const sights = thinAlongRoute(sightsAll, startKm);
     // Which day owns a favorite's km — the favorites list's "Day 3" / "beyond plan" tag.
     // Asked of the model, once, rather than re-spelled in places.js; the day list is
     // captured here so the lookup does not rebuild it per favorite.
@@ -628,6 +653,10 @@ async function boot() {
       selectedTownKey: day?.townChoice ? townKey(day.townChoice) : null,
       food,
       sights,
+      // Before the thinning, not after: the point of these is to say how much the two
+      // lists above are a selection FROM.
+      foodTotal: foodAll.length,
+      sightsTotal: sightsAll.length,
       favorites: favs,
       dayNumberForKm,
       breakKeys,
