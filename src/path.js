@@ -108,6 +108,30 @@ export function createPath({
     active.push(c);
   }
 
+  // WHERE THE ALT LINE ENDS, the rider rejoins the canonical bank.
+  //
+  // Crossings only exist where both banks do, so the alt line stops at the
+  // outermost one — the canonical route runs on past it (in the real data, ~180 km
+  // into Czechia beyond the last German bridge) with no alt road alongside. A rider
+  // still on the alt bank there has nowhere to ride, so they cross back at that last
+  // anchor and pay it, exactly as they must on the ground.
+  //
+  // The rejoin is FORCED, not chosen, and the two are kept apart deliberately:
+  // `composed` drives all the geometry below, while `active` — the rider's own
+  // decisions — is what activeCrossings() hands to persistence. Storing a forced
+  // consequence would make it indistinguishable from a decision, and re-planning
+  // with a nearer destination would then carry a phantom choice.
+  //
+  // Without this, the uncovered tail contributed ZERO ridden km: lengthKm
+  // under-reported the trip by the whole Czech stretch and tripKm saturated, so
+  // every day boundary past the border collapsed onto one point.
+  const outerAnchor = trip.direction === 1 ? last : first;
+  const endsPastAltLine =
+    active.length % 2 === 1 && // an odd number of crossings leaves the rider on alt
+    !!outerAnchor &&
+    (trip.destinationKm - outerAnchor.kmCanonical) * trip.direction > 0;
+  const composed = endsPastAltLine ? [...active, { ...outerAnchor, implicit: true }] : active;
+
   // Legs: consecutive [from, to] canonical spans, alternating bank line.
   // leg.crossingIn is the crossing ridden to ENTER this leg (null for the first).
   const canonicalBankAt = (km) =>
@@ -117,12 +141,12 @@ export function createPath({
   const legList = [];
   let cursor = trip.startKm;
   let onAlt = false;
-  for (const c of active) {
+  for (const c of composed) {
     legList.push({
       onAlt,
       fromKm: cursor,
       toKm: c.kmCanonical,
-      crossingIn: legList.length ? active[legList.length - 1] : null,
+      crossingIn: legList.length ? composed[legList.length - 1] : null,
     });
     cursor = c.kmCanonical;
     onAlt = !onAlt;
@@ -131,23 +155,21 @@ export function createPath({
     onAlt,
     fromKm: cursor,
     toKm: trip.destinationKm,
-    crossingIn: active.length ? active[active.length - 1] : null,
+    crossingIn: composed.length ? composed[composed.length - 1] : null,
   });
 
-  // Alt distance between two CANONICAL km, both pulled into the table's covered
-  // range first. Outside it altKmAt has no answer at all, and the covered end is
-  // the nearest thing to one — measuring from alt km 0 instead (what a bare
-  // `?? 0` does) is a distance from wherever the alt line happens to be numbered
-  // from, which is not a distance the rider ever covers.
-  //
-  // KNOWN GAP, deliberately left: an alt leg CAN run past the outer anchors — the
-  // `beyond` guard above only demands a further anchor exists, not that the leg's
-  // END is covered — and the uncovered tail then contributes 0 ridden km, so
-  // tripKm saturates across it. Reachable today: a downstream trip crossing at the
-  // second-to-last anchor and finishing beyond the last one.
-  const coverFrom = (km) =>
-    table.length ? Math.min(Math.max(km, first.kmCanonical), last.kmCanonical) : km;
-  const altSpan = (a, b) => Math.abs(altKmAt(table, coverFrom(b)) - altKmAt(table, coverFrom(a)));
+  // Alt km at a canonical km, for a km the composed path actually rides on the alt
+  // line. Throws instead of returning altKmAt's null: every alt leg is now bounded
+  // by crossings — chosen ones in the middle, the forced rejoin at the end — so an
+  // uncovered km reaching here means the composition above is wrong, and the quiet
+  // version of that (a `?? 0` fallback, or clamping into coverage) is what hid a
+  // 180 km under-report. Same posture as tripKm's unreachable throw below.
+  function altAt(km) {
+    const a = altKmAt(table, km);
+    if (a === null) throw new Error(`path: canonical km ${km} is not on the alt line`);
+    return a;
+  }
+  const altSpan = (a, b) => Math.abs(altAt(b) - altAt(a));
   const legRidden = (leg) => (leg.onAlt ? altSpan(leg.fromKm, leg.toKm) : Math.abs(leg.toKm - leg.fromKm));
 
   // Cumulative ridden km at each leg start, crossings included as steps.
@@ -191,8 +213,8 @@ export function createPath({
       const len = legRidden(leg);
       if (r > len) r = len; // landed inside the NEXT crossing step: pin to this leg's end
       if (!leg.onAlt) return leg.fromKm + r * trip.direction;
-      const altFrom = altKmAt(table, coverFrom(leg.fromKm));
-      const altTo = altKmAt(table, coverFrom(leg.toKm));
+      const altFrom = altAt(leg.fromKm);
+      const altTo = altAt(leg.toKm);
       const dir = altTo >= altFrom ? 1 : -1;
       return canonicalKmFromAlt(table, altFrom + r * dir);
     }
@@ -240,7 +262,11 @@ export function createPath({
       const oa = (km) => (km - trip.startKm) * trip.direction;
       const lo = Math.min(oa(a), oa(b));
       const hi = Math.max(oa(a), oa(b));
+      // `chosen` is the rider's own decisions; `implicit` marks the rejoin the alt
+      // line forces on them, so the day panel can say "you cross back here" rather
+      // than offering it as an untaken option.
       const chosenIds = new Set(active.map((c) => c.id));
+      const implicitId = endsPastAltLine ? outerAnchor.id : null;
       return table
         .filter((c) => oa(c.kmCanonical) > lo && oa(c.kmCanonical) <= hi)
         .sort((x, y) => (x.kmCanonical - y.kmCanonical) * trip.direction)
@@ -248,11 +274,19 @@ export function createPath({
           const isChosen = chosenIds.has(c.id);
           // Would pressing this cross toggle ONTO the alt line? Then it needs a
           // further anchor in trip direction (deviation 5). Crossing back is free.
-          const priorParity = active.filter((x) => oa(x.kmCanonical) < oa(c.kmCanonical)).length;
+          // Parity comes from the COMPOSED list because that is the bank the rider
+          // is actually on when they get here; the forced rejoin sits at the
+          // outermost anchor, so no table crossing lies beyond it either way.
+          const priorParity = composed.filter((x) => oa(x.kmCanonical) < oa(c.kmCanonical)).length;
           const ontoAlt = !isChosen && priorParity % 2 === 0;
           const beyond =
             trip.direction === 1 ? c.kmCanonical < last?.kmCanonical : c.kmCanonical > first?.kmCanonical;
-          return { ...c, chosen: isChosen, canCross: isChosen || !ontoAlt || (!!altIndex && beyond) };
+          return {
+            ...c,
+            chosen: isChosen,
+            implicit: c.id === implicitId,
+            canCross: isChosen || !ontoAlt || (!!altIndex && beyond),
+          };
         });
     },
 
@@ -282,8 +316,8 @@ export function createPath({
         return trip.direction === 1 ? { from: back(lo), to: back(hi) } : { from: back(hi), to: back(lo) };
       }
       function stretchAlt(fromC, toC) {
-        const fa = altKmAt(table, coverFrom(fromC));
-        const ta = altKmAt(table, coverFrom(toC));
+        const fa = altAt(fromC);
+        const ta = altAt(toC);
         return orient(stretchCoords(altIndex, Math.min(fa, ta), Math.max(fa, ta)), fa > ta);
       }
       function orient(coords, reversed) {
@@ -301,7 +335,15 @@ export function createPath({
       return pointAtKm(canonicalIndex, Math.min(Math.max(km, 0), canonicalIndex.totalKm));
     },
 
-    /** the composing crossings, in ride order — what persists and what renders as legs. */
+    /**
+     * The crossings the RIDER chose, in ride order — the set that persists.
+     *
+     * Deliberately not the composing list: a forced rejoin (see `composed` above)
+     * shapes the legs but was never a decision, and storing it would carry a
+     * phantom choice into the next re-plan. Renderers that need every crossing the
+     * path actually rides read `legs()[i].crossingIn`, where the forced one is
+     * flagged `implicit`.
+     */
     activeCrossings: () => active.slice(),
   });
 }

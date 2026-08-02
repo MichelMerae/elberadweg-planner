@@ -134,6 +134,90 @@ describe('downstream trips (destination < start)', () => {
   });
 });
 
+// The alt line exists only BETWEEN the outer anchors (canonical 100..300 here) —
+// the real one stops at the last German crossing while the canonical route runs on
+// into Czechia. A rider still on the alt bank when it runs out has no onward road.
+describe('the alt line ends: rejoining past the last anchor', () => {
+  const p = path({ startKm: 50, destinationKm: 380 }, ['a']);
+
+  it('lengthKm counts the tail past the anchor instead of swallowing it', () => {
+    expect(p.lengthKm).toBeCloseTo(50 + 0.5 + 190 + 0.4 + 80);
+  });
+  it('tripKm keeps climbing across the outer anchor', () => {
+    expect(p.tripKm(300)).toBeCloseTo(50 + 0.5 + 190);          // near side, as at any crossing
+    expect(p.tripKm(340)).toBeCloseTo(50 + 0.5 + 190 + 0.4 + 40);
+    expect(p.tripKm(380)).toBeCloseTo(p.lengthKm);
+  });
+  it('absoluteKm round-trips through the tail', () => {
+    for (const km of [150, 299, 300, 301, 340, 380]) {
+      expect(p.absoluteKm(p.tripKm(km))).toBeCloseTo(km);
+    }
+  });
+  it('bankAt returns to the canonical bank past the anchor', () => {
+    expect(p.bankAt(299)).toBe('left');
+    expect(p.bankAt(301)).toBe('right');
+  });
+  it('legs() carries the forced rejoin as the last leg crossingIn', () => {
+    const legs = p.legs();
+    expect(legs.map((l) => l.bank)).toEqual(['right', 'left', 'right']);
+    expect(legs[2]).toMatchObject({ fromKm: 300, toKm: 380 });
+    expect(legs[2].riddenLengthKm).toBeCloseTo(80);
+    expect(legs[2].crossingIn.id).toBe('c');
+    expect(legs[2].crossingIn.implicit).toBe(true);
+  });
+  it('the rider never chose the rejoin, so it is not persisted', () => {
+    expect(p.activeCrossings().map((c) => c.id)).toEqual(['a']);
+    expect(p.crossingsBetween(50, 380).find((r) => r.id === 'c')).toMatchObject({
+      chosen: false,
+      implicit: true,
+    });
+  });
+  it('a trip ending exactly ON the outer anchor needs no rejoin', () => {
+    const q = path({ startKm: 50, destinationKm: 300 }, ['a']);
+    expect(q.legs()).toHaveLength(2);
+    expect(q.lengthKm).toBeCloseTo(50 + 0.5 + 190);
+    expect(q.bankAt(300)).toBe('left');
+  });
+  it('crossing back before the anchor needs no rejoin either', () => {
+    const q = path({ startKm: 50, destinationKm: 380 }, ['a', 'b']);
+    expect(q.legs()).toHaveLength(3);
+    expect(q.legs()[2].crossingIn.id).toBe('b');
+    expect(q.legs()[2].crossingIn.implicit).toBeUndefined();
+    expect(q.lengthKm).toBeCloseTo(50 + 0.5 + 110 + 0.3 + 180);
+  });
+});
+
+describe('the alt line ends: rejoining past the first anchor (downstream)', () => {
+  const p = path({ startKm: 350, destinationKm: 50 }, ['b']);
+
+  it('lengthKm counts the uncovered tail', () => {
+    expect(p.lengthKm).toBeCloseTo(150 + 0.3 + 110 + 0.5 + 50);
+  });
+  it('tripKm is strictly increasing across the outer anchor, not saturating', () => {
+    expect(p.tripKm(100)).toBeCloseTo(150 + 0.3 + 110);
+    expect(p.tripKm(99)).toBeCloseTo(150 + 0.3 + 110 + 0.5 + 1);
+    expect(p.tripKm(75)).toBeCloseTo(150 + 0.3 + 110 + 0.5 + 25);
+    expect(p.tripKm(50)).toBeCloseTo(p.lengthKm);
+  });
+  it('absoluteKm round-trips through the tail', () => {
+    for (const km of [200, 150, 100, 99, 75, 50]) {
+      expect(p.absoluteKm(p.tripKm(km))).toBeCloseTo(km);
+    }
+  });
+  it('bankAt returns to the canonical bank past the anchor', () => {
+    expect(p.bankAt(101)).toBe('left');
+    expect(p.bankAt(99)).toBe('right');
+  });
+  it('legs() carries the forced rejoin, activeCrossings does not', () => {
+    const legs = p.legs();
+    expect(legs.map((l) => l.bank)).toEqual(['right', 'left', 'right']);
+    expect(legs[2]).toMatchObject({ fromKm: 100, toKm: 50 });
+    expect(legs[2].crossingIn.id).toBe('a');
+    expect(legs[2].crossingIn.implicit).toBe(true);
+    expect(p.activeCrossings().map((c) => c.id)).toEqual(['b']);
+  });
+});
+
 describe('crossingsBetween', () => {
   const p = path({ startKm: 50, destinationKm: 350 }, ['a']);
   it('annotates chosen state and canCross, ordered the trip way', () => {
