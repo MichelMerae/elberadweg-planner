@@ -207,6 +207,15 @@ lengths, gaps, monotonicity, anchor snaps, crossing table stats, POI/town counts
 
 - **The Brunsbüttel arm** north of Hamburg — a second terminus, not a bank pair; needs a
   spur concept the overlay model deliberately avoids. Recorded for later.
+  **What this costs, recorded honestly (measured during implementation):** it is not that
+  the northern stretch has no other bank or no crossings. The official right bank starts at
+  Brunsbüttel and runs parallel to the left bank from roughly left km 35 to the Hamburg
+  hand-over, and that stretch carries real Elbe crossings — the Glückstadt–Wischhafen ferry
+  most obviously. They are undroppable-by-geography but undrivable-by-model: the canonical
+  line *is* the left bank north of Hamburg and the left bank again as `route.alt.json`
+  south of it, and one alt file tagged `bank: 'left'` cannot also be the right bank. So the
+  empty northern stretch is a deliberate consequence of the one-alt-line model, **not** a
+  derivation bug — do not "fix" it by widening the derivation corridor.
 - Czech bank variants — no official second bank exists; the single line is the road there.
 - The Elbe-source routing (Špindlerův Mlýn) as an alternative to the Prague spur.
 - Recommending a bank ("the left is nicer here") — the app offers the choice, not opinions.
