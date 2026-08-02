@@ -658,8 +658,11 @@ export function createMap({
   // and setFavoriteMarkers use: clearLayers first, so a repeat call replaces the
   // markers rather than stacking a second ⇄ (and a second click handler, still
   // bound to the previous render's crossing) on top of the first. A crossing
-  // the rider canCross reads at full opacity; one out of reach for the focused
-  // day dims, so the shortcut doesn't invite a click that would only be refused.
+  // the rider canCross reads at full opacity; one out of reach dims, so the
+  // shortcut doesn't invite a click that would only be refused. main.js sends
+  // the whole TRIP's crossings, not the focused day's — this is the map-wide
+  // picture of where the river can be crossed, and the day panel is the per-day
+  // view of the same annotated rows.
   function setCrossingMarkers(crossings) {
     crossingLayer.clearLayers();
     (crossings || []).forEach((c) => {

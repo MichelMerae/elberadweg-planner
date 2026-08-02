@@ -24,11 +24,19 @@ export function pointAtDistance(line, km) {
 }
 
 /**
- * Snap a [lng, lat] point onto the line, returning how far along the line
- * the snapped point sits and the snapped coordinate itself.
+ * Snap a [lng, lat] point onto the line, returning how far along the line the
+ * snapped point sits, the snapped coordinate itself, and how far the input point
+ * was FROM the line.
+ *
+ * `offsetKm` is turf's own `dist` — the perpendicular offset it already computed
+ * in order to find the nearest point, so reading it out costs nothing. It exists
+ * because the app now draws TWO lines: a caller holding both asks each one to snap
+ * and takes the closer answer (main.js's snapToEitherLine), and doing that with a
+ * distance formula of its own would put a second copy of this module's geometry in
+ * a module that has none.
  * @param {Feature<LineString>|LineString} line
  * @param {[number, number]} lngLat
- * @returns {{ distanceKm: number, coord: [number, number] }}
+ * @returns {{ distanceKm: number, coord: [number, number], offsetKm: number }}
  */
 export function snap(line, lngLat) {
   const point = turf.point(lngLat);
@@ -36,6 +44,7 @@ export function snap(line, lngLat) {
   return {
     distanceKm: snapped.properties.location,
     coord: snapped.geometry.coordinates,
+    offsetKm: snapped.properties.dist,
   };
 }
 

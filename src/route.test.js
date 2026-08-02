@@ -216,6 +216,15 @@ describe('snap', () => {
     const { distanceKm } = snap(meridianLine, [0, 51.0]);
     expect(distanceKm).toBeCloseTo(0, 3);
   });
+
+  // How far the point was FROM the line, which is a different question from how far
+  // along it the snap landed — and the one a caller holding two lines asks to decide
+  // which of them was clicked.
+  it('reports the offset from the line, zero for a point already on it', () => {
+    // 0.01 degrees of longitude at 50.5 N is ~0.71 km.
+    expect(snap(meridianLine, [0.01, 50.5]).offsetKm).toBeCloseTo(0.71, 1);
+    expect(snap(meridianLine, [0, 50.5]).offsetKm).toBeCloseTo(0, 3);
+  });
 });
 
 describe('alt data loaders', () => {

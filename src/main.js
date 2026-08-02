@@ -1,8 +1,9 @@
 import './style.css';
-import { loadRoute, createRouteIndex, pointAtKm, stretchCoords, snap } from './route.js';
+import { loadRoute, loadAltRoute, loadCrossings, createRouteIndex, snap } from './route.js';
 import { loadTowns, townsNear, nearestTown } from './towns.js';
 import { loadPois, poisInRange, thinAlongRoute } from './pois.js';
 import { createTrip, proposeEnd } from './trip.js';
+import { createPath, canonicalKmFromAlt } from './path.js';
 import { createItinerary, breakKey, fitDaysToLength } from './itinerary.js';
 import { ARRIVED_EPSILON_KM, MIN_DAY_KM } from './boundaries.js';
 import { createPlanStore } from './storage.js';
@@ -30,8 +31,24 @@ async function boot() {
   // POI data is optional: if it fails to load (e.g. build:data never ran), the
   // app still boots and the POI sections show a note. A rejected loadPois()
   // must not sink the whole Promise.all, so it resolves to null on failure.
-  const [route, towns, pois, elevationRaw] = await Promise.all([
+  const [route, altRoute, crossings, towns, pois, elevationRaw] = await Promise.all([
     loadRoute(),
+    // The second bank and the crossing table are optional in exactly the sense the
+    // POIs are, and for the same reason: a checkout whose build:data predates them
+    // still boots. It boots on ONE bank — createPath composes the canonical line
+    // alone from a null altIndex and an empty table, the day panel offers no
+    // crossings, and the map draws no second line. Nothing checks these two against
+    // each other: an alt line with no crossings has no way onto it (every leg
+    // toggle needs an anchor), and crossings with no alt line are all refused by
+    // createPath's own `!altIndex` guard.
+    loadAltRoute().catch((err) => {
+      console.warn('planner-app: alt bank unavailable', err);
+      return null;
+    }),
+    loadCrossings().catch((err) => {
+      console.warn('planner-app: crossing table unavailable', err);
+      return [];
+    }),
     loadTowns(),
     loadPois().catch((err) => {
       console.warn('planner-app: POI data unavailable', err);
@@ -60,6 +77,11 @@ async function boot() {
   // Straight off route.js's turf helpers that is ~250 ms a frame — measured — and
   // off the index it is microseconds.
   const routeIndex = createRouteIndex(route);
+  // The same index over the second bank, and load-bearing for the same reason: every
+  // render asks path.coords / path.pointAt for stretches and points of whichever line
+  // the rider is on, and half of those reads are off this one. null when there is no
+  // alt line, which is also how createPath is told there is no bank to cross to.
+  const altIndex = altRoute ? createRouteIndex(altRoute) : null;
 
   // Storage owns the named plans; itinerary is now pure trip math fed from the
   // active plan via hydrate(). load() runs any v1→v2 migration and guarantees at
@@ -76,13 +98,27 @@ async function boot() {
     totalKm,
   });
   const initial = store.load();
-  // The window belongs to the PLAN, so switching plans switches windows. These two
-  // bindings are rebuilt as a PAIR, by loadPlanIntoModel and nowhere else:
-  // createItinerary takes its trip once, at construction — which is what lets every day
-  // chain off the window without re-passing it — so a new window means a new model, and
-  // reassigning only `trip` would leave the model measuring against the old one.
-  // Nothing outside boot() holds either object; every use below goes through these names.
+  // The window and the bank choices both belong to the PLAN, so switching plans
+  // switches both. These three bindings are rebuilt as a TRIO, by loadPlanIntoModel and
+  // nowhere else: createPath takes its trip and createItinerary takes its path once, at
+  // construction — which is what lets every day chain off the window without re-passing
+  // it — so a new window or a new crossing means a new model, and reassigning only
+  // `trip` would leave the two below measuring against the old one.
+  // Nothing outside boot() holds any of them; every use below goes through these names.
+  //
+  // WHICH OF `trip` AND `path` A CALLER WANTS, because they are the same window measured
+  // two ways and the wrong one is silent:
+  //
+  //   trip   the canonical window — its two ends, contains/clampKm, and everything
+  //          STORED. Storage, proposeEnd and the crossing bookkeeping read it.
+  //   path   the same window as the rider RIDES it, over whichever bank they chose.
+  //          Every renderer, the itinerary, and every km that reaches a screen.
+  //
+  // The renderers never learn banks exist: they are handed the path AS the trip, and it
+  // answers tripKm/absoluteKm/advance/lengthKm in ridden km. Absolute km stay canonical
+  // on both, which is what keeps a stored plan readable whichever banks it was built on.
   let trip;
+  let path;
   let itinerary;
   loadPlanIntoModel(store.getActivePlan());
 
@@ -153,9 +189,15 @@ async function boot() {
   // would be a mode that meant neither.
   const map = createMap({
     routeFeature: route,
+    // The bank the rider is not on, drawn once, faint and dashed. Context only — it is
+    // never rebuilt, because which bank is which is a fact about the river rather than
+    // about the plan; what the plan changes is the COMPOSED line, and that reaches the
+    // map as the focused-day highlight and the bank ribbon in the strip.
+    altRouteFeature: altRoute,
     onRouteClick: handleRouteClick,
     onPickPoint: handlePickPoint,
     onPoiClick: handleSelectPoi,
+    onCrossingClick: handleAddCrossingOrRemove,
     // Map-marker hover highlights the matching row in the left panel.
     onPoiHover: (poi) => places.highlightPoiRow(poi ? poiKey(poi) : null),
     onUserMove: () => {
@@ -270,6 +312,10 @@ async function boot() {
       onAddDay: () => handleAddDay(null),
       onRemoveBreak: handleRemoveBreak,
       onEditBreak: handleEditBreak,
+      // Crossing the river, as a day-planning action peer to ending the day: "⇄ Cross"
+      // on a crossing the day passes, × on one already taken.
+      onAddCrossing: handleAddCrossing,
+      onRemoveCrossing: handleRemoveCrossing,
       onAddCustomStop: handleAddCustomStop,
       onCancelCustomStop: handleCancelCustomStop,
       // Spec §6's "select this stop as destination": the day panel emits an index, and
@@ -343,10 +389,11 @@ async function boot() {
     }
   });
 
-  // Makes `plan` the one the app is editing: its window becomes the trip, the trip
-  // becomes a fresh itinerary, and the plan's days and breaks are replayed into it.
-  // Three steps that are only ever right together — boot and every plan switch both
-  // come through here rather than each spelling them out.
+  // Makes `plan` the one the app is editing: its window becomes the trip, its chosen
+  // crossings compose the trip into a path, the path becomes a fresh itinerary, and the
+  // plan's days and breaks are replayed into it. Four steps that are only ever right
+  // together — boot, every plan switch and every crossing toggle come through here
+  // rather than each spelling them out.
   //
   // Storage guarantees both window ends are finite (it repairs a ruined one to the whole
   // road, end by end), so createTrip cannot throw here; totalKm rides along so a window
@@ -355,10 +402,70 @@ async function boot() {
   // reason to fail booting.
   function loadPlanIntoModel(plan) {
     trip = createTrip({ startKm: plan?.startKm, destinationKm: plan?.destinationKm, totalKm });
-    itinerary = createItinerary({ trip });
+    path = composePath(trip, chosenCrossingIds(plan));
+    // The path IS the trip as far as the model is concerned: a day's targetKm is a
+    // distance RIDDEN, so the itinerary has to measure along the banks the rider chose
+    // or every boundary past the first crossing would sit at the wrong km.
+    itinerary = createItinerary({ trip: path });
     // Object form restores days AND breaks; a stored plan may predate breaks, so default
     // the field. The array form would leave the previous plan's breaks in place.
     itinerary.hydrate({ days: plan?.days ?? [], breaks: plan?.breaks ?? [] });
+  }
+
+  // A plan's crossing ids, minus any the table no longer knows. Storage keeps ids only
+  // and deliberately does not validate them (see normalizePlan) — the table is rebuilt
+  // by build:data and a crossing can genuinely disappear from it, which is this app's
+  // problem rather than a reason to reject the plan. Warned rather than dropped in
+  // silence: the rider's choice IS being forgotten, and the console is the only place
+  // that can say so.
+  function chosenCrossingIds(plan) {
+    const known = new Set(crossings.map((c) => c.id));
+    return (plan?.crossings ?? []).filter((id) => {
+      if (known.has(id)) return true;
+      console.warn(`planner-app: plan crossing "${id}" is not in crossings.json — dropped`);
+      return false;
+    });
+  }
+
+  // The path for a window and a set of chosen crossings. Two callers build one —
+  // loading a plan and moving a trip end — and everything except those two arguments is
+  // boot-time data, so this is where the four constants live rather than at both sites.
+  function composePath(forTrip, chosenIds) {
+    return createPath({
+      trip: forTrip,
+      chosenCrossingIds: chosenIds,
+      crossings,
+      canonicalIndex: routeIndex,
+      altIndex,
+      // Which bank the CANONICAL line runs on, per stretch of road — left to Hamburg,
+      // right to the border, neither through Czechia. It is what lets the path name the
+      // bank a leg is ridden on ("left bank · 94 km" in the strip's ribbon) instead of
+      // only saying whether it swapped.
+      segments: meta.segments,
+    });
+  }
+
+  // Chosen ids to persist: the ones composing the path now, PLUS previously chosen ids
+  // whose crossing sits outside the current window — kept so that shrinking and
+  // re-growing the window does not forget choices (spec §4). Same principle as the
+  // breaks, which also keep their km when the window moves off them.
+  //
+  // activeCrossings() and NOT the legs' crossingIn, which is the one place these two
+  // differ: where the alt bank's road ends the path forces a rejoin, and that crossing
+  // rides in a leg without ever having been decided. Stored, it would be indistinguish-
+  // able from a decision, and a later re-plan with a nearer destination would carry a
+  // choice the rider never made.
+  //
+  // The dormant half is read from the STORE rather than from anything in memory,
+  // because the model only ever holds the ids that compose: an id outside the window is
+  // filtered out by createPath and exists nowhere else.
+  function crossingIdsToPersist() {
+    const activeIds = new Set(path.activeCrossings().map((c) => c.id));
+    const dormant = (store.getActivePlan()?.crossings ?? []).filter((id) => {
+      const c = crossings.find((t) => t.id === id);
+      return c && !activeIds.has(id) && !trip.contains(c.kmCanonical);
+    });
+    return [...activeIds, ...dormant];
   }
 
   // Persist the active plan's committed state. Called ONLY after user
@@ -369,6 +476,11 @@ async function boot() {
     store.saveActivePlan({
       days: itinerary.getDays().map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice })),
       breaks: itinerary.getBreaks(),
+      // ALWAYS named, on every save, and that is not decoration: storage treats an
+      // omitted `crossings` the way it treats an omitted window — leave what is there —
+      // so removing the rider's last crossing has to arrive as an explicit []. Every
+      // save comes through here, so naming it here covers all of them.
+      crossings: crossingIdsToPersist(),
       // Named explicitly even though storage preserves an omitted window: what it
       // means to save a plan is to save the days AND the trip they were measured
       // along, and a save site that says only half of that leaves the two to be kept
@@ -432,12 +544,17 @@ async function boot() {
 
   // The plan is complete when the distance ridden comes within the shared arrival
   // tolerance of the TRIP's length — not the road's. Both sides are rider km: days
-  // clamp at the destination, so totalPlannedKm() never quite exceeds trip.lengthKm.
+  // clamp at the destination, so totalPlannedKm() never quite exceeds path.lengthKm.
   // Compared against totalKm instead, a 200 km window on a 1026 km road could never
   // be finished, and every day past its destination would still be offered.
   // The strip collapses its remainder on the same constant.
+  //
+  // The PATH's length, not the trip's, and they differ by every km a crossing adds:
+  // days are ridden km, so measured against the canonical window a two-bank trip would
+  // report itself finished while the rider still had the extra ridden km to go — the
+  // remainder would collapse and `+ add a day` would refuse, some kilometres short.
   function hasReachedDestination() {
-    return itinerary.totalPlannedKm() >= trip.lengthKm - ARRIVED_EPSILON_KM;
+    return itinerary.totalPlannedKm() >= path.lengthKm - ARRIVED_EPSILON_KM;
   }
 
   // "Near enough to BE there": the half-step of the 0.1 km grid every stored km sits
@@ -539,17 +656,25 @@ async function boot() {
     return itinerary.getDays()[index - 1].townChoice?.name ?? 'your last stop';
   }
 
-  // Every renderer below is handed the trip, and every km it puts on screen is counted
-  // from the rider's start. The km in the records stay absolute — that is the whole of
-  // the invariant, and the reason the conversion lives at the templates rather than here.
-  // The road's own length reaches the strip on the trip (createTrip keeps it), so the
-  // axis, the edge stubs and the window are one object rather than two arguments that
-  // could describe different roads. The two names are the ROAD's ends — the strip
-  // decides which of them names a trip end and which names a stub.
+  // Every renderer below is handed the PATH as its `trip`, and every km it puts on
+  // screen is therefore counted from the rider's start along the banks they chose. The
+  // km in the records stay absolute and canonical — that is the whole of the invariant,
+  // and the reason the conversion lives at the templates rather than here. No render
+  // module knows a second bank exists; they ask the same tripKm they always did and get
+  // a ridden answer, which is the entire trick (see path.js's header).
+  // The road's own length reaches the strip on the path (createTrip keeps it and
+  // createPath passes it through), so the axis, the edge stubs and the window are one
+  // object rather than two arguments that could describe different roads. The two names
+  // are the ROAD's ends — the strip decides which of them names a trip end and which
+  // names a stub.
   function renderStrip(focusedIndex) {
     strip.render({
       days: itinerary.getDays(),
-      trip,
+      trip: path,
+      // The bank ribbon under the axis: one span per leg of the composed path, with a ⇄
+      // tick where the rider crosses. Read-only — sent on every render because a
+      // crossing toggle reshapes every leg after it.
+      bankLegs: path.legs(),
       focusedIndex,
       breaks: itinerary.getBreaks(),
       originName: ORIGIN_NAME,
@@ -570,7 +695,12 @@ async function boot() {
   function renderDayPanel(day) {
     dayPanel.render({
       day,
-      trip,
+      trip: path,
+      // Every crossing this day rides past, annotated by the path: the ones the rider
+      // took become legs in the day's chain, the rest become the "Crossings you pass
+      // today" offer — crossing as a day-planning action, peer to ending the day.
+      // The span is the day's own, so the panel is never handed one it cannot place.
+      dayCrossings: day ? path.crossingsBetween(day.startKm, day.endKm) : [],
       dayCount: itinerary.getDays().length,
       // Which breaks are on this day's leg is the model's question, not a render
       // decision: the half-open bucketing rule and day 0's start-line exception both
@@ -646,7 +776,11 @@ async function boot() {
     places.render({
       // 1-BASED here — the strip and the day panel both count days from 0.
       dayNumber: day ? day.index + 1 : null,
-      trip,
+      // The path, so "km 214" beside a town is the km the rider will have ridden when
+      // they reach it rather than a canonical figure no other panel would agree with.
+      // `startKm`/`endKm` above stay canonical — they are window and day EDGES, which
+      // is what this module converts FROM.
+      trip: path,
       startKm,
       endKm,
       fromName: day ? fromNameFor(day.index) : ORIGIN_NAME,
@@ -672,40 +806,42 @@ async function boot() {
   // begins at km 0. Trip state, so it is re-set on every render that is not a drag
   // preview — the trip's start cannot move during a boundary drag.
   function renderStartPin() {
-    map.setStartPin({ coord: pointAtKm(routeIndex, trip.startKm), name: nameForTripEnd('start') });
+    map.setStartPin({ coord: path.pointAt(trip.startKm), name: nameForTripEnd('start') });
   }
 
   // Numbered boundary pins, the map's twin of the strip handles. map.js emits raw
   // lng/lat and ignores a rebuild while a pin is in flight; snapping to the route
   // and the 0.1 km grid are ours.
+  //
+  // Placed through path.pointAt, so a boundary falling on an alt-bank leg sits on the
+  // line the rider is actually on — and the drag has to snap back off BOTH lines for
+  // the same reason. Against the canonical line alone, grabbing a pin drawn on the far
+  // bank resolved to whatever canonical km lay nearest across the water, and the
+  // boundary jumped a meander's worth of km on the first pointermove.
   function renderDayPins() {
     map.setDayPins(
-      itinerary.getDays().map((day) => ({ index: day.index, coord: pointAtKm(routeIndex, day.endKm) })),
+      itinerary.getDays().map((day) => ({ index: day.index, coord: path.pointAt(day.endKm) })),
       {
         draggable: true,
         onDragBoundary: (index, lngLat, commit) => {
-          handleMoveBoundary(index, round1(snap(route, lngLat).distanceKm), { commit });
+          handleMoveBoundary(index, round1(snapToEitherLine(lngLat).distanceKm), { commit });
         },
       },
     );
   }
 
-  // The focused stretch, as the route's own vertices. Both the thick highlight
+  // The focused stretch, as the ridden lines' own vertices. Both the thick highlight
   // and the fit want the same thing: the real shape of the day, not a sampled
   // approximation of it.
   //
-  // The span goes over in ROAD order, which is what stretchCoords reads — it answers
-  // [] for a descending one, and a downstream day's span descends, so every day would
-  // come back shapeless: no highlight drawn and the camera left on the previous day
-  // (see renderCamera's zero-length guard). Neither consumer cares which way the
-  // vertices run; one draws a polyline through them, the other fits their bounds.
+  // path.coords stitches the day out of whichever bank each of its legs rides, so a day
+  // containing a crossing comes back as one polyline that changes sides mid-way. It
+  // takes the span in either order — it clips leg by leg in TRIP order — which is why
+  // the min/max this used to need around stretchCoords is gone: a downstream day's span
+  // descends, and stretchCoords answers [] for a descending one.
   function focusedCoords(day) {
     if (!day) return [];
-    return stretchCoords(
-      routeIndex,
-      Math.min(day.startKm, day.endKm),
-      Math.max(day.startKm, day.endKm),
-    );
+    return path.coords(day.startKm, day.endKm);
   }
 
   function renderCamera({ dragging = false } = {}) {
@@ -727,7 +863,7 @@ async function boot() {
       // does nothing for a PIN drag — map.js holds our camera still and lets
       // Leaflet's own autoPan carry the marker past the edge instead — but it is
       // what keeps a strip-handle drag's endpoint on screen.
-      const end = pointAtKm(routeIndex, day.endKm);
+      const end = path.pointAt(day.endKm);
       if (!map.isWellInsideView(end)) map.panTo(end);
       return;
     }
@@ -764,6 +900,12 @@ async function boot() {
     if (!dragging) {
       renderPlaces(day);
       map.setBreakMarkers(itinerary.getBreaks());
+      // Every crossing on the TRIP, not just on the focused day: the ⇄ markers are a
+      // picture of where the river can be crossed at all, and a rider scanning the map
+      // for a place to switch banks is looking beyond today. The day panel is the
+      // per-day view of the same thing. The window's own ends go over in trip order,
+      // which crossingsBetween normalises.
+      map.setCrossingMarkers(path.crossingsBetween(trip.startKm, trip.destinationKm));
       renderStartPin();
     }
     renderDayPins();
@@ -807,6 +949,71 @@ async function boot() {
     itinerary.removeBreak(key);
     persistPlan();
     renderAll();
+  }
+
+  // --- Crossing to the other bank ----------------------------------------
+
+  // "⇄ Cross" on a crossing the day rides past — the day-planning action this whole
+  // feature exists for: cross after 50 km and carry on planning the day from there.
+  // A Set because pressing the same crossing twice must not compose it twice (storage
+  // de-duplicates too, on both read and write, but a guard that only lives one layer
+  // down is a guard this file is trusting rather than keeping).
+  function handleAddCrossing(id) {
+    const current = store.getActivePlan();
+    const ids = new Set(current?.crossings ?? []);
+    ids.add(id);
+    rebuildWithCrossings([...ids]);
+  }
+
+  // × on a crossing leg puts the rider back on the bank they were riding.
+  function handleRemoveCrossing(id) {
+    const current = store.getActivePlan();
+    rebuildWithCrossings((current?.crossings ?? []).filter((x) => x !== id));
+  }
+
+  // A crossing changes the SHAPE of the path — every km after it is ridden on the other
+  // bank, so every day boundary past it lands somewhere new. Days cannot be nudged into
+  // that; they have to be re-derived from the lengths the rider chose, which is why this
+  // captures the stored day shape, rebuilds the trio and re-hydrates rather than
+  // reassigning `path`. The same dance setTripWindow does, for the same reason.
+  //
+  // Deliberately NOT fitDaysToLength: the path only ever gets longer here (a crossing
+  // adds its own length and the far bank's), so nothing is dropped, and the last day
+  // simply clamps at the destination as it always does. Trimming is a window change's
+  // problem.
+  function rebuildWithCrossings(ids) {
+    const days = itinerary.getDays().map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice }));
+    const breaks = itinerary.getBreaks();
+    loadPlanIntoModel({ ...store.getActivePlan(), days, breaks, crossings: ids });
+    persistPlan();
+    renderAll();
+  }
+
+  // A ⇄ marker on the map, which is a shortcut for whichever of the two actions above
+  // that crossing is currently offering. Two of the marker states are not offers at all,
+  // and both are refused here in silence — there is nothing the rider did wrong to
+  // report, and the map already says so by drawing them dimmed or ungrabbable:
+  //
+  //   implicit   the forced rejoin where the alt bank's road ends (see `composed` in
+  //              path.js). The rider crosses there, so the marker is drawn — but they
+  //              never chose it, and adding it would store a decision they did not make.
+  //              The day panel makes the same call: that leg carries no ×.
+  //   !canCross  a toggle ONTO a bank with no further anchor to ride toward, which
+  //              createPath drops anyway. Pressing it would rebuild and re-save the plan
+  //              to arrive back where it started. The day panel's button is `disabled`
+  //              in this state; map.js can only dim its marker, so the refusal is here.
+  //
+  // The row is re-derived from the live path rather than remembered from the render the
+  // marker was drawn in, so a click can never be answered from a stale annotation.
+  function handleAddCrossingOrRemove(id) {
+    const current = store.getActivePlan();
+    if ((current?.crossings ?? []).includes(id)) {
+      handleRemoveCrossing(id);
+      return;
+    }
+    const row = path.crossingsBetween(trip.startKm, trip.destinationKm).find((c) => c.id === id);
+    if (!row || row.implicit || !row.canCross) return;
+    handleAddCrossing(id);
   }
 
   // ⭐ on any row toggles the place in the global favorites list. Towns carry no
@@ -974,6 +1181,10 @@ async function boot() {
   // off an absolute km silently added the trip's own offset to every day the strip
   // created, and on a downstream trip it came out negative.
   //
+  // Through the PATH's tripKm, so both terms are RIDDEN km. totalPlannedKm() is already
+  // ridden (the itinerary measures along the path), and converting the click the
+  // canonical way would make the new day short by every km the plan's crossings add.
+  //
   // Two clamps on the computed length. MIN_DAY_KM is the floor: a click within
   // 5 km of the plan end — or, from a caller that measured against something
   // other than the remainder, before it — would otherwise append a day shorter
@@ -986,7 +1197,7 @@ async function boot() {
     const days = itinerary.getDays();
     const plannedKm = itinerary.totalPlannedKm();
     const fallback = days.length ? days[days.length - 1].targetKm : DEFAULT_TARGET_KM;
-    const length = endKm == null ? fallback : Math.max(MIN_DAY_KM, trip.tripKm(endKm) - plannedKm);
+    const length = endKm == null ? fallback : Math.max(MIN_DAY_KM, path.tripKm(endKm) - plannedKm);
     itinerary.addDay(round1(length));
     focusedDayIndex = itinerary.getDays().length - 1;
     customStopDraft = null;
@@ -1002,12 +1213,16 @@ async function boot() {
   function handleRouteClick(lngLat) {
     const day = focusedDay();
     if (!day) return;
-    const { distanceKm } = snap(route, lngLat);
+    const { distanceKm } = snapToEitherLine(lngLat);
     const km = round1(distanceKm);
     // The model owns which day a km is on, so a confirmed draft lands on the day it was
     // drafted on rather than on none — a stop the day panel would never list.
     if (!itinerary.dayOwnsKm(day.index, km)) return;
-    const [lng, lat] = pointAtKm(routeIndex, km);
+    // Drawn on the line the rider actually rides at that km, which is not always the
+    // line they clicked: click the far bank where the plan stays on this one and the dot
+    // appears across the water. That is the honest answer — the stop is a stop on the
+    // ride, and every km the plan holds is a km on the composed path.
+    const [lng, lat] = path.pointAt(km);
     customStopDraft = { km, lat, lng };
     renderAll();
   }
@@ -1062,7 +1277,35 @@ async function boot() {
   function handlePickPoint(lngLat, tripEnd) {
     picking = null;
     map.setPickingMode(null);
-    applyPickedEnd(tripEnd, round1(snap(route, lngLat).distanceKm));
+    applyPickedEnd(tripEnd, round1(snapToEitherLine(lngLat).distanceKm));
+  }
+
+  // A click resolved against BOTH banks, answering in canonical km whichever line it
+  // landed on. The map draws two lines, so a click aimed at the faint one has to mean
+  // something: without this, picking a trip end on the left bank silently resolved to
+  // whatever canonical km lay across the river — a meander's worth of error, from a
+  // click that looked exact. Same class of failure as the snap radius documented at
+  // SNAP_OFFER_KM, and found the same way: by aiming at a place and missing it.
+  //
+  // `offsetKm` — how far the click was FROM each line — is what decides, not how far
+  // along either one it landed. The nearer line is the one the rider meant.
+  //
+  // Two things the alt answer must survive to win. It has to be CONVERTIBLE: everything
+  // this app stores is canonical km, and the crossing table only spans the stretch
+  // between the outermost crossings, so an alt hit outside that reach converts to null
+  // and the canonical answer stands. And the conversion is piecewise linear BETWEEN
+  // crossings — the anchors are ~21 km apart on this corridor — so an alt-side pick is
+  // accurate to the anchors and interpolated in between, which is the same accuracy the
+  // whole two-bank model has and no worse than the click that produced it.
+  function snapToEitherLine(lngLat) {
+    const c = snap(route, lngLat);
+    if (!altRoute) return c;
+    const a = snap(altRoute, lngLat);
+    const aCanonical = canonicalKmFromAlt(crossings, a.distanceKm);
+    if (aCanonical !== null && a.offsetKm < c.offsetKm) {
+      return { distanceKm: aCanonical, coord: a.coord, offsetKm: a.offsetKm };
+    }
+    return c;
   }
 
   // The one path from a picked km to a new window: the guards, the reflow, the save and
@@ -1098,9 +1341,9 @@ async function boot() {
     reportPick(tripEnd, km, dropped, { offerSnap });
   }
 
-  // The same three steps loadPlanIntoModel takes, with the days coming from memory
-  // rather than from storage. A trip is fixed at construction — which is what lets every
-  // day chain off the window without re-passing it — so a new window means a new
+  // The same steps loadPlanIntoModel takes, with the days coming from memory rather than
+  // from storage. A trip is fixed at construction — which is what lets every day chain
+  // off the window without re-passing it — so a new window means a new path and a new
   // itinerary, replayed from the lengths the plan already has, trimmed to what still
   // fits (spec §8). Returns how many days did not.
   //
@@ -1109,14 +1352,25 @@ async function boot() {
   // favorite"). One consequence worth knowing: a break now outside the window keeps its
   // km and its row is simply not drawn — the strip filters glyphs to the window — and it
   // comes back if the window widens again.
+  //
+  // The CROSSINGS ride along the same way, and through the store rather than through any
+  // argument: a choice whose crossing the new window no longer reaches is dropped by
+  // createPath and kept in storage by crossingIdsToPersist, so growing the window back
+  // composes it again. Which is why the ids come from the active plan here — the model
+  // only ever holds the ones that currently compose.
   function setTripWindow(nextTrip) {
     const entries = itinerary
       .getDays()
       .map((d) => ({ targetKm: d.targetKm, townChoice: d.townChoice }));
     const breaks = itinerary.getBreaks();
-    const fitted = fitDaysToLength(entries, nextTrip.lengthKm);
     trip = nextTrip;
-    itinerary = createItinerary({ trip });
+    path = composePath(trip, chosenCrossingIds(store.getActivePlan()));
+    // Fitted against the PATH's length, and so composed before the fit rather than
+    // after: a day's targetKm is ridden km, and the canonical window is short by every
+    // km the crossings add. Measured against that instead, a two-bank trip would drop
+    // trailing days its extra ridden km leave room for.
+    const fitted = fitDaysToLength(entries, path.lengthKm);
+    itinerary = createItinerary({ trip: path });
     itinerary.hydrate({ days: fitted.days, breaks });
     // A boundary gesture in flight belongs to the itinerary that just left — the same
     // reason a plan switch bumps this (see handleMoveBoundary).
@@ -1140,10 +1394,10 @@ async function boot() {
     // only absolute km on screen — spec §2 names that as worse than all-absolute,
     // "because nothing marks it as different". The offset from the pick says the same
     // thing in the rider's own units, and it is the number that actually helps.
-    const gap = town ? round1(trip.tripKm(town.routeDistanceKm) - trip.tripKm(km)) : 0;
+    const gap = town ? round1(path.tripKm(town.routeDistanceKm) - path.tripKm(km)) : 0;
     if (town && gap !== 0) {
       pickBanner.show(
-        `${tripHeadline(trip, endNames())}${dropText} · ${town.name} is ${Math.abs(gap)} km ` +
+        `${tripHeadline(path, endNames())}${dropText} · ${town.name} is ${Math.abs(gap)} km ` +
           `${gap < 0 ? 'behind' : 'past'} your ${role} — use it instead?`,
         {
           // The offer takes the same path as any other pick, so a snap that would flip
@@ -1160,7 +1414,7 @@ async function boot() {
     // The trip itself is the confirmation, in the same sentence the setup step uses: a
     // rider who has just moved an end wants to know what the trip IS now, and "km 0" —
     // which is what a start always becomes — would tell them nothing.
-    pickBanner.show(`${tripHeadline(trip, endNames())}${dropText}`);
+    pickBanner.show(`${tripHeadline(path, endNames())}${dropText}`);
   }
 
   // The guards are unit-tested in trip.test.js; their WORDING is this file's, and this
@@ -1261,6 +1515,15 @@ async function boot() {
   // The WINDOW deliberately survives: "reset" empties the plan you made for a trip, it
   // does not undo the trip. Which is why this is not a loadPlanIntoModel path — the
   // model keeps the trip it has, and persistPlan writes that same window back.
+  //
+  // The CROSSINGS survive with it, and that is a decision rather than an oversight —
+  // crossingIdsToPersist below writes back every one it finds. A bank choice says where
+  // the ride GOES, like the two ends do, not how it is divided into days; and this is
+  // the escape hatch the reversal refusal points a rider at, so emptying their bank
+  // choices as a side effect of re-picking a direction would take something they did not
+  // ask to lose. The path is left standing and each crossing comes off in one press —
+  // the strip's ribbon still draws them and the map's ⇄ markers still toggle, both of
+  // which outlive the day panel that this reset empties.
   //
   // That is also the escape hatch the reversal refusal points at ("Reset the trip to
   // ride Hamburg → Cuxhaven instead"): proposeEnd refuses a flip only because days

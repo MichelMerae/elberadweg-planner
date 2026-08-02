@@ -206,10 +206,12 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       // it, because `next` defaults to `state` — the same shape focusedIndex uses.
       picking: next.picking ?? null,
       trip,
-      // Undefined on every single-bank render (most of this file's own tests, and
-      // any trip main.js has not yet composed from two banks): banksMarkup treats
-      // that the same as an empty array and draws nothing, which is what a plan
-      // with one bank always looked like before this row existed.
+      // main.js always sends these now — path.legs() is never empty, so a plan with
+      // no crossings arrives as one leg spanning the whole trip and the ribbon says
+      // which single bank it is ridden on. Undefined is still legal, and is what most
+      // of this file's own tests pass: banksMarkup treats it the same as an empty
+      // array and draws nothing, the blank row this strip had before the ribbon
+      // existed.
       bankLegs: next.bankLegs,
     };
     const axis = axisOpts();

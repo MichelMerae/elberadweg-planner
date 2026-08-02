@@ -605,9 +605,11 @@ export function scaleMarkup(state, layout) {
  * crosses. Read-only, deliberately: acting on a crossing is the day panel's "⇄
  * Cross" button, so nothing here is a control, only a picture of the whole trip.
  *
- * `state.bankLegs` is absent on every single-bank trip (this file's own tests,
- * and any plan main.js has not composed from two banks yet), which draws
- * nothing — the same blank row a one-bank trip always had.
+ * `state.bankLegs` is absent only when a caller has no path to describe (this
+ * file's own tests), which draws nothing — the same blank row this strip had
+ * before the ribbon existed. From main.js it is always present: a plan with no
+ * crossings composes to ONE leg, and the ribbon then says which single bank the
+ * whole trip is ridden on rather than saying nothing at all.
  *
  * A leg's `fromKm`/`toKm` are absolute route km, exactly like a day's own
  * `startKm`/`endKm`, so they go through the same `kmToX` the axis above uses —
