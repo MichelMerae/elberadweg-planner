@@ -981,6 +981,27 @@ input[type="number"]:disabled {
     drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
+/* Crossing marker: a ⇄ disc where the rider can switch banks (bridge or
+   ferry) — a map shortcut for the day panel's own "⇄ Cross" button. Orange so
+   it reads as its own thing next to the day pins (red) and the POI dots
+   (orange/teal) rather than blending into either; green once chosen, echoing
+   the day panel's own confirmation. See map.js crossingIcon(). */
+.crossing-marker {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #d9822b;
+  color: #fff;
+  font-size: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.crossing-marker--chosen {
+  background: #2e7d4f;
+}
+
 /* --- Leaflet controls: light touch to match the app --------------------- */
 .leaflet-bar a,
 .leaflet-bar a:hover {

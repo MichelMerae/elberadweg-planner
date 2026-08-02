@@ -32,6 +32,15 @@ const HIGHLIGHT_STYLE = {
 // as a dashed line.
 const ROUTE_STYLE = { color: '#5b93ff', weight: 3, opacity: 0.75, dashArray: '7 6' };
 
+// The bank the rider is NOT on right now — shown for context, never competing
+// with the composed route: fainter and thinner than ROUTE_STYLE, and dashed
+// with a different rhythm so the two lines are told apart at a glance rather
+// than by opacity alone (the same reasoning ROUTE_STYLE's own comment gives
+// for the highlight). The "⇄ Cross" action in the day panel is how a rider
+// actually switches banks; this line and the crossing markers below only show
+// the alternative and offer a shortcut to it.
+const ALT_ROUTE_STYLE = { color: '#9fb6a8', weight: 2, opacity: 0.6, dashArray: '4 7' };
+
 // How much viewport to leave around a framed stretch, in px. The focused day gets
 // more than the whole route does: its endpoints carry the pins and the handles a
 // user is about to aim at, while the whole route just has to fit.
@@ -169,6 +178,20 @@ const FAV_ICON = L.divIcon({
   iconAnchor: [8, 8],
 });
 
+// A crossing point (bridge or ferry) where the rider can switch banks: a small
+// orange ⇄ disc, clickable as a shortcut for the day panel's own "⇄ Cross"
+// action. `chosen` — the crossing the rider has actually taken for the
+// focused day — gets the green fill instead, echoing whatever the day panel
+// already shows rather than introducing a second way to say the same thing.
+function crossingIcon(chosen) {
+  return L.divIcon({
+    className: `crossing-marker${chosen ? ' crossing-marker--chosen' : ''}`,
+    html: '⇄',
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  });
+}
+
 // A BACKSTOP, not the real cap. The list arriving here has already been thinned along the
 // route (pois.js's thinAlongRoute: at most five places per 5 km ridden), which is what
 // keeps a dense city stretch's hundreds of food POIs from burying the map — day 1 out of
@@ -204,6 +227,9 @@ function cappedByKind(pois, kind) {
  *
  * @param {Object} opts
  * @param {Feature<LineString>} opts.routeFeature - the route in GeoJSON order.
+ * @param {Feature<LineString>} [opts.altRouteFeature] - the bank the rider is
+ *   NOT on, drawn faint and dashed alongside the route. Omitted entirely (no
+ *   second line drawn) when the trip has no second bank to show.
  * @param {(lngLat: [number, number]) => void} [opts.onRouteClick] - fired when
  *   the user clicks the map and NO pick is armed; receives the clicked point as
  *   [lng, lat].
@@ -214,6 +240,9 @@ function cappedByKind(pois, kind) {
  *   a POI marker; receives the POI record.
  * @param {(poi: object|null) => void} [opts.onPoiHover] - fired when the pointer
  *   enters a POI marker (with the POI record) and again with null when it leaves.
+ * @param {(id: string) => void} [opts.onCrossingClick] - fired when a ⇄
+ *   crossing marker is clicked; receives the crossing's id. A shortcut for the
+ *   same add/remove action the day panel's own "⇄ Cross" button offers.
  * @param {() => void} [opts.onUserMove] - fired when the user pans or zooms the
  *   map themselves. A pan is always theirs; a zoom is attributed to the app for
  *   PROGRAMMATIC_SETTLE_MS after any move the app made — measured from the move's
@@ -234,6 +263,10 @@ function cappedByKind(pois, kind) {
  *   setPoiHighlight: (poi: object|null) => void,
  *   setBreakMarkers: (breaks: Array<object>) => void,
  *   setFavoriteMarkers: (favorites: Array<object>) => void,
+ *   setCrossingMarkers: (
+ *     crossings: Array<{id: string, name: string, kind: 'bridge'|'ferry',
+ *                        coord: [number, number], chosen: boolean, canCross: boolean}>,
+ *   ) => void,
  *   focusRange: (coords: Array<[number, number]>, opts?: {animate?: boolean}) => boolean,
  *   fitWholeRoute: (opts?: {animate?: boolean}) => boolean,
  *   isWellInsideView: (lngLat: [number, number], inset?: number) => boolean,
@@ -245,11 +278,13 @@ function cappedByKind(pois, kind) {
  */
 export function createMap({
   routeFeature,
+  altRouteFeature,
   onRouteClick,
   onPickPoint,
   onPoiClick,
   onPoiHover,
   onUserMove,
+  onCrossingClick,
 } = {}) {
   const renderer = L.canvas();
   const map = L.map('map', { renderer, preferCanvas: true });
@@ -261,6 +296,17 @@ export function createMap({
     smoothFactor: 1.5,
     style: () => ROUTE_STYLE,
   }).addTo(map);
+
+  // The alt bank is context, not a control surface: no click handler, no
+  // highlight, nothing rebuilt across renders — it is drawn once, from
+  // whatever main.js hands createMap at construction.
+  if (altRouteFeature) {
+    L.geoJSON(altRouteFeature, {
+      renderer,
+      smoothFactor: 1.5,
+      style: () => ALT_ROUTE_STYLE,
+    }).addTo(map);
+  }
 
   // Index of the boundary pin being dragged, or null. Two things must stand back
   // while a pin drag is in flight: rebuilding the pins (Leaflet tears the gesture
@@ -436,6 +482,7 @@ export function createMap({
   const poiLayer = L.layerGroup().addTo(map);
   const breakLayer = L.layerGroup().addTo(map);
   const favLayer = L.layerGroup().addTo(map);
+  const crossingLayer = L.layerGroup().addTo(map);
 
   /**
    * The pin for where the RIDER starts, at `coord` ([lng, lat]) with `name` as the
@@ -607,6 +654,28 @@ export function createMap({
     });
   }
 
+  // Rebuilt every render, the same clear-and-rebuild discipline setBreakMarkers
+  // and setFavoriteMarkers use: clearLayers first, so a repeat call replaces the
+  // markers rather than stacking a second ⇄ (and a second click handler, still
+  // bound to the previous render's crossing) on top of the first. A crossing
+  // the rider canCross reads at full opacity; one out of reach for the focused
+  // day dims, so the shortcut doesn't invite a click that would only be refused.
+  function setCrossingMarkers(crossings) {
+    crossingLayer.clearLayers();
+    (crossings || []).forEach((c) => {
+      const marker = L.marker(toLatLng(c.coord), {
+        icon: crossingIcon(c.chosen),
+        zIndexOffset: 420,
+        opacity: c.canCross || c.chosen ? 1 : 0.45,
+      });
+      marker.bindTooltip(escapeHtml(`${c.name}${c.kind === 'ferry' ? ' (ferry)' : ''}`));
+      marker.on('click', () => {
+        if (typeof onCrossingClick === 'function') onCrossingClick(c.id);
+      });
+      marker.addTo(crossingLayer);
+    });
+  }
+
   // Same name@km identity convention as ui.js's poiKey/itinerary's breakKey —
   // kept local so map.js stays import-free besides Leaflet.
   function poiMarkerKey(poi) {
@@ -715,6 +784,7 @@ export function createMap({
     setStartPin,
     setBreakMarkers,
     setFavoriteMarkers,
+    setCrossingMarkers,
     setPoiMarkers,
     setPoiHighlight,
     focusRange,

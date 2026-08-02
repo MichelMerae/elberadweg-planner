@@ -42,6 +42,22 @@ const DRESDEN_END = [
   [13.74, 51.05],
 ];
 
+// The other bank: a distinct line, offset from ROUTE, so a test that asserts
+// "the alt line drew" can't be satisfied by drawing ROUTE twice under two names.
+const ALT_ROUTE = {
+  type: 'Feature',
+  geometry: {
+    type: 'LineString',
+    coordinates: [
+      [9.95, 53.52],
+      [10.4, 53.28],
+      [11.3, 52.95],
+      [12.2, 52.45],
+      [13.7, 51.02],
+    ],
+  },
+};
+
 const PINS = [
   { index: 0, coord: [10.5, 53.3] },
   { index: 1, coord: [11.4, 53.0] },
@@ -86,11 +102,21 @@ function fakeClock() {
 //                    per-file reason.
 let capturedMap = null;
 const createdMarkers = [];
+// preferCanvas: true plus an explicit canvas renderer means every route/alt
+// line is drawn onto one shared <canvas>, not as an SVG <path> per feature — so
+// there is nothing to `querySelectorAll('path')` for. Capturing the Polyline
+// objects L.geoJSON builds internally (the same trick createdMarkers plays for
+// markers) proves a line was built, and with which style, without depending on
+// canvas-vs-SVG rendering at all.
+const createdPolylines = [];
 L.Map.addInitHook(function () {
   capturedMap = this;
 });
 L.Marker.addInitHook(function () {
   createdMarkers.push(this);
+});
+L.Polyline.addInitHook(function () {
+  createdPolylines.push(this);
 });
 
 function mount() {
@@ -101,6 +127,7 @@ function mount() {
   HTMLCanvasElement.prototype.getContext = () => noopCtx;
   capturedMap = null;
   createdMarkers.length = 0;
+  createdPolylines.length = 0;
 }
 
 function dayPins() {
@@ -691,5 +718,81 @@ describe('createMap - the start pin follows the trip', () => {
     const live = pins.filter((m) => capturedMap.hasLayer(m) || m._map);
     expect(live).toHaveLength(1);
     expect(live[0].options.title).toBe('Start — Hamburg');
+  });
+});
+
+describe('two banks on the map', () => {
+  // Mirrors ALT_ROUTE_STYLE / ROUTE_STYLE in map.js. Not imported — map.js stays
+  // free of imports besides Leaflet (see the POI cap constants for the same
+  // trade), so the dash patterns are the only handle a test outside the module
+  // has on "which style did this line get".
+  const ALT_DASH = '4 7';
+  const ROUTE_DASH = '7 6';
+
+  it('draws no alt line when none is given', () => {
+    createMap({ routeFeature: ROUTE });
+
+    expect(createdPolylines.some((p) => p.options.dashArray === ALT_DASH)).toBe(false);
+    // The route itself is unaffected either way.
+    expect(createdPolylines.some((p) => p.options.dashArray === ROUTE_DASH)).toBe(true);
+  });
+
+  // The original version of this test (`querySelectorAll('path').length >= 2`,
+  // fed ROUTE as both arguments) would pass for the wrong reasons twice over: this
+  // renderer never puts a `<path>` in the DOM (see createdPolylines above), and
+  // feeding the same feature in as both the route and "the alt" proves nothing
+  // about a REAL second line. This asserts the alt line actually carries its own
+  // fainter, differently-dashed style, drawn in addition to (not instead of) the
+  // composed route.
+  it('draws the alt bank line faint and dashed, only when one is given, alongside the route', () => {
+    createMap({ routeFeature: ROUTE, altRouteFeature: ALT_ROUTE });
+
+    const altLines = createdPolylines.filter((p) => p.options.dashArray === ALT_DASH);
+    expect(altLines).toHaveLength(1);
+    expect(altLines[0].options).toMatchObject({ color: '#9fb6a8', weight: 2, opacity: 0.6 });
+
+    const routeLines = createdPolylines.filter((p) => p.options.dashArray === ROUTE_DASH);
+    expect(routeLines).toHaveLength(1); // still drawn, and not restyled by the alt's presence
+  });
+
+  it('setCrossingMarkers renders ⇄ markers and clicks report the id', () => {
+    const onCrossingClick = vi.fn();
+    const map = createMap({ routeFeature: ROUTE, onCrossingClick });
+    map.setCrossingMarkers([
+      { id: 'x-1', name: 'X bridge', kind: 'bridge', coord: [9.9, 53.5], chosen: false, canCross: true },
+    ]);
+    const el = document.querySelector('.crossing-marker');
+    expect(el).not.toBeNull();
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onCrossingClick).toHaveBeenCalledWith('x-1');
+  });
+
+  it('a chosen crossing gets the chosen modifier class', () => {
+    const map = createMap({ routeFeature: ROUTE });
+    map.setCrossingMarkers([{ id: 'x', name: 'X', kind: 'ferry', coord: [9.9, 53.5], chosen: true, canCross: true }]);
+    expect(document.querySelector('.crossing-marker--chosen')).not.toBeNull();
+  });
+
+  // Same clear-and-rebuild discipline setBreakMarkers/setFavoriteMarkers/
+  // setPoiMarkers all follow: without clearLayers at the top of setCrossingMarkers,
+  // a second render leaves the FIRST render's marker (and its click handler,
+  // still bound to the FIRST render's crossing) sitting on the map underneath
+  // the new one.
+  it('clears crossing markers on re-render instead of accumulating them', () => {
+    const onCrossingClick = vi.fn();
+    const map = createMap({ routeFeature: ROUTE, onCrossingClick });
+    map.setCrossingMarkers([
+      { id: 'a', name: 'A', kind: 'bridge', coord: [9.9, 53.5], chosen: false, canCross: true },
+    ]);
+    map.setCrossingMarkers([
+      { id: 'b', name: 'B', kind: 'bridge', coord: [10.0, 53.4], chosen: false, canCross: true },
+    ]);
+
+    const els = document.querySelectorAll('.crossing-marker');
+    expect(els).toHaveLength(1); // the first render's marker did not stick around
+
+    els[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(onCrossingClick).toHaveBeenCalledTimes(1);
+    expect(onCrossingClick).toHaveBeenCalledWith('b'); // the live crossing, not the stale one
   });
 });
