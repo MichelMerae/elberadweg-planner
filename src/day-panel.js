@@ -38,6 +38,80 @@ function breakEditButton(b) {
             title="${label}" aria-label="${label}: ${esc(b.name)}">✎</button>`;
 }
 
+// The distance ridden to reach a leg. Zero is reachable three ways — a break on the
+// day's start line, a second entry sharing a km with the one before it (coffee at the
+// bridgehead, then across), and a break on the day's end (handled by its own twin
+// below) — and a bare "0 km →" reads as a bug in all of them, so each says where it
+// is instead. "at the start" is only true while nothing has been ridden yet; saying
+// it 48.9 km into the day would be a plain lie about where the rider is.
+function legDistance(legKm, atDayStart) {
+  if (legKm > 0) return `<span class="day-card__leg-dist">${legKm} km</span> →`;
+  return `<span class="day-card__leg-dist">${atDayStart ? 'at the start' : 'at the same spot'}</span>`;
+}
+
+// A crossing the rider has taken, as a leg of the day — the day carries on from it,
+// so it sits in the running distance chain exactly as a break does.
+//
+// An `implicit` one is the exception: where the alt bank's road ends, the path model
+// puts the rider back across rather than letting them ride off the end of it (see
+// `composed` in path.js). That is not a decision, so it carries no × — a rider cannot
+// decline a leg the model will immediately put back — and it says why it is there.
+//
+// The remove glyph is × , the one this app uses everywhere (the break beside it in
+// this same list, ui.js's banner dismiss). The plan sketched ✕; two different remove
+// glyphs one line apart in one <ol> is a difference that says something and means
+// nothing.
+function crossingLeg(c, dist) {
+  const ferry = c.kind === 'ferry' ? ' ⛴' : '';
+  if (c.implicit) {
+    return `
+      <li class="day-card__leg day-card__leg--crossing">
+        <span class="day-card__leg-text">${dist} ⇄ <b>Cross back here</b> · ${esc(c.name)}${ferry}
+          <span class="day-card__leg-note">· the bank you are riding ends here</span></span>
+      </li>`;
+  }
+  return `
+    <li class="day-card__leg day-card__leg--crossing">
+      <span class="day-card__leg-text">${dist} ⇄ <b>Cross to the other bank</b> · ${esc(c.name)}${ferry}</span>
+      <span class="leg-actions">
+        <button type="button" class="row-remove" data-action="remove-crossing"
+                data-crossing-id="${esc(c.id)}" title="Remove crossing" aria-label="Remove crossing: ${esc(c.name)}">×</button>
+      </span>
+    </li>`;
+}
+
+// The crossings this day rides past without taking — the offer, peer to ending the
+// day: "I want the option to cross to the other side like the option to end the day".
+//
+// Filtered on `chosen` AND `implicit`, not on `chosen` alone: a forced rejoin is
+// `chosen: false` (it was never a decision, so activeCrossings must not carry it) and
+// would otherwise appear here as something to press, next to the leg above saying the
+// rider already crosses there.
+//
+// A ferry is hinted rather than disabled: whether it is running is a question about
+// today's timetable, which nothing in this app knows.
+function crossingsGroup(dayCrossings) {
+  const rows = dayCrossings.filter((c) => !c.chosen && !c.implicit);
+  if (!rows.length) return '';
+  return `
+    <div class="day-crossings">
+      <div class="day-crossings__label">Crossings you pass today</div>
+      ${rows
+        .map(
+          (c) => `
+        <div class="day-crossings__row">
+          <span>${c.kind === 'ferry' ? '⛴' : '🌉'} ${esc(c.name)}${
+            c.kind === 'ferry' ? ' <span class="day-crossings__hint">check operating times</span>' : ''
+          }</span>
+          <button type="button" class="btn btn--sm" data-action="add-crossing"
+                  data-crossing-id="${esc(c.id)}" ${c.canCross ? '' : 'disabled'}
+                  title="${c.canCross ? 'Cross to the other bank here' : 'The other bank ends here — no onward riding'}">⇄ Cross</button>
+        </div>`,
+        )
+        .join('')}
+    </div>`;
+}
+
 // Swaps a leg's text for an inline input. Local DOM state only: saving fires
 // onEditBreak (main.js persists + re-renders); cancel restores the original
 // markup.
@@ -213,6 +287,13 @@ export function createDayPanel({ el, callbacks = {} }) {
   // them. A leg's buttons repeat, so those carry their position among the legs
   // instead of their break key: the key of a break that was just removed matches
   // nothing, while the position is taken over by whichever leg slid into it.
+  //
+  // The crossing rows repeat the same way, and press the same disappearing act:
+  // taking a crossing turns its row into a leg above, so the id that was focused
+  // matches nothing afterwards while the position is taken by the next crossing down.
+  const repeated = (selector) =>
+    [...el.querySelectorAll(`.day-card__leg ${selector}, .day-crossings__row ${selector}`)];
+
   function focusedTarget() {
     const active = document.activeElement;
     if (!active || !el.contains(active)) return null;
@@ -229,8 +310,8 @@ export function createDayPanel({ el, callbacks = {} }) {
       active.closest('.day-card__leg')?.querySelector('[data-action="edit-break"]');
     if (!control) return null;
     const selector = `[data-action="${control.dataset.action}"]`;
-    const inLegs = [...el.querySelectorAll(`.day-card__leg ${selector}`)];
-    const at = inLegs.indexOf(control);
+    const siblings = repeated(selector);
+    const at = siblings.indexOf(control);
     return at === -1 ? { selector } : { selector, at };
   }
 
@@ -260,36 +341,63 @@ export function createDayPanel({ el, callbacks = {} }) {
       if (back && !back.disabled) back.focus({ preventScroll: true });
       return;
     }
-    const inLegs = [...el.querySelectorAll(`.day-card__leg ${target.selector}`)];
-    inLegs[Math.min(target.at, inLegs.length - 1)]?.focus({ preventScroll: true });
+    const siblings = repeated(target.selector);
+    siblings[Math.min(target.at, siblings.length - 1)]?.focus({ preventScroll: true });
   }
 
   // Each leg is a distance RIDDEN from the last stop, so the arithmetic runs in rider
   // km: absolute differences come out negative on a downstream trip, which turned
   // every leg into the "at the start" case below.
-  function legs(day, breaks, trip) {
+  function legs(day, breaks, trip, dayCrossings) {
+    // A crossing the rider rides — chosen, or forced on them where the alt bank runs
+    // out — is an entry in the day beside its breaks, ordered with them by km.
+    //
+    // The range guard is not defensive noise. main.js gets these from
+    // crossingsBetween(day.startKm, day.endKm), so it can pass nothing outside the
+    // day; but render() is a public contract, and a crossing outside the day would
+    // not merely print a nonsense distance — it takes over prevKm, so every leg after
+    // it AND the ride to the overnight town would be measured from a point this day
+    // never reaches. Rider km on both sides: the comparison inverts in absolute km on
+    // a downstream trip, where the day's end is the SMALLER number.
+    const dayStart = trip.tripKm(day.startKm);
+    const dayEnd = trip.tripKm(day.endKm);
+    const crossingLegs = dayCrossings
+      .filter((c) => c.chosen || c.implicit)
+      .filter((c) => {
+        const km = trip.tripKm(c.kmCanonical);
+        return km >= dayStart && km <= dayEnd;
+      })
+      .map((c) => ({ __crossing: true, ...c, routeDistanceKm: c.kmCanonical }));
+    // Sort is stable (ES2019), and the breaks are concatenated first, so a break and
+    // a crossing on one km read as "stop, then cross" — the order a rider taking a
+    // coffee at the bridgehead does them in.
+    const entries = [...breaks, ...crossingLegs].sort(
+      (a, b) => trip.tripKm(a.routeDistanceKm) - trip.tripKm(b.routeDistanceKm),
+    );
     const lines = [];
     let prevKm = day.startKm;
-    for (const b of breaks) {
-      const glyph = glyphFor(b);
-      const legKm = round1(rideKm(trip, prevKm, b.routeDistanceKm));
-      // A break sitting exactly at the day's start has no leg to speak of; a
-      // bare "0 km →" reads as a bug, so say where it is instead.
-      const dist =
-        legKm <= 0
-          ? '<span class="day-card__leg-dist">at the start</span>'
-          : `<span class="day-card__leg-dist">${legKm} km</span> →`;
-      const note = b.note ? ` <span class="day-card__leg-note">· ${esc(b.note)}</span>` : '';
+    for (const entry of entries) {
+      const legKm = round1(rideKm(trip, prevKm, entry.routeDistanceKm));
+      // prevKm is still identically day.startKm until the first entry moves it, which
+      // is exactly "nothing has been ridden yet" — no epsilon needed, and no second
+      // copy of the day's own start line.
+      const dist = legDistance(legKm, prevKm === day.startKm);
+      prevKm = entry.routeDistanceKm;
+      if (entry.__crossing) {
+        lines.push(crossingLeg(entry, dist));
+        continue;
+      }
+      const glyph = glyphFor(entry);
+      const note = entry.note ? ` <span class="day-card__leg-note">· ${esc(entry.note)}</span>` : '';
       lines.push(`
         <li class="day-card__leg">
-          <span class="day-card__leg-text">${dist} ${glyph} ${esc(b.name)}${note}</span>
+          <span class="day-card__leg-text">${dist} ${glyph} ${esc(entry.name)}${note}</span>
           <span class="leg-actions">
-            ${breakEditButton(b)}
+            ${breakEditButton(entry)}
             <button type="button" class="row-remove" data-action="remove-break"
-                    data-break-key="${esc(poiKey(b))}" title="Remove break" aria-label="Remove break">×</button>
+                    data-break-key="${esc(poiKey(entry))}" title="Remove break" aria-label="Remove break">×</button>
           </span>
         </li>`);
-      prevKm = b.routeDistanceKm;
     }
     const finalKm = round1(rideKm(trip, prevKm, day.endKm));
     const endName = day.townChoice ? esc(day.townChoice.name) : 'day end';
@@ -342,6 +450,11 @@ export function createDayPanel({ el, callbacks = {} }) {
     trip,
     dayCount = 0,
     breaks = [],
+    // path.crossingsBetween(day.startKm, day.endKm), verbatim: every crossing this
+    // day rides past, annotated with whether the rider took it (`chosen`), whether
+    // the alt bank running out forces it on them (`implicit`), and whether pressing
+    // it would leave them with nowhere to ride (`canCross`).
+    dayCrossings = [],
     fromName = 'your last stop',
     customStopDraft = null,
     // Whether the focused day owns the draft's km — itinerary.dayOwnsKm's answer, from
@@ -460,7 +573,8 @@ export function createDayPanel({ el, callbacks = {} }) {
         ${snapNote(day, trip)}
 
         <h3 class="day-panel__section">Legs <span class="pois__count">${length} km total</span></h3>
-        ${legs(day, breaks, trip)}
+        ${legs(day, breaks, trip, dayCrossings)}
+        ${crossingsGroup(dayCrossings)}
 
         <div data-custom-stop-slot></div>
         <p class="day-panel__hint">Click the route on the map to add a stop to this day.</p>
@@ -495,6 +609,12 @@ export function createDayPanel({ el, callbacks = {} }) {
     if (edit) return startBreakEdit(edit, callbacks);
     const remove = e.target.closest('[data-action="remove-break"]');
     if (remove) return callbacks.onRemoveBreak?.(remove.dataset.breakKey);
+    // Above the `!current.day` guard with the break actions: a crossing id is
+    // self-contained, so neither of these needs the focused day's index.
+    const addCrossing = e.target.closest('[data-action="add-crossing"]');
+    if (addCrossing) return callbacks.onAddCrossing?.(addCrossing.dataset.crossingId);
+    const removeCrossing = e.target.closest('[data-action="remove-crossing"]');
+    if (removeCrossing) return callbacks.onRemoveCrossing?.(removeCrossing.dataset.crossingId);
     // The trip-setup step's own controls, so they have to run before the guard below —
     // there is no focused day when that step is the only thing on screen, and everything
     // past the guard reads `current.day.index`.

@@ -30,6 +30,8 @@ function mount() {
     onCancelCustomStop: vi.fn(),
     onPickEnd: vi.fn(),
     onFinishHere: vi.fn(),
+    onAddCrossing: vi.fn(),
+    onRemoveCrossing: vi.fn(),
   };
   return createDayPanel({ el, callbacks });
 }
@@ -1233,5 +1235,181 @@ describe('createDayPanel - Finish here', () => {
 
     expect(button().title).toContain('already ends at your finish');
     expect(button().title).not.toContain('Finish the trip at');
+  });
+});
+
+// Crossing the river is a DAY-PLANNING action, peer to ending the day: "I want the
+// option to cross to the other side like the option to end the day, so I can have a
+// cross after 50 km and from there continue planning the day till I end the day."
+//
+// So a crossing the rider has taken is a leg of the day — in the running distance
+// chain, removable with a × — and the ones the day merely rides past are an offer
+// below it. The rows are path.crossingsBetween(day.startKm, day.endKm)'s, verbatim.
+describe('crossings in the day panel', () => {
+  const CROSSINGS = [
+    { id: 'rogaetz-ferry-192', name: 'Rogätz–Grieben ferry', kind: 'ferry', kmCanonical: 192.1, lengthKm: 0.4, chosen: false, canCross: true },
+    { id: 'magdeburg-sternbruecke-209', name: 'Magdeburg, Sternbrücke', kind: 'bridge', kmCanonical: 208.9, lengthKm: 0.6, chosen: true, canCross: true },
+    { id: 'schoenebeck-bruecke-223', name: 'Schönebeck bridge', kind: 'bridge', kmCanonical: 222.7, lengthKm: 0.5, chosen: false, canCross: false },
+  ];
+  // What the path model inserts where the alt line runs out: the rider is put back
+  // across rather than riding off the end of the bank. `chosen` is false — it was
+  // never a decision — so anything keyed on that alone offers it as an option.
+  const FORCED_BACK = {
+    id: 'bad-schandau-240', name: 'Bad Schandau bridge', kind: 'bridge', kmCanonical: 240,
+    lengthKm: 0.3, chosen: false, implicit: true, canCross: true,
+  };
+
+  it('renders a chosen crossing as a removable leg at its km', () => {
+    const panel = mount();
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 3, breaks: [], fromName: 'Tangermünde', dayCrossings: CROSSINGS });
+    const leg = el.querySelector('.day-card__leg--crossing');
+    expect(leg.textContent).toContain('Magdeburg, Sternbrücke');
+    expect(leg.textContent).toContain('⇄');
+    leg.querySelector('[data-action="remove-crossing"]').click();
+    expect(callbacks.onRemoveCrossing).toHaveBeenCalledWith('magdeburg-sternbruecke-209');
+  });
+
+  it('offers unchosen crossings with a Cross button, ferries hinted', () => {
+    const panel = mount();
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 3, breaks: [], fromName: 'x', dayCrossings: CROSSINGS });
+    const rows = [...el.querySelectorAll('.day-crossings__row')];
+    expect(rows).toHaveLength(2); // the chosen one is a leg, not a row
+    expect(rows[0].textContent).toContain('⛴');
+    expect(rows[0].textContent).toContain('check operating times');
+    rows[0].querySelector('[data-action="add-crossing"]').click();
+    expect(callbacks.onAddCrossing).toHaveBeenCalledWith('rogaetz-ferry-192');
+  });
+
+  it('a canCross:false row renders disabled', () => {
+    const panel = mount();
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 3, breaks: [], fromName: 'x', dayCrossings: CROSSINGS });
+    const btn = [...el.querySelectorAll('[data-action="add-crossing"]')].find((b) => b.dataset.crossingId === 'schoenebeck-bruecke-223');
+    expect(btn.disabled).toBe(true);
+  });
+
+  it('renders no group at all when the day passes no crossings', () => {
+    const panel = mount();
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 3, breaks: [], fromName: 'x', dayCrossings: [] });
+    expect(el.querySelector('.day-crossings')).toBeNull();
+  });
+
+  // The point of a crossing being a LEG rather than a note: the day carries on from
+  // it. Break at 195, cross at 208.9, sleep at 265 — so the ride to bed is measured
+  // from the bridge, not from the café.
+  it('measures the rest of the day from the crossing', () => {
+    const panel = mount();
+    panel.render({ trip: WHOLE_ROAD,
+      day: DAY,
+      dayCount: 3,
+      breaks: [{ name: 'Café Elbterrasse', kind: 'food', routeDistanceKm: 195 }],
+      fromName: 'Tangermünde',
+      dayCrossings: CROSSINGS,
+    });
+
+    const dists = [...el.querySelectorAll('.day-card__leg-dist')].map((n) => n.textContent);
+    expect(dists).toEqual(['35 km', '13.9 km', '56.1 km']);
+  });
+
+  // Where the alt bank's road ends the rider crosses back whether they like it or
+  // not, so this row is neither an offer nor a mistake — it is the route explaining
+  // itself. Offering it a × would let the rider "decline" a leg the path model will
+  // put straight back.
+  it('explains a forced crossing back as a leg, with nothing to press', () => {
+    const panel = mount();
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 3, breaks: [], fromName: 'x', dayCrossings: [FORCED_BACK] });
+
+    const leg = el.querySelector('.day-card__leg--crossing');
+    expect(leg.textContent).toContain('Bad Schandau bridge');
+    expect(leg.textContent).toContain('Cross back here');
+    expect(leg.textContent).toContain('the bank you are riding ends here');
+    expect(leg.querySelector('[data-action="remove-crossing"]')).toBeNull();
+    // `chosen` is false on it, so a group keyed on that alone puts it on offer too.
+    expect(el.querySelector('.day-crossings')).toBeNull();
+  });
+
+  // Coffee at the bridgehead, then across: two entries on one km. The zero-km leg
+  // that makes must not claim to be at the day's start — it is 48.9 km into it.
+  it('says where a crossing sharing a km with a break is, not "at the start"', () => {
+    const panel = mount();
+    panel.render({ trip: WHOLE_ROAD,
+      day: DAY,
+      dayCount: 3,
+      breaks: [{ name: 'Café Elbterrasse', kind: 'food', routeDistanceKm: 208.9 }],
+      fromName: 'Tangermünde',
+      dayCrossings: CROSSINGS,
+    });
+
+    const dists = [...el.querySelectorAll('.day-card__leg-dist')].map((n) => n.textContent);
+    expect(dists).toEqual(['48.9 km', 'at the same spot', '56.1 km']);
+    expect(el.querySelector('.day-card__leg--crossing').textContent).not.toContain('at the start');
+  });
+
+  // render() is a public contract, and main.js is not the only caller a future
+  // refactor gives it. A crossing outside the day would not just print a nonsense
+  // distance — it takes over the running km, so every leg after it AND the ride to
+  // the overnight town would be measured from a point this day never reaches.
+  it('ignores a chosen crossing that falls outside the day', () => {
+    const panel = mount();
+    panel.render({ trip: WHOLE_ROAD,
+      day: DAY, // 160 → 265
+      dayCount: 3,
+      breaks: [{ name: 'Café Elbterrasse', kind: 'food', routeDistanceKm: 195 }],
+      fromName: 'Tangermünde',
+      dayCrossings: [
+        { id: 'before-100', name: 'Yesterday’s bridge', kind: 'bridge', kmCanonical: 100, lengthKm: 0.4, chosen: true, canCross: true },
+        { id: 'after-300', name: 'Tomorrow’s bridge', kind: 'bridge', kmCanonical: 300, lengthKm: 0.4, chosen: true, canCross: true },
+      ],
+    });
+
+    expect(el.querySelector('.day-card__leg--crossing')).toBeNull();
+    const dists = [...el.querySelectorAll('.day-card__leg-dist')].map((n) => n.textContent);
+    expect(dists).toEqual(['35 km', '70 km']);
+  });
+
+  it('escapes a crossing name in the leg, the row and their attributes', () => {
+    const panel = mount();
+    const name = '<img src=x onerror="boom">';
+    panel.render({ trip: WHOLE_ROAD,
+      day: DAY,
+      dayCount: 3,
+      breaks: [],
+      fromName: 'x',
+      dayCrossings: [
+        { id: 'chosen"id', name, kind: 'bridge', kmCanonical: 200, lengthKm: 0.4, chosen: true, canCross: true },
+        { id: 'row"id', name, kind: 'ferry', kmCanonical: 220, lengthKm: 0.4, chosen: false, canCross: true },
+      ],
+    });
+
+    expect(el.querySelectorAll('img')).toHaveLength(0);
+    expect(el.querySelector('.day-card__leg--crossing').textContent).toContain(name);
+    expect(el.querySelector('.day-crossings__row').textContent).toContain(name);
+    expect(el.querySelector('[data-action="remove-crossing"]').dataset.crossingId).toBe('chosen"id');
+    expect(el.querySelector('[data-action="add-crossing"]').dataset.crossingId).toBe('row"id');
+  });
+
+  // Pressing ⇄ Cross re-renders the whole panel through main.js, destroying the
+  // button under the finger — and the row it was in, which is now a leg. Every other
+  // repeated control in this panel hands its position to whatever slides into it;
+  // without this one a keyboard user is back at the top of the document after each
+  // crossing they take.
+  it('hands a taken crossing’s position to the row that takes it', () => {
+    // Schönebeck crossable here: a disabled button cannot hold focus, and this test
+    // is about the handover rather than about that (see the Split/Delete case above
+    // for why a disabled target drops focus rather than picking a neighbour).
+    const offered = CROSSINGS.map((c) => (c.canCross ? c : { ...c, canCross: true }));
+    const panel = mount();
+    panel.render({ trip: WHOLE_ROAD, day: DAY, dayCount: 3, breaks: [], fromName: 'x', dayCrossings: offered });
+    el.querySelector('[data-action="add-crossing"]').focus();
+
+    // What main.js does with the press: the ferry is chosen now, so its row is gone.
+    panel.render({ trip: WHOLE_ROAD,
+      day: DAY,
+      dayCount: 3,
+      breaks: [],
+      fromName: 'x',
+      dayCrossings: offered.map((c) => (c.id === 'rogaetz-ferry-192' ? { ...c, chosen: true } : c)),
+    });
+
+    expect(document.activeElement.dataset.crossingId).toBe('schoenebeck-bruecke-223');
   });
 });
