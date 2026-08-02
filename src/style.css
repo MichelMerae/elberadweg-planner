@@ -1814,6 +1814,42 @@ input[type="number"]:disabled {
   cursor: help;
 }
 
+/* Crossing to the other bank is a day-planning act, peer to ending the day:
+   a taken crossing is a leg of the day, the ones you merely pass are offers. */
+.day-crossings {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: #f2f6f3;
+  border-radius: 8px;
+}
+
+.day-crossings__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6b7570;
+  margin-bottom: 6px;
+}
+
+.day-crossings__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+
+.day-crossings__hint {
+  font-size: 11px;
+  color: #a15d1a;
+}
+
+.day-card__leg--crossing {
+  background: #fff8f0;
+  border-radius: 6px;
+}
+
 /* The strip's bank ribbon: which bank each stretch of the composed path rides,
    with a tick where the rider crosses. Read-only — crossing is a day-panel act. */
 .strip__banks {
