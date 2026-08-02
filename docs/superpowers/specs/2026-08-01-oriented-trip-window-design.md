@@ -1,7 +1,7 @@
 # The trip becomes an oriented window on the road
 
 **Date:** 2026-08-01
-**Status:** designed, awaiting approval
+**Status:** SHIPPED 2026-08-02 — merged to master as `304e586` and pushed. See "Outcome" at the end.
 **Depends on:** `2026-07-31-cuxhaven-prague-route-design.md` (the road must be longer than the trip), `2026-08-01-elevation-profile-design.md` (per-day climb)
 
 ## Problem
@@ -190,3 +190,48 @@ This is larger than either feature built on 2026-07-31, and `boundaries.js`/`iti
 5. **The resizable strip** — drag handle, bounds, persistence.
 
 Phases 1–3 are invisible to a user on their own, which argues for finishing all five before merging and against merging any of them half-done. Phase 5 is independent of 1–4 and could be pulled forward if the profile needs to be readable sooner.
+
+---
+
+## Outcome
+
+**Shipped 2026-08-02**, merged to master as `304e586` and pushed. 16 tasks over ~60 commits; **918 tests in 21 files** (from 592 at branch point), zero failures, clean build. Every task was implemented and then reviewed twice — against this spec, then for quality — with a final review across the whole branch.
+
+### Everything in this spec was built
+
+§1 model, §2 translation, §3 rescale + stubs, §4 direction-aware elevation, §5 climb label, §6/§6a/§6b picking + setup + resize, §7 storage v4, §8 guards. Nothing was dropped.
+
+### Where the implementation departed from this document
+
+- **§2's helper lives on the trip, not in `ui-util.js`.** `trip.tripKm()` is a method on the frozen value object `createTrip` returns, and it does not round — call sites do. Direction is then derived once, in one place, instead of being passed alongside every conversion.
+- **§1's `createItinerary({startKm, destinationKm})` became `createItinerary({trip})`.** Two loose numbers that must agree became one value object that cannot disagree.
+- **§5's `TIER_FULL_PX` is 117, not 112** — measured against the worst realistic label rather than estimated.
+- **§6b's "the `ResizeObserver` must watch both" is width-only, deliberately.** The strip's box grows in height on every `pointermove` of a resize drag, a path that has already re-rendered, so reacting to height would double the cost of the gesture to redraw an identical axis. The 45% ceiling instead re-applies from a *window* resize listener — the only place that can see it, because the body is a 100vh grid whose map row absorbs a shorter window and the strip's own box never changes.
+- **§6a's two-state setup is one state.** "Start — *not set*" never appears: both ends always have a value, because they default to the road's ends.
+- **§8's guard list became one function, `proposeEnd`.** The ORDER is the point — a pick landing on the trip's other end makes a zero-length window, and an equal-ended window counts as forward, so asking "would this reverse?" first would send a downstream rider to Reset trip over a window they only need to nudge. Length is judged first, and each refusal gets its own reason.
+- **A scope addition this spec never mentions: Food, Sights and Favourites now run in ride order.** The rescale broke them — their 40-row caps were keeping the *last* 40 places a downstream rider would meet. Scope the feature created, not scope invented.
+
+### Two errors in this document, both corrected in place
+
+Both are annotated where they occur (§4 and §6a), and both were settled against measured data rather than against the prose. §4's *"487 m of climbing one way and 487 m of descent the other"* described a monotonic climb the Elbe corridor does not contain — across 95 sampled 80 km stretches the weaker side is a median **0.947** of the stronger. §6a's *"Hamburg → Dresden · 649 km downstream"* had both figures wrong: it is **641.9 km upstream**.
+
+The §4 error did real damage before it was caught. A browser check written to verify the elevation profile re-samples when one window end moves compared **ascent totals** — on a corridor where two different stretches report near-identical climb, so a stale memo would have reported "fine". The check was replaced with a pixel-level one. **A spec's illustrative numbers get copied into tests, and a wrong illustration makes an unfalsifiable test.**
+
+### What this branch is actually worth remembering for
+
+**Every real bug here was found by mutating the code and watching a test fail to notice.** Fifteen assertions that could not fail were found that way — several written by the plan itself, two of them among the assertions it specified verbatim. At least four bugs in shipped behaviour would otherwise have merged green:
+
+- the boundaries stopgap wrote `targetKm <= 0` on any offset or downstream trip, and `hydrate` then **dropped the entire plan on reload**;
+- `arrived`'s `Math.abs` was pinned only by accident, and the signed form made an 80 km plan on a 648 km downstream window read as finished on day 1 — removing any way to add day 2;
+- the row cap kept the **last** 40 places rather than the first, passing all 63 places tests;
+- the favourites cap spent its slots on places *behind* the rider, dropping 6 places that were actually on the trip.
+
+Three more were found only in a real browser, where no unit test could have reached them: a picking prompt sitting **on top of Leaflet's zoom control**, making `+`/`−` unclickable while armed, at ≈1.0:1 contrast over map tiles; a `pointer-events: none` rule that never worked because leaflet.css sets an explicit `auto` on the marker icons and **an explicit value beats an inherited one at any ancestor specificity**; and `setPointerCapture` retargeting `dblclick` to the capture element, so an element that captures **can never hear its own double-click**.
+
+And two habits that paid for themselves repeatedly: **jsdom swallows exceptions thrown inside event handlers**, so any assertion that a click does *nothing* needs an `error` listener or it cannot tell "correctly ignored" from "threw". And a `render(next = state)` argument-less re-render **cannot pin a `next.x ?? state.x` fallback**, because `next.x` *is* `state.x` — five such fallbacks looked defended by tests, turned out to be dead entirely, and were deleted.
+
+### Known follow-ups, none blocking
+
+Pin `storage.js`'s single-ruined-end window repair (a stored `{startKm: 149.3, destinationKm: null}` must load as Hamburg→Prague, and nothing says so today). Decide the fate of `breaksInRange`, which has no app caller now that `strip-markup.js` kept its own `breaksIn`. Sweep 14 plan-task references out of shipped source. **Highest value: lift `nameAtKm` and `endLabel` out of `main.js`** — `main.js` has no test file, and `nameAtKm` carries a cross-module invariant nothing enforces: relaxing its rounded road-end gate would name a km-0.04 start "Cuxhaven" while the strip drew a *"road continues 0.1 km to Cuxhaven"* cap past that same end and called it "start", a visible contradiction with a green suite.
+
+Still out of scope, unchanged: route variants (left/right bank, the Prague spur) — still the largest gap in the product. Accommodation. A second trip on one road. Round trips. Per-day gradient colouring. Elevation gridlines at the taller strip sizes.
