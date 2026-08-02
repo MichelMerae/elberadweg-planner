@@ -1,0 +1,431 @@
+[
+ {
+  "id": "62-139",
+  "name": "62",
+  "kind": "ferry",
+  "kmCanonical": 138.91,
+  "kmAlt": 0.22,
+  "lengthKm": 0.315,
+  "coord": [
+   9.971812,
+   53.54541
+  ],
+  "bankGapM": 380
+ },
+ {
+  "id": "breetze-ferry-218",
+  "name": "Breetze ferry",
+  "kind": "ferry",
+  "kmCanonical": 217.94,
+  "kmAlt": 80.7,
+  "lengthKm": 1.377,
+  "coord": [
+   10.744244,
+   53.299882
+  ],
+  "bankGapM": 1050
+ },
+ {
+  "id": "5170-232",
+  "name": "5170",
+  "kind": "ferry",
+  "kmCanonical": 232.18,
+  "kmAlt": 95.3,
+  "lengthKm": 0.705,
+  "coord": [
+   10.894394,
+   53.237203
+  ],
+  "bankGapM": 808
+ },
+ {
+  "id": "doemitz-bridge-266",
+  "name": "Dömitz bridge",
+  "kind": "bridge",
+  "kmCanonical": 265.86,
+  "kmAlt": 134.54,
+  "lengthKm": 0.99,
+  "coord": [
+   11.22965,
+   53.14473
+  ],
+  "bankGapM": 1004
+ },
+ {
+  "id": "herrenkrugsteg-470",
+  "name": "Herrenkrugsteg",
+  "kind": "bridge",
+  "kmCanonical": 469.59,
+  "kmAlt": 344.52,
+  "lengthKm": 0.618,
+  "coord": [
+   11.67955,
+   52.15221
+  ],
+  "bankGapM": 832
+ },
+ {
+  "id": "jerusalembruecken-473",
+  "name": "Jerusalembrücken",
+  "kind": "bridge",
+  "kmCanonical": 472.71,
+  "kmAlt": 347.02,
+  "lengthKm": 0.21,
+  "coord": [
+   11.656006,
+   52.136783
+  ],
+  "bankGapM": 192
+ },
+ {
+  "id": "sternbruecke-477",
+  "name": "Sternbrücke",
+  "kind": "bridge",
+  "kmCanonical": 477.16,
+  "kmAlt": 350.9,
+  "lengthKm": 0.245,
+  "coord": [
+   11.638754,
+   52.116713
+  ],
+  "bankGapM": 251
+ },
+ {
+  "id": "faehre-aken-542",
+  "name": "Fähre Aken",
+  "kind": "ferry",
+  "kmCanonical": 541.72,
+  "kmAlt": 411.44,
+  "lengthKm": 0.13,
+  "coord": [
+   12.056541,
+   51.859571
+  ],
+  "bankGapM": 241
+ },
+ {
+  "id": "dessau-bridge-558",
+  "name": "Dessau bridge",
+  "kind": "bridge",
+  "kmCanonical": 558.34,
+  "kmAlt": 427.89,
+  "lengthKm": 0.084,
+  "coord": [
+   12.234936,
+   51.841242
+  ],
+  "bankGapM": 86
+ },
+ {
+  "id": "tiergartenbruecke-560",
+  "name": "Tiergartenbrücke",
+  "kind": "bridge",
+  "kmCanonical": 560.09,
+  "kmAlt": 429.69,
+  "lengthKm": 0.111,
+  "coord": [
+   12.249645,
+   51.832006
+  ],
+  "bankGapM": 109
+ },
+ {
+  "id": "dessau-bridge-561",
+  "name": "Dessau bridge",
+  "kind": "bridge",
+  "kmCanonical": 561.45,
+  "kmAlt": 430.81,
+  "lengthKm": 0.214,
+  "coord": [
+   12.262662,
+   51.832782
+  ],
+  "bankGapM": 105
+ },
+ {
+  "id": "elbbruecke-668",
+  "name": "Elbbrücke",
+  "kind": "bridge",
+  "kmCanonical": 667.67,
+  "kmAlt": 529,
+  "lengthKm": 0.512,
+  "coord": [
+   13.015538,
+   51.559089
+  ],
+  "bankGapM": 442
+ },
+ {
+  "id": "faehre-belgern-684",
+  "name": "Fähre Belgern",
+  "kind": "ferry",
+  "kmCanonical": 684.41,
+  "kmAlt": 545.29,
+  "lengthKm": 0.09,
+  "coord": [
+   13.13351,
+   51.4853
+  ],
+  "bankGapM": 228
+ },
+ {
+  "id": "kalbitz-bridge-720",
+  "name": "Kalbitz bridge",
+  "kind": "bridge",
+  "kmCanonical": 719.5,
+  "kmAlt": 578.14,
+  "lengthKm": 0.384,
+  "coord": [
+   13.297803,
+   51.312264
+  ],
+  "bankGapM": 315
+ },
+ {
+  "id": "faehre-riesa-promnitz-721",
+  "name": "Fähre Riesa – Promnitz",
+  "kind": "ferry",
+  "kmCanonical": 720.53,
+  "kmAlt": 579.64,
+  "lengthKm": 0.117,
+  "coord": [
+   13.310672,
+   51.308846
+  ],
+  "bankGapM": 319
+ },
+ {
+  "id": "karl-richard-hirschberg-bruecke-747",
+  "name": "Karl-Richard-Hirschberg-Brücke",
+  "kind": "bridge",
+  "kmCanonical": 746.53,
+  "kmAlt": 605.51,
+  "lengthKm": 0.252,
+  "coord": [
+   13.47989,
+   51.162284
+  ],
+  "bankGapM": 193
+ },
+ {
+  "id": "faehre-f24-gauernitz-koetitz-755",
+  "name": "Fähre F24: Gauernitz – Kötitz",
+  "kind": "ferry",
+  "kmCanonical": 755.28,
+  "kmAlt": 614.37,
+  "lengthKm": 0.099,
+  "coord": [
+   13.57086,
+   51.11473
+  ],
+  "bankGapM": 195
+ },
+ {
+  "id": "weistropp-bridge-758",
+  "name": "Weistropp bridge",
+  "kind": "bridge",
+  "kmCanonical": 758.28,
+  "kmAlt": 618.11,
+  "lengthKm": 0.267,
+  "coord": [
+   13.604069,
+   51.099134
+  ],
+  "bankGapM": 501
+ },
+ {
+  "id": "merbitz-bridge-766",
+  "name": "Merbitz bridge",
+  "kind": "bridge",
+  "kmCanonical": 765.77,
+  "kmAlt": 624.85,
+  "lengthKm": 0.484,
+  "coord": [
+   13.675269,
+   51.073683
+  ],
+  "bankGapM": 346
+ },
+ {
+  "id": "marienbruecke-772",
+  "name": "Marienbrücke",
+  "kind": "bridge",
+  "kmCanonical": 771.71,
+  "kmAlt": 629.8,
+  "lengthKm": 0.177,
+  "coord": [
+   13.734282,
+   51.061509
+  ],
+  "bankGapM": 337
+ },
+ {
+  "id": "augustusbruecke-772",
+  "name": "Augustusbrücke",
+  "kind": "bridge",
+  "kmCanonical": 772.45,
+  "kmAlt": 630.74,
+  "lengthKm": 0.295,
+  "coord": [
+   13.740424,
+   51.056409
+  ],
+  "bankGapM": 272
+ },
+ {
+  "id": "johannstadt-faehre-774",
+  "name": "Johannstadt Fähre",
+  "kind": "ferry",
+  "kmCanonical": 774.43,
+  "kmAlt": 632.98,
+  "lengthKm": 0.104,
+  "coord": [
+   13.764926,
+   51.063296
+  ],
+  "bankGapM": 261
+ },
+ {
+  "id": "waldschloesschenbruecke-775",
+  "name": "Waldschlößchenbrücke",
+  "kind": "bridge",
+  "kmCanonical": 775.31,
+  "kmAlt": 633.71,
+  "lengthKm": 0.61,
+  "coord": [
+   13.776712,
+   51.065827
+  ],
+  "bankGapM": 335
+ },
+ {
+  "id": "loschwitzer-bruecke-779",
+  "name": "Loschwitzer Brücke",
+  "kind": "bridge",
+  "kmCanonical": 778.51,
+  "kmAlt": 636.44,
+  "lengthKm": 0.272,
+  "coord": [
+   13.8114,
+   51.05402
+  ],
+  "bankGapM": 218
+ },
+ {
+  "id": "faehrstelle-birkwitz-heidenau-790",
+  "name": "Fährstelle Birkwitz-Heidenau",
+  "kind": "ferry",
+  "kmCanonical": 789.73,
+  "kmAlt": 646.66,
+  "lengthKm": 0.111,
+  "coord": [
+   13.886778,
+   50.981227
+  ],
+  "bankGapM": 269
+ },
+ {
+  "id": "stadtbruecke-794",
+  "name": "Stadtbrücke",
+  "kind": "bridge",
+  "kmCanonical": 794.41,
+  "kmAlt": 652.03,
+  "lengthKm": 0.129,
+  "coord": [
+   13.934819,
+   50.966605
+  ],
+  "bankGapM": 254
+ },
+ {
+  "id": "hohnstein-ferry-806",
+  "name": "Hohnstein ferry",
+  "kind": "ferry",
+  "kmCanonical": 806.2,
+  "kmAlt": 663.4,
+  "lengthKm": 0.097,
+  "coord": [
+   14.080414,
+   50.957662
+  ],
+  "bankGapM": 203
+ },
+ {
+  "id": "f6-faehre-koenigstein-halbestadt-813",
+  "name": "F6 Fähre Königstein - Halbestadt",
+  "kind": "ferry",
+  "kmCanonical": 812.67,
+  "kmAlt": 669.41,
+  "lengthKm": 0.077,
+  "coord": [
+   14.075826,
+   50.920226
+  ],
+  "bankGapM": 98
+ },
+ {
+  "id": "rathmannsdorf-bridge-818",
+  "name": "Rathmannsdorf bridge",
+  "kind": "bridge",
+  "kmCanonical": 817.97,
+  "kmAlt": 674.24,
+  "lengthKm": 0.276,
+  "coord": [
+   14.137303,
+   50.92257
+  ],
+  "bankGapM": 233
+ },
+ {
+  "id": "cunnersdorf-bridge-819",
+  "name": "Cunnersdorf bridge",
+  "kind": "bridge",
+  "kmCanonical": 819.09,
+  "kmAlt": 675.22,
+  "lengthKm": 0.287,
+  "coord": [
+   14.150821,
+   50.917166
+  ],
+  "bankGapM": 298
+ },
+ {
+  "id": "bad-schandau-ferry-819",
+  "name": "Bad Schandau ferry",
+  "kind": "ferry",
+  "kmCanonical": 819.21,
+  "kmAlt": 675.6,
+  "lengthKm": 0.096,
+  "coord": [
+   14.152286,
+   50.916912
+  ],
+  "bankGapM": 159
+ },
+ {
+  "id": "krippen-ferry-820",
+  "name": "Krippen ferry",
+  "kind": "ferry",
+  "kmCanonical": 820.36,
+  "kmAlt": 676.89,
+  "lengthKm": 0.169,
+  "coord": [
+   14.167889,
+   50.914214
+  ],
+  "bankGapM": 240
+ },
+ {
+  "id": "schoena-ferry-826",
+  "name": "Schöna ferry",
+  "kind": "ferry",
+  "kmCanonical": 825.55,
+  "kmAlt": 681.89,
+  "lengthKm": 0.11,
+  "coord": [
+   14.23065,
+   50.891788
+  ],
+  "bankGapM": 232
+ }
+]

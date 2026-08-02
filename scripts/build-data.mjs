@@ -61,6 +61,7 @@ import {
   chunkBboxes,
 } from './lib/route-assembly.mjs';
 import { parseGpxTracks } from './lib/gpx.mjs';
+import { deriveCrossings, dedupeCrossings } from './lib/crossings.mjs';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -75,6 +76,8 @@ const rawCachePath = (key) => join(DATA_DIR, `route.raw.${key}.json`); // gitign
 
 const ROUTE_JSON = join(DATA_DIR, 'route.json');
 const ROUTE_META_JSON = join(DATA_DIR, 'route.meta.json');
+const ROUTE_ALT_JSON = join(DATA_DIR, 'route.alt.json');
+const CROSSINGS_JSON = join(DATA_DIR, 'crossings.json');
 const TOWNS_JSON = join(DATA_DIR, 'towns.json');
 const POIS_JSON = join(DATA_DIR, 'pois.json');
 
@@ -231,6 +234,74 @@ const DOUBLING_BACK_MAX_PERCENT = 5;
 // (~5.8 km, mostly in the Hamburg harbour passage) left with those sources. So this
 // budget now guards a measured zero, and catches the first gap to appear.
 const INTERNAL_GAP_BUDGET_KM = 8;
+
+// Crossings — the bridges and ferries where a rider may change banks.
+//
+// The alt line starts at the HAMBURG HAND-OVER, not at Cuxhaven, and that is a
+// correctness requirement rather than a trim. For km 0–138.7 the canonical line IS
+// the left bank, so deriving there would ask which ways have one end near the left
+// bank and the other end near the left bank — the same line — and every footbridge
+// over a ditch in Cuxhaven would qualify as a zero-width "crossing".
+//
+// There genuinely are Elbe crossings north of the hand-over: the official right bank
+// runs from Brunsbüttel and is a real parallel bank from about left km 35 onward, with
+// the Glückstadt–Wischhafen ferry among others. They are given up deliberately, because
+// north of Hamburg the other bank is the RIGHT one while south of it the alt is the
+// LEFT one, and a single route.alt.json tagged `bank: 'left'` cannot be both. An empty
+// northern stretch is that decision, not a derivation fault.
+const CROSSING_MAX_SNAP_M = 250;
+const CROSSING_MAX_LENGTH_KM = 3;
+
+// deriveCrossings' own test — one end near the canonical line, the other near the alt
+// line — is necessary but not sufficient, and on the real data it alone returned 118
+// "crossings" where there are about thirty. Two ways to satisfy it without crossing
+// anything, both measured:
+//
+//   - Where the two banks TOUCH, everything qualifies. The official routes share
+//     stretches (measured in Task 5: within 50 m in 33 places, a shared vertex at
+//     Magdeburg), and there a 6 m bridge over a ditch has one end near both lines.
+//     Junk of this shape: 36 entries with the banks 0–40 m apart.
+//   - Where the banks are properly apart, a way NEAR both still need not span them.
+//     A 4 m footbridge sitting between two lines 200 m apart snaps one end to each
+//     and reports a 200 m "crossing" it could not carry anyone over.
+//
+// So a crossing must (a) have real water between its ends — below MIN_BANK_GAP the two
+// routes are the same place and changing banks means nothing — and (b) actually reach
+// across, its own length being a sane fraction of that gap. The lower ratio allows for
+// both routes running set back from the water on their dykes; the upper one rejects
+// river-going lines, the excursion boats tagged `route=ferry` that run ALONG the Elbe
+// rather than over it.
+//
+// MIN_BANK_GAP is set from the narrowest crossing that is unarguably real: the F6
+// Königstein–Halbestadt ferry, where the two routes are 98 m apart. Below 80 m no
+// entry survived scrutiny — at 64 m the "crossing" was Brücke 5, a numbered pontoon
+// at the Hamburg Landungsbrücken whose two ends are both on the north side, and at
+// 59 m a Magdeburg approach span where the two routes briefly run together.
+const CROSSING_MIN_BANK_GAP_M = 80;
+const CROSSING_SPAN_MIN_RATIO = 0.35;
+const CROSSING_SPAN_MAX_RATIO = 3;
+
+// A way shorter than this cannot pass the two rules above, so it is dropped before the
+// projections rather than after: it is 8,715 of the 12,728 candidates, and each one
+// costs four nearestPointOnLine sweeps of a 4,000-vertex line.
+const CROSSING_MIN_WAY_M = CROSSING_MIN_BANK_GAP_M * CROSSING_SPAN_MIN_RATIO;
+
+// A wide probe of one band returned ~9,500 bridge/ferry elements, of which only a
+// handful cross the Elbe: the geometric test in deriveCrossings is the whole filter,
+// so a large candidate count says nothing about the answer. These bound the ANSWER.
+const CROSSING_COUNT_HARD_MIN = 15;
+const CROSSING_COUNT_HARD_MAX = 60;
+const CROSSING_COUNT_NOMINAL_MIN = 25;
+const CROSSING_COUNT_NOMINAL_MAX = 45;
+
+const crossingQuery = (bbox) =>
+  `[out:json][timeout:180];` +
+  `(` +
+  `way["bridge"]["highway"~"^(cycleway|path|footway|track|residential|unclassified|tertiary|secondary|primary)$"]["bicycle"!~"^no$"](${bbox});` +
+  `way["route"="ferry"](${bbox});` +
+  `);` +
+  // `out geom;` — deriveCrossings reads inline way.geometry, not node references.
+  `out geom;`;
 
 // Place queries go out as per-chunk bounding boxes along the route.
 //
@@ -886,6 +957,9 @@ async function stitchRelationSource(spec) {
  * joinSegments measures are exactly the km of the written file. The banks reach that
  * shape before their junction is derived and the OSM source reaches it here — see
  * stitchSource for why the two differ.
+ *
+ * The junctions come back out because the alt line needs one of them: it begins where
+ * the canonical line stops being the left bank.
  */
 function trimSources(specs, stitched) {
   // Junction i sits between source i and source i+1, and is the same join as
@@ -904,7 +978,7 @@ function trimSources(specs, stitched) {
     junctions.push(found);
   }
 
-  return specs.map((spec, i) => {
+  const segments = specs.map((spec, i) => {
     const { coords, gaps, prepared } = stitched[i];
 
     let startIndex;
@@ -967,6 +1041,8 @@ function trimSources(specs, stitched) {
       survivingGaps,
     };
   });
+
+  return { segments, junctions };
 }
 
 // ---------------------------------------------------------------------------
@@ -1277,6 +1353,220 @@ function validatePois(pois) {
 }
 
 // ---------------------------------------------------------------------------
+// Crossings + the alternate bank
+// ---------------------------------------------------------------------------
+
+/**
+ * Keep the candidates that are really crossings, and put them in one consistent order.
+ *
+ * Four passes, each answering a failure the raw derivation actually produced:
+ *
+ *  1. IN RANGE. A crossing only means something where the canonical line is the right
+ *     bank and the alt line is the left one — the right-bank segment. Before the
+ *     Hamburg hand-over the canonical IS the left bank, so a "crossing" there joins
+ *     the left bank to itself; after the border there is no alt bank at all. Both ends
+ *     produced entries (Hamburg harbour ferries at km 137, a 1 m bridge at km 829).
+ *  2. REAL WATER, AND SPANNED. See the CROSSING_* constants.
+ *  3. ONE ENTRY PER ID. The id is what a stored plan remembers, so duplicates are not
+ *     survivable. Three unnamed ferry ways off the same Bad Schandau landing produced
+ *     three entries with one id; the crossing is the shortest hop across, so that wins.
+ *  4. ONE CONSISTENT ORDER. Two entries the banks disagree about — later on the
+ *     canonical axis but earlier on the alt one — are two descriptions of the same
+ *     place, and only one can be in a table whose whole contract is that both columns
+ *     rise together. Again the more direct one wins, and the merge is logged rather
+ *     than done quietly: this is the one place that could hide a real projection fault,
+ *     and validateCrossings still throws if anything survives it out of order.
+ */
+function qualifyCrossings(derived, canonicalCoords, altCoords, { fromKm, toKm }) {
+  const canonicalLine = turf.lineString(canonicalCoords);
+  const altLine = turf.lineString(altCoords);
+
+  const measured = derived
+    .filter((c) => c.kmCanonical >= fromKm && c.kmCanonical <= toKm)
+    .map((c) => {
+      const onCanonical = turf.along(canonicalLine, c.kmCanonical, { units: 'kilometers' });
+      const onAlt = turf.along(altLine, c.kmAlt, { units: 'kilometers' });
+      const bankGapM = haversineM(
+        onCanonical.geometry.coordinates,
+        onAlt.geometry.coordinates,
+      );
+      return { ...c, bankGapM: Math.round(bankGapM) };
+    })
+    .filter((c) => {
+      if (c.bankGapM < CROSSING_MIN_BANK_GAP_M) return false;
+      const ratio = (c.lengthKm * 1000) / c.bankGapM;
+      return ratio >= CROSSING_SPAN_MIN_RATIO && ratio <= CROSSING_SPAN_MAX_RATIO;
+    });
+
+  const byId = new Map();
+  for (const c of measured) {
+    const seen = byId.get(c.id);
+    if (!seen || c.bankGapM < seen.bankGapM) byId.set(c.id, c);
+  }
+
+  const ordered = [...byId.values()].sort((a, b) => a.kmCanonical - b.kmCanonical);
+  const kept = [];
+  for (const c of ordered) {
+    const previous = kept[kept.length - 1];
+    if (previous && c.kmAlt <= previous.kmAlt) {
+      const loser = c.bankGapM < previous.bankGapM ? previous : c;
+      const winner = loser === c ? previous : c;
+      console.log(
+        `[crossings] "${loser.name}" and "${winner.name}" are the same place — the banks ` +
+          `order them differently (alt ${loser.kmAlt} vs ${previous.kmAlt}); keeping the ` +
+          `more direct one`,
+      );
+      if (loser === previous) kept[kept.length - 1] = c;
+      continue;
+    }
+    kept.push(c);
+  }
+  return kept;
+}
+
+/**
+ * Derive the crossing table and the alternate-bank line they connect to.
+ *
+ * `altFull` is the whole left bank from the Hamburg hand-over to the border. What
+ * gets WRITTEN is the stretch between the outermost crossings, because alt bank
+ * outside them is unreachable — there is no way onto it before the first crossing
+ * and no way off it after the last — and drawing it would offer a ride nobody can
+ * take.
+ *
+ * kmAlt has to be the distance along the file that finally gets written, so it is
+ * re-based when the line is sliced. The slice lands on a VERTEX, never on the
+ * crossing itself: deriveCrossings hands back the canonical-side snap coordinate, so
+ * there is no alt-side point to cut at. Subtracting the first crossing's kmAlt (the
+ * obvious re-basing) would therefore start the file a few tens of metres before its
+ * own zero and put every kmAlt out of step with the geometry it claims to measure.
+ * Subtracting the slice-start VERTEX's own along-distance is exact instead — the kept
+ * vertices are untouched, so their arc lengths just shift by a constant — and the
+ * first crossing lands at a small positive kmAlt rather than at 0.
+ */
+async function buildCrossings(canonicalCoords, altFull, boxes, towns, bankRange) {
+  const allWays = await fetchByChunks(
+    boxes,
+    crossingQuery,
+    'crossings',
+    (bbox) => join(tmpdir(), `elberadweg-crossings.${bbox.replace(/[,.-]/g, '_')}.json`),
+  );
+  const ways = allWays.filter((w) => {
+    if (!Array.isArray(w.geometry) || w.geometry.length < 2) return false;
+    const km = turf.length(turf.lineString(w.geometry.map((p) => [p.lon, p.lat])), {
+      units: 'kilometers',
+    });
+    return km * 1000 >= CROSSING_MIN_WAY_M && km <= CROSSING_MAX_LENGTH_KM;
+  });
+
+  const derived = dedupeCrossings(
+    deriveCrossings(ways, canonicalCoords, altFull, {
+      maxSnapM: CROSSING_MAX_SNAP_M,
+      maxLengthKm: CROSSING_MAX_LENGTH_KM,
+      towns,
+    }),
+  );
+  const crossings = qualifyCrossings(derived, canonicalCoords, altFull, bankRange);
+  console.log(
+    `[crossings] ${allWays.length} candidates -> ${ways.length} long enough to matter -> ` +
+      `${derived.length} near both banks -> ${crossings.length} that actually cross`,
+  );
+  if (!crossings.length) {
+    throw new Error('no crossing qualified — the candidate query or the alt line is wrong');
+  }
+
+  // Slice the alt line to the reachable stretch, on vertices bracketing the outermost
+  // crossings, then shift every kmAlt onto that slice's own axis.
+  const alongKm = cumulativeAlongM(altFull).map((m) => m / 1000);
+  const firstKm = Math.min(...crossings.map((c) => c.kmAlt));
+  const lastKm = Math.max(...crossings.map((c) => c.kmAlt));
+  let startIndex = 0;
+  while (startIndex + 1 < altFull.length && alongKm[startIndex + 1] <= firstKm) startIndex += 1;
+  let endIndex = altFull.length - 1;
+  while (endIndex > startIndex && alongKm[endIndex - 1] >= lastKm) endIndex -= 1;
+
+  const altCoords = altFull.slice(startIndex, endIndex + 1);
+  const offsetKm = alongKm[startIndex];
+  for (const c of crossings) c.kmAlt = round(c.kmAlt - offsetKm, 2);
+
+  return { crossings, altCoords };
+}
+
+/**
+ * Validate the crossing table. Throws on anything that would ship a wrong distance.
+ *
+ * The monotonicity check is the load-bearing one, and it covers BOTH axes. src/path.js
+ * converts between the canonical and alt km axes by binary-searching this table, and
+ * both searches assume the two columns rise together. A table that breaks that does
+ * not throw at runtime — it silently returns wrong or null answers and puts the rider
+ * somewhere they are not. This is the only place that can catch it.
+ */
+function validateCrossings(crossings, altCoords) {
+  const altKm = turf.length(turf.lineString(altCoords), { units: 'kilometers' });
+  console.log('\n===== CROSSING VALIDATION =====');
+  console.log(
+    `${crossings.length} crossings (nominal ${CROSSING_COUNT_NOMINAL_MIN}–${CROSSING_COUNT_NOMINAL_MAX}, ` +
+      `hard ${CROSSING_COUNT_HARD_MIN}–${CROSSING_COUNT_HARD_MAX})`,
+  );
+  console.log(`Alt bank: ${altCoords.length} points, ${altKm.toFixed(2)} km`);
+  const perKind = {};
+  for (const c of crossings) perKind[c.kind] = (perKind[c.kind] || 0) + 1;
+  console.log(`Per kind: ${Object.entries(perKind).map(([k, n]) => `${k} ${n}`).join(', ')}`);
+
+  for (const c of crossings) {
+    console.log(
+      `  ${c.id.padEnd(38)} km ${c.kmCanonical.toFixed(2).padStart(8)} / alt ${c.kmAlt.toFixed(2).padStart(8)}` +
+        `  ${(c.lengthKm * 1000).toFixed(0).padStart(5)} m  ${c.kind.padEnd(6)} ${c.name}`,
+    );
+  }
+
+  if (crossings.length < CROSSING_COUNT_HARD_MIN || crossings.length > CROSSING_COUNT_HARD_MAX) {
+    throw new Error(
+      `${crossings.length} crossings is outside the believable range ` +
+        `(${CROSSING_COUNT_HARD_MIN}–${CROSSING_COUNT_HARD_MAX}) — the derivation is wrong, not the river`,
+    );
+  }
+  if (
+    crossings.length < CROSSING_COUNT_NOMINAL_MIN ||
+    crossings.length > CROSSING_COUNT_NOMINAL_MAX
+  ) {
+    console.warn(
+      `[validate] ${crossings.length} crossings outside nominal ` +
+        `${CROSSING_COUNT_NOMINAL_MIN}–${CROSSING_COUNT_NOMINAL_MAX} (still within hard bounds)`,
+    );
+  }
+
+  const unnamed = crossings.filter((c) => !c.name || !c.name.trim());
+  if (unnamed.length) {
+    throw new Error(
+      `${unnamed.length} crossing(s) have no name — the rider would be told to cross at a blank`,
+    );
+  }
+
+  const duplicateIds = crossings.map((c) => c.id).filter((id, i, all) => all.indexOf(id) !== i);
+  if (duplicateIds.length) {
+    throw new Error(
+      `duplicate crossing id(s) ${[...new Set(duplicateIds)].join(', ')} — a stored plan ` +
+        `referencing one could not say which it meant`,
+    );
+  }
+
+  for (const axis of ['kmCanonical', 'kmAlt']) {
+    const values = crossings.map((c) => c[axis]);
+    const bad = values.findIndex((v, i) => i > 0 && v <= values[i - 1]);
+    if (bad > 0) {
+      throw new Error(
+        `crossings are not strictly increasing on the ${axis} axis — a projection landed wrong: ` +
+          `${crossings[bad - 1].id} at ${values[bad - 1]} then ${crossings[bad].id} at ${values[bad]}`,
+      );
+    }
+  }
+  console.log('Monotonicity: PASS (strictly increasing on both axes)');
+  console.log('===============================\n');
+
+  return { altKm };
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -1299,7 +1589,7 @@ async function main() {
   });
 
   // 3. Derive the junctions, trim, simplify, round.
-  const segments = trimSources(SOURCES, stitched);
+  const { segments, junctions } = trimSources(SOURCES, stitched);
 
   // 4. Join across the declared bridges.
   const joined = joinSegments(segments, { bridges: BRIDGES });
@@ -1311,12 +1601,60 @@ async function main() {
   const { totalKm, doublingBackPercent } = validate(trimmed, joined, segments);
   console.log('=============================\n');
 
-  // 6. Write route + meta.
+  // 6. Write the route. Meta waits until the end: it now records the crossing table,
+  //    which cannot be derived until the towns exist to name unnamed ways from.
   trimmed.properties = {
     name: `Elberadweg + EuroVelo 7: ${ORIGIN_NAME} → ${DESTINATION_NAME}`,
     routeId: ROUTE_ID,
   };
   writeFileSync(ROUTE_JSON, JSON.stringify(trimmed));
+  console.log(`[write] ${ROUTE_JSON}`);
+
+  // 7. The chunk boxes the place and crossing queries are built on. Towns need a wider
+  //    pad than POIs, so each gets its own set rather than sharing the wider one.
+  assertChunkPadding();
+  const coords = trimmed.geometry.coordinates;
+  const townBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: TOWN_PAD_KM });
+  const poiBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: POI_PAD_KM });
+  console.log(`[chunks] ${townBoxes.length} boxes of ~${CHUNK_KM} km`);
+
+  // 8. Towns.
+  const towns = await buildTowns(trimmed, townBoxes);
+  writeFileSync(TOWNS_JSON, JSON.stringify(towns, null, 2));
+  console.log(`[write] ${TOWNS_JSON} (${towns.length} towns)`);
+
+  // 9. Crossings and the alternate bank. The alt line is the left bank from the
+  //    Hamburg hand-over onward — see the CROSSING_* constants for why it cannot
+  //    start at Cuxhaven. Its own boxes use the town padding, because a crossing
+  //    reaches the far bank and the far bank is further off-route than a café.
+  const altFull = stitched[0].coords.slice(junctions[0].indexA);
+  const altBoxes = chunkBboxes(altFull, { chunkKm: CHUNK_KM, padKm: TOWN_PAD_KM });
+  // Crossings only exist along the right-bank segment: that is precisely the stretch
+  // where the canonical line and the alt line are opposite banks of the same river.
+  const rightSegment = joined.segments.find((s) => s.bank === 'right');
+  const bankRange = { fromKm: rightSegment.startKm, toKm: rightSegment.endKm };
+  const { crossings, altCoords } = await buildCrossings(
+    coords,
+    altFull,
+    altBoxes,
+    towns,
+    bankRange,
+  );
+  const { altKm } = validateCrossings(crossings, altCoords);
+
+  writeFileSync(
+    ROUTE_ALT_JSON,
+    JSON.stringify({
+      type: 'Feature',
+      properties: { bank: 'left', routeId: ROUTE_ID },
+      geometry: { type: 'LineString', coordinates: altCoords },
+    }),
+  );
+  writeFileSync(CROSSINGS_JSON, JSON.stringify(crossings, null, 1));
+  console.log(`[write] ${ROUTE_ALT_JSON} (${altCoords.length} points, ${altKm.toFixed(2)} km)`);
+  console.log(`[write] ${CROSSINGS_JSON} (${crossings.length} crossings)`);
+
+  // 10. Meta, now that the crossing table exists to record.
   const meta = {
     routeId: ROUTE_ID,
     totalKm: round(totalKm, 2),
@@ -1338,29 +1676,23 @@ async function main() {
       km: round(b.km, 2),
       lengthKm: round(b.lengthKm, 3),
     })),
+    // The alternate bank, and the crossings that are the only way on and off it.
+    alt: {
+      bank: 'left',
+      lengthKm: round(altKm, 2),
+      fromCrossing: crossings[0].id,
+      toCrossing: crossings[crossings.length - 1].id,
+    },
+    crossingCount: crossings.length,
     builtAt: new Date().toISOString(),
     simplifyTolerance: SIMPLIFY_TOLERANCE,
     pointCount,
     doublingBackPercent: round(doublingBackPercent, 2),
   };
   writeFileSync(ROUTE_META_JSON, JSON.stringify(meta, null, 2));
-  console.log(`[write] ${ROUTE_JSON}`);
   console.log(`[write] ${ROUTE_META_JSON}`);
 
-  // 7. The chunk boxes both place queries are built on. Towns need a wider pad
-  //    than POIs, so each gets its own set rather than sharing the wider one.
-  assertChunkPadding();
-  const coords = trimmed.geometry.coordinates;
-  const townBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: TOWN_PAD_KM });
-  const poiBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: POI_PAD_KM });
-  console.log(`[chunks] ${townBoxes.length} boxes of ~${CHUNK_KM} km`);
-
-  // 8. Towns.
-  const towns = await buildTowns(trimmed, townBoxes);
-  writeFileSync(TOWNS_JSON, JSON.stringify(towns, null, 2));
-  console.log(`[write] ${TOWNS_JSON} (${towns.length} towns)`);
-
-  // 9. POIs (food stops & sights).
+  // 11. POIs (food stops & sights).
   const pois = await buildPois(trimmed, poiBoxes);
   validatePois(pois);
   writeFileSync(POIS_JSON, JSON.stringify(pois, null, 2));
