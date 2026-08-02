@@ -7,7 +7,7 @@
 import { round1 } from './ui-util.js';
 import { boundaryWindow, clampBoundaryKm } from './boundaries.js';
 import { stripLayout, xToKm, hitTestHandle } from './strip-geometry.js';
-import { summaryMarkup, axisMarkup, scaleMarkup } from './strip-markup.js';
+import { summaryMarkup, axisMarkup, scaleMarkup, banksMarkup } from './strip-markup.js';
 import { profilePoints } from './elevation.js';
 
 // jsdom (and a first paint before layout settles) reports width 0; a plausible
@@ -70,11 +70,13 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
   el.innerHTML = `
     <div class="strip__summary"></div>
     <div class="strip__axis" data-strip-axis></div>
+    <div class="strip__banks"></div>
     <div class="strip__scale"></div>
     <div class="strip__live" role="status" aria-live="polite"></div>`;
 
   const summaryEl = el.querySelector('.strip__summary');
   const axisEl = el.querySelector('[data-strip-axis]');
+  const banksEl = el.querySelector('.strip__banks');
   const scaleEl = el.querySelector('.strip__scale');
   const liveEl = el.querySelector('.strip__live');
 
@@ -204,6 +206,11 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       // it, because `next` defaults to `state` — the same shape focusedIndex uses.
       picking: next.picking ?? null,
       trip,
+      // Undefined on every single-bank render (most of this file's own tests, and
+      // any trip main.js has not yet composed from two banks): banksMarkup treats
+      // that the same as an empty array and draws nothing, which is what a plan
+      // with one bank always looked like before this row existed.
+      bankLegs: next.bankLegs,
     };
     const axis = axisOpts();
     const layout = stripLayout(state.days, axis);
@@ -215,6 +222,7 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
     // overflow:hidden body, and scrolling that to "reveal" the handle shoves the
     // whole app off screen.
     if (restore) axisEl.querySelector(restore)?.focus({ preventScroll: true });
+    banksEl.innerHTML = banksMarkup(state, axis);
     scaleEl.innerHTML = scaleMarkup(state, layout);
   }
 

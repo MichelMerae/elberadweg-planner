@@ -598,3 +598,51 @@ export function scaleMarkup(state, layout) {
     (arrived ? `<span class="strip__finish">⚑ reached</span>` : '')
   );
 }
+
+/**
+ * The bank ribbon: one span per composed-path leg — the stretches of a two-bank
+ * trip's chosen line, each ridden on one bank — plus a ⇄ tick where the rider
+ * crosses. Read-only, deliberately: acting on a crossing is the day panel's "⇄
+ * Cross" button, so nothing here is a control, only a picture of the whole trip.
+ *
+ * `state.bankLegs` is absent on every single-bank trip (this file's own tests,
+ * and any plan main.js has not composed from two banks yet), which draws
+ * nothing — the same blank row a one-bank trip always had.
+ *
+ * A leg's `fromKm`/`toKm` are absolute route km, exactly like a day's own
+ * `startKm`/`endKm`, so they go through the same `kmToX` the axis above uses —
+ * one window, one mapping, for every km on this line. `Math.min`/`Math.abs`
+ * keep the span upright on a downstream leg (`fromKm > toKm`): a bare
+ * `x(toKm) - x(fromKm)` goes negative there, and CSS silently drops a negative
+ * width rather than drawing one.
+ *
+ * A zero-length leg (a crossing landing exactly on the trip's start or
+ * destination) has nothing for a span to draw, so it is filtered out of the
+ * spans — but its crossing still happened, and that filter runs only over the
+ * spans: the tick pass reads `crossingIn` independently and still marks it.
+ */
+export function banksMarkup(state, axis) {
+  const legs = state.bankLegs;
+  if (!Array.isArray(legs) || !legs.length) return '';
+  const x = (km) => kmToX(km, axis);
+  const spans = legs
+    .filter((leg) => leg.riddenLengthKm > 0)
+    .map((leg) => {
+      const a = x(leg.fromKm);
+      const b = x(leg.toKm);
+      const left = Math.min(a, b);
+      const width = Math.abs(b - a);
+      const cls = leg.bank ? `strip__bank--${leg.bank}` : 'strip__bank--single';
+      const title = `${leg.bank ?? 'single'} bank · ${Math.round(leg.riddenLengthKm)} km`;
+      return `<span class="strip__bank ${cls}" style="left:${Math.round(left)}px;width:${Math.round(width)}px" title="${esc(title)}"></span>`;
+    })
+    .join('');
+  const ticks = legs
+    .filter((leg) => leg.crossingIn)
+    .map(
+      (leg) =>
+        `<span class="strip__bank-tick" style="left:${Math.round(x(leg.fromKm))}px" title="⇄ ${esc(leg.crossingIn.name)}">⇄</span>`,
+    )
+    .join('');
+  return spans + ticks;
+}

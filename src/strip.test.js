@@ -2211,3 +2211,110 @@ describe('createStrip - a trip is required', () => {
     expect(bare.querySelector('.strip__block').textContent).toContain('80 km');
   });
 });
+
+// The strip's bank ribbon: one span per composed-path leg, coloured by which bank
+// it rides, with a ⇄ tick at each chosen crossing. Read-only by design — acting on
+// a crossing belongs to the day panel's "⇄ Cross" button, so this row has no click
+// handlers of its own, only the shape of the whole trip.
+describe('createStrip - bank ribbon', () => {
+  const LEGS = [
+    { bank: 'right', onAlt: false, fromKm: 0, toKm: 300, riddenLengthKm: 300, crossingIn: null },
+    {
+      bank: 'left',
+      onAlt: true,
+      fromKm: 300,
+      toKm: 650,
+      riddenLengthKm: 342,
+      crossingIn: { id: 'm-479', name: 'Magdeburg', kmCanonical: 300 },
+    },
+  ];
+
+  it('renders one span per leg, positioned by km', () => {
+    const { render } = mount(600);
+    render({ days: [], breaks: [], bankLegs: LEGS });
+
+    const spans = [...el.querySelectorAll('.strip__bank')];
+    expect(spans).toHaveLength(2);
+    expect(spans[0].className).toContain('strip__bank--right');
+    expect(spans[1].className).toContain('strip__bank--left');
+    // 300 of 650 km ≈ 46% of the width
+    expect(parseFloat(spans[1].style.left)).toBeGreaterThan(250);
+  });
+
+  it('marks each crossing with a tick at its km', () => {
+    const { render } = mount(600);
+    render({ days: [], breaks: [], bankLegs: LEGS });
+
+    const tick = el.querySelector('.strip__bank-tick');
+    expect(tick).not.toBeNull();
+    expect(tick.title).toContain('Magdeburg');
+  });
+
+  it('renders nothing without bankLegs (single-bank compatibility)', () => {
+    const { render } = mount(600);
+    render({ days: [], breaks: [] });
+
+    expect(el.querySelector('.strip__banks').innerHTML).toBe('');
+  });
+
+  // A crossing sitting exactly on the trip's start or destination composes to a
+  // zero-length leg: nothing for a span to draw, but the crossing itself still
+  // happened and its tick must still appear. The two are independent — filtering
+  // the leg out entirely would silently drop the tick along with the empty span.
+  it('skips a zero-length leg’s span but still ticks its crossing', () => {
+    const { render } = mount(600);
+    render({
+      days: [],
+      breaks: [],
+      bankLegs: [
+        {
+          bank: 'right',
+          onAlt: false,
+          fromKm: 0,
+          toKm: 0,
+          riddenLengthKm: 0,
+          crossingIn: { id: 'edge', name: 'Startbridge', kmCanonical: 0 },
+        },
+        { bank: 'left', onAlt: true, fromKm: 0, toKm: 650, riddenLengthKm: 650, crossingIn: null },
+      ],
+    });
+
+    const spans = [...el.querySelectorAll('.strip__bank')];
+    expect(spans).toHaveLength(1); // the zero-length leg drew no span
+    const tick = el.querySelector('.strip__bank-tick');
+    expect(tick).not.toBeNull();
+    expect(tick.title).toContain('Startbridge');
+  });
+
+  // fromKm > toKm on a downstream trip. A plain x(toKm) - x(fromKm) width would go
+  // negative, which CSS drops — the box falls back to auto and the ribbon shows
+  // garbage. Math.min/Math.abs must keep both the left edge and the width correct.
+  it('renders a downstream leg (fromKm > toKm) in the right place', () => {
+    const { render } = mount(600);
+    render({
+      days: [],
+      breaks: [],
+      bankLegs: [
+        { bank: 'left', onAlt: true, fromKm: 650, toKm: 300, riddenLengthKm: 350, crossingIn: null },
+        {
+          bank: 'right',
+          onAlt: false,
+          fromKm: 300,
+          toKm: 0,
+          riddenLengthKm: 300,
+          crossingIn: { id: 'm-479', name: 'Magdeburg', kmCanonical: 300 },
+        },
+      ],
+    });
+
+    const spans = [...el.querySelectorAll('.strip__bank')];
+    expect(spans).toHaveLength(2);
+    // km 300 of 650 on a 600px axis is x ≈ 277 (600/650*300). Leg 0 runs from
+    // km 650 DOWN to km 300, so its left edge sits at km 300's x, not km 650's.
+    expect(spans[0].style.left).toBe('277px');
+    expect(spans[0].style.width).toBe('323px');
+    // Leg 1 runs from km 300 down to km 0, so it starts at the axis's own left edge.
+    expect(spans[1].style.left).toBe('0px');
+    expect(spans[1].style.width).toBe('277px');
+  });
+});
