@@ -405,8 +405,8 @@ async function boot() {
     focusedDayIndex = null;
     lastFramedStretch = null; // a different stretch — frame it
     // A pick CONFIRMATION describes the trip it was made on, and this is a different
-    // trip: left up, "your start → Prague · 877.5 km upstream" would sit over a plan
-    // whose summary reads "0 / 1026.5 km planned". An ARMED prompt survives on purpose —
+    // trip: left up, "your start → Prague · 859.4 km upstream" would sit over a plan
+    // whose summary reads "0 / 1000.4 km planned". An ARMED prompt survives on purpose —
     // the mode belongs to the app rather than to the plan, and "click the route where
     // your trip starts" is still true of whichever plan is now loaded. (The pick banner
     // has no × by design, so nothing else would ever clear it.)
@@ -449,11 +449,12 @@ async function boot() {
   // worth ±2 km". **Both halves of that were wrong, and the feature was unreachable
   // because of it** (found in use, 2026-08-02, trying to start a trip at Hamburg):
   //
-  //   - The road is 1026.5 km across a 720 px map, so a pixel is ~1.4 km of straight
+  //   - The road is 1000.4 km across a 720 px map, so a pixel is ~1.4 km of straight
   //     line — twice the estimate. And the corridor MEANDERS, so a pixel of pointer
   //     error is worth more than that again in along-route km.
-  //   - Measured: a click that landed visually ON Hamburg resolved to km 151.9, and
-  //     Hamburg is at 155.8. **3.9 km off, from a click that looked perfect** — outside
+  //   - Measured on the OSM-era route: a click that landed visually ON Hamburg
+  //     resolved to km 151.9, where Hamburg was at 155.8. **3.9 km off, from a click
+  //     that looked perfect** — outside
   //     a 3 km radius, so no offer appeared and the start stayed unnamed. The one
   //     gesture the snap exists to rescue was the one it refused.
   //
@@ -464,7 +465,7 @@ async function boot() {
   // naming it would be noise. Ignoring the offer costs nothing; not getting one costs
   // the rider the exact km of the place they live.
   //
-  // 25 km is ~20x the corridor's mean town spacing (887 towns over 1026.5 km), so it
+  // 25 km is ~20x the corridor's mean town spacing (885 towns over 1000.4 km), so it
   // only withholds an offer where the rider really is out in open country.
   const SNAP_OFFER_KM = 25;
 
@@ -489,8 +490,8 @@ async function boot() {
   // so whether to draw a stub past it). Two questions — "what is this end called" and
   // "is there road past it" — sharing one comparison. Change one, change the other, or
   // the app will name one end two ways on one screen. It is also what keeps a town near
-  // a road end from renaming the road: Praha sits 0.3 km short of km 1026.5 and Cuxhaven
-  // the town 3.5 km past km 0, and neither may stand in for the corridor's own endpoint.
+  // a road end from renaming the road: Praha sits 0.3 km short of km 1000.4 and Cuxhaven
+  // the town 3.3 km past km 0, and neither may stand in for the corridor's own endpoint.
   function nameAtKm(km) {
     if (round1(km) <= 0) return ORIGIN_NAME;
     if (round1(totalKm - km) <= 0) return DESTINATION_NAME;

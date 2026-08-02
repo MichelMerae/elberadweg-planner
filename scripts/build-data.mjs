@@ -9,39 +9,58 @@
  *   src/data/pois.json        — food stops & sights near the route
  *
  * THREE sources, because no single one spans the corridor:
- *   - Elberadweg LEFT bank (linkselbisch, 22328): Cuxhaven -> Finkenwerder.
- *     Cuxhaven is a left-bank town; the right-bank superroute stops at Brunsbüttel.
- *   - Elberadweg RIGHT bank (rechtselbisch, 22327): the Hamburg crossing -> Schöna.
- *   - EuroVelo 7, Czech part (2775754): the border -> Prague, Elbe and Vltava in
- *     one relation, so there is no junction to invent at Mělník.
+ *   - Elberadweg LEFT bank: elberadweg.de's official GPX, the 15 lettered sections
+ *     A–O of "[Abschnitt X links]". Cuxhaven -> the Czech border, 827 km.
+ *   - Elberadweg RIGHT bank: the same 15 sections, "rechts". Brunsbüttel -> the
+ *     border, 799 km. The official right bank does not run to Cuxhaven, which is
+ *     why the canonical line takes the LEFT bank down to the Hamburg hand-over.
+ *   - EuroVelo 7, Czech part (OSM 2775754): the border -> Prague, Elbe and Vltava in
+ *     one relation, so there is no junction to invent at Mělník. The official site
+ *     publishes no bank variants past the border, so this source stays on OSM.
  *
- * Each source is stitched, trimmed, simplified and rounded INDEPENDENTLY, then the
- * three are concatenated by joinSegments() across two declared ferry bridges. The
- * interior trim points are DERIVED by findJunction() — where the lines actually
- * come closest — because guessing a coordinate for the place two lines meet is
- * guessing an answer the data already holds. Only Cuxhaven and Prague are anchored,
- * having no neighbouring line to derive them from.
+ * The canonical line — the single km axis every stored km in the app refers to — is
+ * the left bank down to the Hamburg hand-over, the right bank on to the border, then
+ * the Czech line to Prague, concatenated by joinSegments() across two declared joins.
+ *
+ * Interior trim points are DERIVED by findJunction(), because guessing a coordinate
+ * for the place two lines meet is guessing an answer the data already holds. The
+ * Hamburg one is derived inside a DECLARED neighbourhood, though: the two banks run
+ * the whole corridor in parallel and come within 50 m of each other in 33 places,
+ * sharing an exact vertex at Magdeburg, so an unconstrained closest approach returns
+ * Magdeburg and moves the bank change 350 km from where it was meant to be. WHICH
+ * crossing the canonical line uses is a decision, so it is declared; only the
+ * hand-over vertices are measured. Cuxhaven and Prague are anchored, having no
+ * neighbouring line to derive them from.
+ *
+ * Both banks are simplified and rounded ONCE, before any junction is derived, so a
+ * km measured anywhere on a bank is the km the canonical line reports for that same
+ * place. That is what lets a later step slice the same banks for the alternate line
+ * and the crossing table without the two km axes drifting apart.
  *
  * Run:  node scripts/build-data.mjs [--refresh]
- *   --refresh  force re-fetch from Overpass instead of using the cached raw OSM.
+ *   --refresh  force re-fetch of the GPX sections and of Overpass, instead of using
+ *              the cached raw files.
  *
  * Overpass is flaky, so fetching uses retry + exponential backoff, honours
- * 429/Retry-After, falls back across mirrors, and caches the raw response per
- * source (so one source can be refreshed without re-fetching 40k elements).
+ * 429/Retry-After, falls back across mirrors, and caches the raw response per source
+ * (so one source can be refreshed without re-fetching 40k elements). The GPX sections
+ * are cached the same way, one file per section and side.
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import * as turf from '@turf/turf';
 import {
   haversineM,
+  cumulativeAlongM,
   findJunction,
   joinSegments,
   doublingBackReport,
   chunkBboxes,
 } from './lib/route-assembly.mjs';
+import { parseGpxTracks } from './lib/gpx.mjs';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -61,47 +80,47 @@ const POIS_JSON = join(DATA_DIR, 'pois.json');
 
 // The three sources, in route order.
 //
-// `trimStart`/`trimEnd` name how each end is decided: 'junction' means derived
-// from the neighbouring source, an ANCHORS key means a fixed coordinate.
+// `kind` picks the fetcher: 'gpx-bank' pulls the 15 official sections for one side
+// of the river, 'osm-relations' queries Overpass for a relation list.
+//
+// `trimStart`/`trimEnd` name how each end is decided: 'junction' means derived from
+// the neighbouring source, an ANCHORS key means a fixed coordinate.
+//
+// `orientTowards` names what turns the stitched line into route order: an ANCHORS
+// key, or another source's 'start'/'end'. Resolved in route order, so a source can
+// only orient against one already oriented.
 const SOURCES = [
   {
     key: 'left',
-    source: 'elberadweg-left',
+    kind: 'gpx-bank',
+    side: 'links',
+    bank: 'left',
+    source: 'official-gpx-left',
     from: 'Cuxhaven',
-    to: 'Finkenwerder',
-    relations: [
-      2599008, // Cuxhaven -> Freiburg (Elbe)      [linkselbisch A]
-      2599035, // Freiburg (Elbe) -> Finkenwerder  [linkselbisch B]
-    ],
+    to: 'Hamburg',
     trimStart: 'CUXHAVEN',
     trimEnd: 'junction',
+    orientTowards: 'CUXHAVEN',
   },
   {
     key: 'right',
-    source: 'elberadweg-right',
-    from: 'Teufelsbrück',
+    kind: 'gpx-bank',
+    side: 'rechts',
+    bank: 'right',
+    source: 'official-gpx-right',
+    from: 'Hamburg',
     to: 'Schmilka',
-    relations: [
-      2599011, // Wedel -> Kirchwerder (the Hamburg crossing is mid-stage)
-      2599013, // Ochsenwerder -> Lauenburg
-      2599015, // Lauenburg -> Bitter
-      2599016, // Bitter -> Wittenberge
-      2599018, // Wittenberge -> Havelberg
-      2599020, // Havelberg -> Tangermünde
-      2599024, // Tangermünde -> Magdeburg
-      2599025, // Magdeburg -> Dessau-Roßlau
-      2599026, // Dessau-Roßlau -> Elster
-      7758087, // Elster -> Belgern
-      2599030, // Belgern -> Meißen
-      2599032, // Meißen -> Heidenau
-      2599033, // Heidenau -> Schöna (reaches the border, then has a misordered
-      //          final way sitting 11.7 km back at Wehlen — trimmed away)
-    ],
     trimStart: 'junction',
     trimEnd: 'junction',
+    // NOT the left bank's end: both banks now run the whole way to the border, so
+    // that end is the border and aiming this one at it would reverse it. The banks
+    // run the same way, so the left bank's START is the reference.
+    orientTowards: { source: 'left', at: 'start' },
   },
   {
     key: 'cz',
+    kind: 'osm-relations',
+    bank: null,
     source: 'eurovelo-7-cz',
     from: 'Hřensko',
     to: 'Prague',
@@ -111,16 +130,42 @@ const SOURCES = [
     relations: [2775754],
     trimStart: 'junction',
     trimEnd: 'PRAGUE',
+    orientTowards: { source: 'right', at: 'end' },
   },
 ];
 
-// The two joins between sources. Both are real water, not stitching artefacts:
-// measured 2.25 km and 3.26 km, the latter verified irreducible (no right-bank
-// vertex anywhere gets closer to the Czech route's start).
+// The two joins between sources, in the same order as the joins themselves.
+//
+// `searchNear`/`searchRadiusKm` confine the junction search (see findJunctionNear).
+// Hamburg needs it and the border does not: the banks run parallel for 800 km, while
+// the German and Czech lines approach each other only at the border.
+//
+// The Hamburg join is NOT the Finkenwerder–Teufelsbrück ferry the OSM build used.
+// The official left-bank track rides that ferry itself and then continues along the
+// north shore, so both banks share the promenade from Teufelsbrück to the
+// Landungsbrücken and meet there with 15 m between them. The ceiling is set low
+// because the seam is a shared path, not water — anything above a few hundred metres
+// means the search landed somewhere it should not have.
+//
+// The border link is real water: 3.26 km, unchanged from the OSM build even though
+// the German side of it is now a different line, and verified irreducible (no
+// right-bank vertex anywhere gets closer to the Czech route's start).
 const BRIDGES = [
-  { name: 'Finkenwerder–Teufelsbrück ferry', maxKm: 3 },
+  {
+    name: 'Hamburg bank change (Landungsbrücken)',
+    maxKm: 0.5,
+    searchNear: [9.9686, 53.5457],
+    searchRadiusKm: 12,
+  },
   { name: 'Schmilka–Hřensko border link', maxKm: 4 },
 ];
+
+// The official GPX downloads: 15 lettered sections per side, both sides complete.
+const GPX_SECTIONS = 'ABCDEFGHIJKLMNO'.split('');
+const GPX_RAW_DIR = join(DATA_DIR, 'gpx.raw'); // gitignored
+const gpxUrl = (section, side) =>
+  'https://www.elberadweg.de/gps/' +
+  encodeURIComponent(`Elberadweg - Labská stezka [Abschnitt ${section} ${side}].gpx`);
 
 // Outer trim anchors ([lng,lat]). Each is located to its nearest route vertex and
 // fails the build past ANCHOR_MAX_OFFSET_KM.
@@ -134,7 +179,7 @@ const ANCHOR_MAX_OFFSET_KM = 2;
 const JUNCTION_MAX_GAP_KM = 6;
 
 // Monotonicity checkpoints ([lng,lat]) — must lie strictly in route order.
-// Mělník precedes Prague because the Vltava leg runs upstream: they are ~50 km
+// Mělník precedes Prague because the Vltava leg runs upstream: they are ~59 km
 // apart along the route and ~45 km apart straight-line, so this is a real
 // assertion rather than an accident of ordering.
 const CHECKPOINTS = [
@@ -152,27 +197,39 @@ const CHECKPOINTS = [
 // Route identity. Stable across rebuilds of the SAME corridor: storage resets
 // stored plans when this changes and only when it changes, so a plain data refresh
 // does not throw away a trip. (main.js separately banners on meta.builtAt.)
-const ROUTE_ID = 'cuxhaven-prague-ev7-v1';
+const ROUTE_ID = 'cuxhaven-prague-official-v2';
 const ORIGIN_NAME = 'Cuxhaven';
 const DESTINATION_NAME = 'Prague';
 
-// Length bounds (km). The old Hamburg -> Dresden route measured 650.24 km and was
-// audited on 2026-07-31 as honest (1.3% doubling-back; milestones run slightly
-// SHORT against signposted values). Adding ~137 km of left bank and ~230 km past
-// Dresden puts the expected total near 1030.
+// Length bounds (km). The first official-GPX build measured 1000.40 km: 138.7 km of
+// left bank down to the Hamburg hand-over, 687.3 km of right bank on to Schmilka,
+// 171.1 km of EV7 to Prague, plus the 3.26 km border link.
+//
+// That is 26 km SHORTER than the 1026.5 km OSM composite it replaces — over this
+// corridor the official routing is the shorter one, not the longer one. (End to end
+// the banks measure 827 km and 799 km; the composite uses only the first 139 km of
+// the left one, which is why the total resembles neither.)
+//
+// The nominal window is wide enough that a data refresh moving the route a few km
+// does not cry wolf, and tight enough that a section going missing, or the Hamburg
+// seam sliding to a different crossing, reads as more than a rounding change.
 const LEN_HARD_MIN = 850;
-const LEN_HARD_MAX = 1350;
-const LEN_NOMINAL_MIN = 1000;
-const LEN_NOMINAL_MAX = 1150;
+const LEN_HARD_MAX = 1400;
+const LEN_NOMINAL_MIN = 950;
+const LEN_NOMINAL_MAX = 1075;
 
 // Fail above this much doubling-back. A regression guard against a new stitching
-// fault in the added sources, not an investigation — see the audit above.
+// fault, not an investigation: the official banks measure 0.1%, against the 1.15%
+// of the OSM composite they replace, so the headroom here is enormous.
 const DOUBLING_BACK_MAX_PERCENT = 5;
 
 // Hard gaps that survive INSIDE a trimmed segment get straight-bridged, which
-// silently adds distance nobody can ride. Five are known and expected, totalling
-// ~5.8 km (three in the tangled Hamburg harbour passage, one near Geesthacht, one
-// at Magdeburg). The budget tolerates those and catches a new one.
+// silently adds distance nobody can ride. There are currently none: the banks' own
+// section joins are all well under GAP_SOFT and are checked as they are stitched,
+// and the Czech relation's three hard gaps — including a 128 km jump — all sit
+// outside the Prague trim. The five that the OSM German sources used to contribute
+// (~5.8 km, mostly in the Hamburg harbour passage) left with those sources. So this
+// budget now guards a measured zero, and catches the first gap to appear.
 const INTERNAL_GAP_BUDGET_KM = 8;
 
 // Place queries go out as per-chunk bounding boxes along the route.
@@ -216,6 +273,12 @@ function assertChunkPadding() {
  *
  * Chunk boxes overlap by their padding, so the same element arrives more than once;
  * dedupe by type+id before anything downstream counts or filters it.
+ *
+ * The cache is keyed by the BOX, not by the chunk's position in the list. Chunk 7 of
+ * a rebuilt route covers different ground from chunk 7 of the old one, so an
+ * index-keyed cache answers the new query with the old corridor's places — the towns
+ * would be real, the km beside them would be measured on a line they were never
+ * queried along, and nothing downstream could tell.
  */
 async function fetchByChunks(boxes, buildQuery, label, cachePath) {
   const seen = new Set();
@@ -226,7 +289,7 @@ async function fetchByChunks(boxes, buildQuery, label, cachePath) {
       `${box.north.toFixed(4)},${box.east.toFixed(4)}`;
     const osm = await fetchCached(
       buildQuery(bbox),
-      cachePath(i),
+      cachePath(bbox),
       `${label} ${i + 1}/${boxes.length} (km ${box.startKm.toFixed(0)}–${box.endKm.toFixed(0)})`,
     );
     for (const el of osm.elements || []) {
@@ -368,6 +431,92 @@ async function fetchCached(query, cachePath, label) {
 }
 
 // ---------------------------------------------------------------------------
+// Official GPX fetching (retry + backoff + cache)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch (or load from cache) one section file of one bank.
+ *
+ * A failed request is never cached: an error page written to `A-links.gpx` would be
+ * reused on every later run and the section would be silently missing from the bank,
+ * so the body is checked for track points before it is kept.
+ */
+async function fetchGpxCached(section, side) {
+  mkdirSync(GPX_RAW_DIR, { recursive: true });
+  const file = join(GPX_RAW_DIR, `${section}-${side}.gpx`);
+  if (!REFRESH && existsSync(file)) return readFileSync(file, 'utf8');
+
+  let lastErr;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(gpxUrl(section, side), { headers: { 'User-Agent': USER_AGENT } });
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      const text = await res.text();
+      if (!text.includes('<trkpt')) {
+        throw new Error(`response carries no track points (${text.slice(0, 80)}…)`);
+      }
+      writeFileSync(file, text);
+      console.log(`[gpx] ${section} ${side}: fetched ${text.length} bytes`);
+      return text;
+    } catch (err) {
+      lastErr = err;
+      const wait = backoffMs(attempt);
+      console.warn(`[gpx] ${section} ${side}: ${err.message}; waiting ${Math.round(wait)}ms`);
+      await sleep(wait);
+    }
+  }
+  throw new Error(`GPX ${section} ${side}: ${lastErr.message}`);
+}
+
+/**
+ * Stitch one bank from its 15 section files, end to end.
+ *
+ * Every join is measured, whether it is a section boundary or a <trkseg> pause inside
+ * one file, because both are places the line can jump without saying so. Measured on
+ * the current files: no file contains more than one <trkseg>, and the worst section
+ * boundary is 203 m (links G) — well inside GAP_SOFT, so nothing here is bridging
+ * distance worth reporting. The guard is what keeps that true.
+ *
+ * Each piece is reversed when its far end sits nearer the running line. Both banks
+ * currently arrive already ordered Cuxhaven -> border, so this never fires; it is
+ * cheap insurance against a section being republished the other way round.
+ */
+async function assembleBank(side) {
+  let coords = [];
+  const joins = [];
+
+  for (const section of GPX_SECTIONS) {
+    const pieces = parseGpxTracks(await fetchGpxCached(section, side));
+    pieces.forEach((piece, pieceIndex) => {
+      let next = piece;
+      if (coords.length) {
+        const tail = coords[coords.length - 1];
+        const gapFwd = haversineM(tail, next[0]);
+        const gapRev = haversineM(tail, next[next.length - 1]);
+        if (gapRev < gapFwd) {
+          console.log(`[gpx] ${side} ${section}: piece ${pieceIndex} reversed`);
+          next = next.slice().reverse();
+        }
+        joins.push({
+          where: pieceIndex === 0 ? section : `${section}#${pieceIndex}`,
+          gapM: Math.min(gapFwd, gapRev),
+        });
+      }
+      coords = coords.concat(next);
+    });
+  }
+
+  const hard = joins.filter((j) => j.gapM > GAP_SOFT);
+  if (hard.length) {
+    throw new Error(
+      `bank ${side}: hard joins ${hard.map((j) => `${j.where}:${Math.round(j.gapM)}m`).join(', ')} ` +
+        `— the sections do not meet, so the bank would be bridged across open ground`,
+    );
+  }
+  return { coords, joins };
+}
+
+// ---------------------------------------------------------------------------
 // Raw OSM -> indexed maps
 // ---------------------------------------------------------------------------
 
@@ -409,7 +558,7 @@ function wayCoords(wayId, ways, nodes) {
 // ---------------------------------------------------------------------------
 
 /**
- * Flatten the 12 stage relations into an ordered list of ways, preserving
+ * Flatten a source's stage relations into an ordered list of ways, preserving
  * relation-member order and dropping members with role "backward".
  * @returns {{stageId:number, wayId:number}[]}
  */
@@ -529,6 +678,73 @@ function roundCoordArray(coords) {
 }
 
 /**
+ * Simplify and round a coordinate array into its committed shape.
+ *
+ * Whatever comes out of here is what gets written, so it is also what every km in
+ * the pipeline is measured on. Note that a simplified line has legitimately long
+ * straight segments — a dead-straight dyke path can run kilometres between two kept
+ * vertices — so vertex spacing after this point says nothing about gaps in the
+ * source. Gaps are detected before simplification, or not at all.
+ */
+function simplifyAndRound(coords) {
+  const line = turf.lineString(coords);
+  turf.simplify(line, { tolerance: SIMPLIFY_TOLERANCE, highQuality: true, mutate: true });
+  return roundCoordArray(line.geometry.coordinates);
+}
+
+/**
+ * findJunction, optionally confined to a declared neighbourhood.
+ *
+ * Where two sources END near each other, their closest approach IS the junction and
+ * needs no hint. The two banks are not like that: they run the whole corridor in
+ * parallel and touch wherever the official routes share a crossing — measured, 33
+ * places within 50 m, including an exact shared vertex at Magdeburg. Unconstrained,
+ * the search returns Magdeburg, and the canonical line changes banks 350 km from
+ * where it was meant to, at a length that still looks entirely plausible.
+ *
+ * So the neighbourhood is declared and the hand-over is still measured: the search
+ * is told which crossing to use, not where the two lines meet inside it. The subsets
+ * are only a window — every index and distance returned refers to the whole source.
+ */
+function findJunctionNear(coordsA, coordsB, { searchNear, searchRadiusKm }, opts) {
+  if (!searchNear) return findJunction(coordsA, coordsB, opts);
+
+  const near = (coords) => {
+    const indexes = [];
+    for (let i = 0; i < coords.length; i++) {
+      if (haversineM(coords[i], searchNear) <= searchRadiusKm * 1000) indexes.push(i);
+    }
+    return indexes;
+  };
+  const indexesA = near(coordsA);
+  const indexesB = near(coordsB);
+  if (!indexesA.length || !indexesB.length) {
+    throw new Error(
+      `${opts.name}: the ${searchRadiusKm} km neighbourhood of [${searchNear}] contains no ` +
+        `vertices of the ${indexesA.length ? 'second' : 'first'} line — the declared crossing ` +
+        `is not on the route`,
+    );
+  }
+
+  const found = findJunction(
+    indexesA.map((i) => coordsA[i]),
+    indexesB.map((i) => coordsB[i]),
+    opts,
+  );
+  const indexA = indexesA[found.indexA];
+  const indexB = indexesB[found.indexB];
+  return {
+    ...found,
+    indexA,
+    indexB,
+    alongKmA: cumulativeAlongM(coordsA)[indexA] / 1000,
+    alongKmB: cumulativeAlongM(coordsB)[indexB] / 1000,
+    pointA: coordsA[indexA],
+    pointB: coordsB[indexB],
+  };
+}
+
+/**
  * Locate an outer anchor's nearest vertex, with a maximum-offset guard.
  *
  * Vertex-based rather than perpendicular, so every trim point in this pipeline is
@@ -549,7 +765,8 @@ function anchorIndex(coords, key) {
  * Orient a stitched line so it runs in route order (start nearest `towards`).
  *
  * Relation member order gives no guarantee of direction, and the first-way
- * orientation heuristic in stitch() only aligns the line with itself.
+ * orientation heuristic in stitch() only aligns the line with itself. The GPX banks
+ * arrive in route order today, but nothing in the format promises they will.
  */
 function orient(coords, towards, label) {
   if (haversineM(coords[coords.length - 1], towards) < haversineM(coords[0], towards)) {
@@ -559,12 +776,70 @@ function orient(coords, towards, label) {
   return coords;
 }
 
+/**
+ * Resolve a source's `orientTowards` declaration to a [lng,lat] to point its start at.
+ *
+ * A source may only be oriented against an EARLIER one, whose own direction is
+ * already settled — otherwise the reference itself could be back to front, and the
+ * error would be a route silently assembled in the wrong order.
+ */
+function orientTarget(spec, index, specs, stitched) {
+  if (typeof spec.orientTowards === 'string') return ANCHORS[spec.orientTowards];
+
+  const { source, at } = spec.orientTowards;
+  const targetIndex = specs.findIndex((s) => s.key === source);
+  if (targetIndex < 0 || targetIndex >= index) {
+    throw new Error(
+      `${spec.key}: orientTowards names "${source}", which is not an earlier source — ` +
+        `its direction is not settled yet, so it cannot be used as a reference`,
+    );
+  }
+  const { coords } = stitched[targetIndex];
+  return at === 'start' ? coords[0] : coords[coords.length - 1];
+}
+
 // ---------------------------------------------------------------------------
 // Per-source build
 // ---------------------------------------------------------------------------
 
-/** Fetch and stitch one source into an oriented, untrimmed coordinate array. */
+/**
+ * Fetch and stitch one source into an untrimmed coordinate array.
+ *
+ * `prepared` says whether the coordinates are already in their committed shape.
+ * Banks are: they are simplified here, before their junction is derived, so that the
+ * indices the junction hands back point into the exact geometry that gets written,
+ * and a km measured on a whole bank matches the km the canonical line reports for
+ * the same place. The OSM source is not: it carries gap records that index into its
+ * stitched coordinates, so it keeps being simplified after it is trimmed.
+ */
 async function stitchSource(spec) {
+  if (spec.kind === 'gpx-bank') return stitchBankSource(spec);
+  return stitchRelationSource(spec);
+}
+
+/** Fetch, stitch, simplify and round one official bank. */
+async function stitchBankSource(spec) {
+  const { coords, joins } = await assembleBank(spec.side);
+  const cleaned = turf.cleanCoords(turf.lineString(coords)).geometry.coordinates;
+  const prepared = simplifyAndRound(cleaned);
+
+  const worst = joins.reduce((a, b) => (b.gapM > a.gapM ? b : a), { where: '—', gapM: 0 });
+  const joinKm = joins.reduce((sum, j) => sum + j.gapM, 0) / 1000;
+  console.log(
+    `[stitch] ${spec.key}: ${GPX_SECTIONS.length} sections -> ${coords.length} points -> ` +
+      `${prepared.length} simplified, ` +
+      `${turf.length(turf.lineString(prepared), { units: 'kilometers' }).toFixed(1)} km, ` +
+      `${joins.length} joins totalling ${(joinKm * 1000).toFixed(0)} m (worst ${worst.where} ` +
+      `${worst.gapM.toFixed(0)} m)`,
+  );
+
+  // No gap records: every join above is under GAP_SOFT, and after simplification a
+  // long straight segment is the shape of the path, not a hole in it.
+  return { coords: prepared, gaps: [], prepared: true };
+}
+
+/** Fetch and stitch one OSM relation source into an untrimmed coordinate array. */
+async function stitchRelationSource(spec) {
   const query =
     `[out:json][timeout:300]; ` +
     `rel(id:${spec.relations.join(',')}); ` +
@@ -603,17 +878,21 @@ async function stitchSource(spec) {
 }
 
 /**
- * Decide both trim points for every source, then cut, simplify and round.
+ * Decide both trim points for every source, then cut — simplifying any source not
+ * already in its committed shape.
  *
- * Interior trims come from findJunction against the neighbouring source; outer
- * trims come from an anchor. Simplification happens AFTER trimming and BEFORE
- * joining, so the km joinSegments measures are exactly the km of the written file.
+ * Interior trims come from findJunction against the neighbouring source; outer trims
+ * come from an anchor. Either way what leaves here is final geometry, so the km
+ * joinSegments measures are exactly the km of the written file. The banks reach that
+ * shape before their junction is derived and the OSM source reaches it here — see
+ * stitchSource for why the two differ.
  */
 function trimSources(specs, stitched) {
-  // Junction i sits between source i and source i+1.
+  // Junction i sits between source i and source i+1, and is the same join as
+  // BRIDGES[i] — which is where its search neighbourhood, if it needs one, is declared.
   const junctions = [];
   for (let i = 0; i + 1 < specs.length; i++) {
-    const found = findJunction(stitched[i].coords, stitched[i + 1].coords, {
+    const found = findJunctionNear(stitched[i].coords, stitched[i + 1].coords, BRIDGES[i], {
       maxGapKm: JUNCTION_MAX_GAP_KM,
       name: `${specs[i].key}→${specs[i + 1].key} junction`,
     });
@@ -626,7 +905,7 @@ function trimSources(specs, stitched) {
   }
 
   return specs.map((spec, i) => {
-    const { coords, gaps } = stitched[i];
+    const { coords, gaps, prepared } = stitched[i];
 
     let startIndex;
     if (spec.trimStart === 'junction') {
@@ -665,9 +944,10 @@ function trimSources(specs, stitched) {
       (g) => g.gapM > GAP_SOFT && g.index > startIndex && g.index <= endIndex,
     );
 
-    const line = turf.lineString(kept);
-    turf.simplify(line, { tolerance: SIMPLIFY_TOLERANCE, highQuality: true, mutate: true });
-    const finalCoords = roundCoordArray(line.geometry.coordinates);
+    // A prepared source was simplified before its junction was derived, so these
+    // indices already point into the committed geometry; simplifying again here
+    // would move the very shape the junction was measured on.
+    const finalCoords = prepared ? kept : simplifyAndRound(kept);
 
     console.log(
       `[segment] ${spec.key}: ${finalCoords.length} points, ` +
@@ -680,6 +960,8 @@ function trimSources(specs, stitched) {
       source: spec.source,
       from: spec.from,
       to: spec.to,
+      bank: spec.bank,
+      side: spec.side,
       relations: spec.relations,
       coords: finalCoords,
       survivingGaps,
@@ -805,7 +1087,7 @@ async function buildTowns(trimmed, boxes) {
       `( node["place"~"^(city|town|village)$"](${bbox}); );` +
       `out body;`,
     'towns',
-    (i) => join(tmpdir(), `elberadweg-towns.chunk${i}.json`),
+    (bbox) => join(tmpdir(), `elberadweg-towns.${bbox.replace(/[,.-]/g, '_')}.json`),
   );
 
   const towns = [];
@@ -927,7 +1209,7 @@ async function buildPois(trimmed, boxes) {
       `);` +
       `out center;`,
     'pois',
-    (i) => join(tmpdir(), `elberadweg-pois.chunk${i}.json`),
+    (bbox) => join(tmpdir(), `elberadweg-pois.${bbox.replace(/[,.-]/g, '_')}.json`),
   );
 
   const pois = [];
@@ -1008,17 +1290,13 @@ async function main() {
   for (const spec of SOURCES) stitched.push(await stitchSource(spec));
 
   // 2. Orient each source in route order before junctions are derived: a reversed
-  //    line would put its "closest approach" at the wrong end.
+  //    line would put its "closest approach" at the wrong end. Each source declares
+  //    its own reference (see `orientTowards`), and they are resolved in route order
+  //    so every reference is a line already turned the right way round.
   SOURCES.forEach((spec, i) => {
-    const towards = spec.trimStart === 'junction' ? null : ANCHORS[spec.trimStart];
-    if (towards) stitched[i].coords = orient(stitched[i].coords, towards, spec.key);
+    const towards = orientTarget(spec, i, SOURCES, stitched);
+    stitched[i].coords = orient(stitched[i].coords, towards, spec.key);
   });
-  // The right source has no outer anchor, so orient it towards the source before it.
-  for (let i = 1; i < SOURCES.length; i++) {
-    if (SOURCES[i].trimStart !== 'junction') continue;
-    const previousEnd = stitched[i - 1].coords[stitched[i - 1].coords.length - 1];
-    stitched[i].coords = orient(stitched[i].coords, previousEnd, SOURCES[i].key);
-  }
 
   // 3. Derive the junctions, trim, simplify, round.
   const segments = trimSources(SOURCES, stitched);
@@ -1048,6 +1326,9 @@ async function main() {
       source: seg.source,
       from: seg.from,
       to: seg.to,
+      bank: seg.bank,
+      // Whichever identifies the source: a GPX side, or the OSM relation list.
+      side: seg.side,
       relations: seg.relations,
       startKm: round(seg.startKm, 2),
       endKm: round(seg.endKm, 2),

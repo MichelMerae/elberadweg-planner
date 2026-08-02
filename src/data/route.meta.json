@@ -1,73 +1,59 @@
 {
-  "routeId": "cuxhaven-prague-ev7-v1",
-  "totalKm": 1026.5,
+  "routeId": "cuxhaven-prague-official-v2",
+  "totalKm": 1000.4,
   "origin": {
     "name": "Cuxhaven",
     "km": 0
   },
   "destination": {
     "name": "Prague",
-    "km": 1026.5
+    "km": 1000.4
   },
   "segments": [
     {
-      "source": "elberadweg-left",
+      "source": "official-gpx-left",
       "from": "Cuxhaven",
-      "to": "Finkenwerder",
-      "relations": [
-        2599008,
-        2599035
-      ],
+      "to": "Hamburg",
+      "bank": "left",
+      "side": "links",
       "startKm": 0,
-      "endKm": 136.65
+      "endKm": 138.7
     },
     {
-      "source": "elberadweg-right",
-      "from": "Teufelsbrück",
+      "source": "official-gpx-right",
+      "from": "Hamburg",
       "to": "Schmilka",
-      "relations": [
-        2599011,
-        2599013,
-        2599015,
-        2599016,
-        2599018,
-        2599020,
-        2599024,
-        2599025,
-        2599026,
-        7758087,
-        2599030,
-        2599032,
-        2599033
-      ],
-      "startKm": 138.9,
-      "endKm": 852.15
+      "bank": "right",
+      "side": "rechts",
+      "startKm": 138.72,
+      "endKm": 826.06
     },
     {
       "source": "eurovelo-7-cz",
       "from": "Hřensko",
       "to": "Prague",
+      "bank": null,
       "relations": [
         2775754
       ],
-      "startKm": 855.42,
-      "endKm": 1026.5
+      "startKm": 829.32,
+      "endKm": 1000.4
     }
   ],
   "bridges": [
     {
-      "name": "Finkenwerder–Teufelsbrück ferry",
-      "km": 136.65,
-      "lengthKm": 2.251
+      "name": "Hamburg bank change (Landungsbrücken)",
+      "km": 138.7,
+      "lengthKm": 0.015
     },
     {
       "name": "Schmilka–Hřensko border link",
-      "km": 852.15,
+      "km": 826.06,
       "lengthKm": 3.264
     }
   ],
-  "builtAt": "2026-08-01T06:54:38.890Z",
+  "builtAt": "2026-08-02T13:46:45.051Z",
   "simplifyTolerance": 0.00008,
-  "pointCount": 5572,
-  "doublingBackPercent": 1.15
+  "pointCount": 5394,
+  "doublingBackPercent": 0.12
 }

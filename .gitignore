@@ -1,6 +1,7 @@
 node_modules/
 dist/
 src/data/route.raw.*.json
+src/data/gpx.raw/
 .superpowers/
 # Playwright MCP scratch output (snapshots/console logs from browser verification)
 .playwright-mcp/

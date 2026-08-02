@@ -99,29 +99,38 @@ Everything is keyed on which day is focused — there are no modes. A click on t
 route adds a stop to the focused day; the left panel windows itself to that day's
 stretch; the map frames it. Clicking a different block moves all of that at once.
 
-The route and towns are **generated from OpenStreetMap**, not hand-drawn:
+The route and towns are **generated**, not hand-drawn:
 
-- The route is assembled from **three OSM sources**, because none of them spans the
-  corridor: the Elberadweg **left bank** (_linkselbisch_) for Cuxhaven → Finkenwerder
-  (Cuxhaven is a left-bank town; the right bank terminates at Brunsbüttel), the
-  **right bank** (_rechtselbisch_) onward to the Czech border, and **EuroVelo 7**'s
-  Czech part for the border → Prague, which carries the Elbe and the Vltava in one
-  relation so there is no junction to invent at Mělník.
+- The route is assembled from **three sources**, because none of them spans the
+  corridor. Both German banks come from **elberadweg.de's official GPX** — the 15
+  lettered sections A–O, published once per side: the **left bank** (_links_) runs
+  Cuxhaven → the Czech border in 827 km, the **right bank** (_rechts_) Brunsbüttel →
+  the border in 799 km. Past the border there are no official bank variants, so
+  **EuroVelo 7**'s Czech part comes from OSM and carries the Elbe and the Vltava in
+  one relation, leaving no junction to invent at Mělník.
 
-  Each source is stitched from its stage relations, trimmed, simplified and rounded
-  on its own, then the three are joined across two **declared ferry bridges** —
-  Finkenwerder–Teufelsbrück (2.25 km) and Schmilka–Hřensko (3.26 km). Those are real
-  water, and naming them means an unexpected distance fails the build instead of
-  hiding among warnings. The interior trim points are *derived* from where the lines
-  actually come closest, not from guessed coordinates.
+  The canonical line — the km axis every stored distance refers to — is the left bank
+  down to the Hamburg hand-over, the right bank onward to the border, then the Czech
+  line to Prague. It takes the LEFT bank out of Cuxhaven because the official right
+  bank simply does not run there.
+
+  Each source is stitched, trimmed, simplified and rounded, then the three are joined
+  across two **declared joins**: the Hamburg bank change at the Landungsbrücken
+  (15 m — both official banks share that promenade, so this seam is a shared path
+  rather than water) and Schmilka–Hřensko (3.26 km, real water). Naming them means an
+  unexpected distance fails the build instead of hiding among warnings. The trim
+  points are *derived* from where the lines actually come closest, not from guessed
+  coordinates — but the Hamburg one is derived inside a declared neighbourhood,
+  because two banks running 800 km in parallel touch in 33 places and an
+  unconstrained search picks whichever one it likes.
 
   The build validates length, nine strictly-increasing monotonicity checkpoints,
-  anchor snap offsets, bridge lengths, the straight-line bridging that survives
-  inside segments, and how much of the route doubles back on itself. It measures
-  **1026.5 km** — Hamburg at km 149, Dresden at km 798, Prague at the end. The
-  Hamburg→Dresden stretch comes out at 648.3 km against the previous build's 650.24
-  for the same two points, so re-assembling from three sources left the middle
-  alone.
+  anchor snap offsets, join lengths, the straight-line bridging that survives inside
+  segments, and how much of the route doubles back on itself. It measures
+  **1000.4 km** — Hamburg at km 138.7, Dresden at km 772.4, Prague at the end. That
+  is 26 km shorter than the OSM composite it replaced, most of it doubling-back that
+  the official routing does not have: 1.2 km of the route retraces itself, against
+  11.8 km before.
 - Towns are OSM `place=city|town|village` nodes within ~5 km of the route, each
   annotated with its distance *along* the route so the app can window them to the
   stretch you're planning.

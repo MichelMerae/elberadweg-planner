@@ -39,11 +39,17 @@ export function cumulativeAlongM(coords) {
  *
  * Derived rather than anchored, because guessing a coordinate for the place two
  * lines meet is guessing an answer the data already holds — and guessing it
- * badly is easy. Both interior junctions on this route were mis-estimated by
- * 3x to 16x before being measured: Finkenwerder–Landungsbrücken is 2.25 km at
- * its nearest, not the 8.55 km a naive anchor pair produced nor the 1.3 km that
- * was assumed; the German/Czech border hand-over is 3.26 km and provably no
- * shorter anywhere along either line.
+ * badly is easy. Both interior junctions of the earlier OSM composite were
+ * mis-estimated by 3x to 16x before being measured: its Hamburg ferry hand-over
+ * is 2.25 km at its nearest, not the 8.55 km a naive anchor pair produced nor
+ * the 1.3 km that was assumed; the German/Czech border hand-over is 3.26 km and
+ * provably no shorter anywhere along either line — still the measured figure on
+ * the current build.
+ *
+ * The caller decides where to look. Two lines that merely END near each other
+ * can be handed the whole of both; two that run PARALLEL cannot, since their
+ * closest approach is then wherever they happen to touch. See findJunctionNear
+ * in build-data.mjs, which confines the search for exactly that reason.
  *
  * Vertex-to-vertex, not perpendicular: the trim has to land on a real vertex so
  * the two segments can be concatenated without inventing geometry.
@@ -119,8 +125,8 @@ export function findJunction(
  * Concatenate pre-trimmed segments into one coordinate array, recording where
  * each segment sits and how long each join turned out to be.
  *
- * The joins are *declared*, not discovered. Feeding all sixteen relations to one
- * stitcher would surface the two ferries as generic hard-gap warnings,
+ * The joins are *declared*, not discovered. Feeding every source to one stitcher
+ * would surface the hand-overs between them as generic hard-gap warnings,
  * indistinguishable from corrupt data — and would let a genuine break hide among
  * warnings that are expected. Here every join is named up front and carries a
  * ceiling, so an unexpected distance fails the build instead of being logged.
