@@ -15,9 +15,10 @@ export function parseGpxTracks(xml) {
   };
   for (let seg; (seg = segRe.exec(xml)); ) {
     const coords = [];
-    // Fresh regex per segment: a shared `g`-flagged RegExp keeps its lastIndex
-    // across exec() calls, which would skip the start of every segment after
-    // the first.
+    // Fresh regex per segment. A shared `g`-flagged RegExp would happen to work
+    // here — the inner loop always drains to a failing exec(), which resets
+    // lastIndex — but correctness that depends on that detail is not worth the
+    // one allocation it saves.
     const ptRe = /<trkpt\b([^>]*)>/g;
     for (let pt; (pt = ptRe.exec(seg[1])); ) {
       const lat = attr(pt[1], 'lat');
