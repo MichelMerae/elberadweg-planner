@@ -1813,3 +1813,38 @@ input[type="number"]:disabled {
   color: var(--text-faint);
   cursor: help;
 }
+
+/* The strip's bank ribbon: which bank each stretch of the composed path rides,
+   with a tick where the rider crosses. Read-only — crossing is a day-panel act. */
+.strip__banks {
+  position: relative;
+  height: 8px;
+  margin: 2px 0 1px;
+}
+
+.strip__bank {
+  position: absolute;
+  top: 1px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+.strip__bank--right {
+  background: #2e7d4f;
+}
+
+.strip__bank--left {
+  background: #7fb069;
+}
+
+.strip__bank--single {
+  background: #b9c4bd;
+}
+
+.strip__bank-tick {
+  position: absolute;
+  top: -5px;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #d9822b;
+}
