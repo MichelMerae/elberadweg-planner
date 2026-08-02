@@ -826,9 +826,39 @@ async function boot() {
   // The finish still gets NAMED when it lands on a town — nameAtKm is a separate
   // question, asked of the km rather than of the pick, and the same plan finishing at
   // km 239.5 reads "Cuxhaven → Stiepelse". What is declined is only the offer to MOVE it.
+  // An armed map pick is DISARMED here — either end, and on the refusal path too.
+  //
+  // The case that motivates it: with the strip's `Set finish` armed, this press
+  // ACCOMPLISHES the very thing the mode was armed for, by a different route. The mode
+  // has been satisfied, not interrupted. Leaving it armed reproduces exactly the bug
+  // class Task 11c fixed on the refusal path — a control lit above a map whose next click
+  // quietly moves the finish again, with nothing on screen explaining why. "Esc cancels
+  // it" is no defence for a rider who does not know they are still armed. Measured before
+  // this line: the new window and the confirmation both arrived, and `#map.map--picking`
+  // stayed true with the control still at aria-pressed="true".
+  //
+  // Why the OTHER end and a refusal go the same way, where that reasoning does not reach
+  // on its face: the prompt is a SINGLE SLOT and applyPickedEnd always speaks into it —
+  // reportPick's confirmation, or refusePick's sentence. So by the time this returns, the
+  // line that explained the mode is gone whatever happened. Measured, `Set start` armed
+  // and this pressed: "Click the route where your trip starts · Esc to cancel" is
+  // replaced by "Cuxhaven → your finish · 160 km upstream · 1 day no longer fits and was
+  // dropped"; a refused press replaces it with "That finish would leave a trip of 4 km".
+  // A mode with no prompt left is a mode the rider cannot see they are in, so there is no
+  // way to keep it honestly and it is not kept.
+  //
+  // Note the contrast worth preserving: an armed pick deliberately SURVIVES a plan switch
+  // (Task 11c), because the mode belongs to the app rather than to the plan — and nothing
+  // on that path touches the prompt.
+  //
+  // Disarmed BEFORE applyPickedEnd, not after: the pressed state is rendered, and both of
+  // that function's paths render. No explicit pickBanner.hide, for the same reason
+  // handlePickPoint needs none — the sentence that replaces the prompt is already coming.
   function handleFinishHere(index) {
     const day = itinerary.getDays()[index];
     if (!day) return;
+    picking = null;
+    map.setPickingMode(null);
     applyPickedEnd('destination', round1(day.endKm), { offerSnap: false });
   }
 
