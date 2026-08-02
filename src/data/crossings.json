@@ -1,7 +1,7 @@
 [
  {
-  "id": "62-139",
-  "name": "62",
+  "id": "hamburg-ferry-139",
+  "name": "Hamburg ferry",
   "kind": "ferry",
   "kmCanonical": 138.91,
   "kmAlt": 0.22,
@@ -26,8 +26,8 @@
   "bankGapM": 1050
  },
  {
-  "id": "5170-232",
-  "name": "5170",
+  "id": "neu-darchau-ferry-232",
+  "name": "Neu Darchau ferry",
   "kind": "ferry",
   "kmCanonical": 232.18,
   "kmAlt": 95.3,

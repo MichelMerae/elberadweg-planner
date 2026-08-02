@@ -55,11 +55,11 @@
   "alt": {
     "bank": "left",
     "lengthKm": 681.94,
-    "fromCrossing": "62-139",
+    "fromCrossing": "hamburg-ferry-139",
     "toCrossing": "schoena-ferry-826"
   },
   "crossingCount": 33,
-  "builtAt": "2026-08-02T15:11:25.190Z",
+  "builtAt": "2026-08-02T16:03:55.560Z",
   "simplifyTolerance": 0.00008,
   "pointCount": 5394,
   "doublingBackPercent": 0.12

@@ -5,7 +5,8 @@
     "lat": 53.86878,
     "lng": 8.698286,
     "routeDistanceKm": 3.3,
-    "offsetKm": 0.48
+    "offsetKm": 0.48,
+    "bank": "left"
   },
   {
     "name": "Müggendorf",
@@ -13,7 +14,8 @@
     "lat": 53.825186,
     "lng": 8.848157,
     "routeDistanceKm": 15.5,
-    "offsetKm": 0.57
+    "offsetKm": 0.57,
+    "bank": "left"
   },
   {
     "name": "Süderwisch",
@@ -21,7 +23,8 @@
     "lat": 53.796145,
     "lng": 8.856369,
     "routeDistanceKm": 17.4,
-    "offsetKm": 3.53
+    "offsetKm": 3.53,
+    "bank": "left"
   },
   {
     "name": "Dörringworth",
@@ -29,7 +32,8 @@
     "lat": 53.786321,
     "lng": 8.860383,
     "routeDistanceKm": 17.4,
-    "offsetKm": 4.5
+    "offsetKm": 4.5,
+    "bank": "left"
   },
   {
     "name": "Otterndorf",
@@ -37,7 +41,8 @@
     "lat": 53.807394,
     "lng": 8.895684,
     "routeDistanceKm": 19.2,
-    "offsetKm": 1.69
+    "offsetKm": 1.69,
+    "bank": "left"
   },
   {
     "name": "Osterbruch",
@@ -45,7 +50,8 @@
     "lat": 53.780264,
     "lng": 8.944687,
     "routeDistanceKm": 23.8,
-    "offsetKm": 4.72
+    "offsetKm": 4.72,
+    "bank": "left"
   },
   {
     "name": "Kehdingbruch",
@@ -53,7 +59,8 @@
     "lat": 53.786246,
     "lng": 8.98248,
     "routeDistanceKm": 25.9,
-    "offsetKm": 3.51
+    "offsetKm": 3.51,
+    "bank": "left"
   },
   {
     "name": "Belum",
@@ -61,7 +68,8 @@
     "lat": 53.817249,
     "lng": 8.993277,
     "routeDistanceKm": 26.2,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": "left"
   },
   {
     "name": "Neuhaus (Oste)",
@@ -69,7 +77,8 @@
     "lat": 53.799255,
     "lng": 9.032251,
     "routeDistanceKm": 30.6,
-    "offsetKm": 0.92
+    "offsetKm": 0.92,
+    "bank": "left"
   },
   {
     "name": "Cadenberge",
@@ -77,7 +86,8 @@
     "lat": 53.766243,
     "lng": 9.058056,
     "routeDistanceKm": 31,
-    "offsetKm": 4.84
+    "offsetKm": 4.84,
+    "bank": "left"
   },
   {
     "name": "Geversdorf, Niederelbe",
@@ -85,7 +95,8 @@
     "lat": 53.795475,
     "lng": 9.078199,
     "routeDistanceKm": 31.3,
-    "offsetKm": 2.87
+    "offsetKm": 2.87,
+    "bank": "left"
   },
   {
     "name": "Hörne",
@@ -93,7 +104,8 @@
     "lat": 53.822612,
     "lng": 9.081222,
     "routeDistanceKm": 35.6,
-    "offsetKm": 0.09
+    "offsetKm": 0.09,
+    "bank": "left"
   },
   {
     "name": "Balje",
@@ -101,7 +113,8 @@
     "lat": 53.8333,
     "lng": 9.13333,
     "routeDistanceKm": 41.5,
-    "offsetKm": 1.41
+    "offsetKm": 1.41,
+    "bank": "left"
   },
   {
     "name": "Krummendeich",
@@ -109,7 +122,8 @@
     "lat": 53.832769,
     "lng": 9.215511,
     "routeDistanceKm": 47,
-    "offsetKm": 1.89
+    "offsetKm": 1.89,
+    "bank": "left"
   },
   {
     "name": "Sankt Margarethen",
@@ -117,7 +131,8 @@
     "lat": 53.892175,
     "lng": 9.253947,
     "routeDistanceKm": 48.8,
-    "offsetKm": 4.79
+    "offsetKm": 4.79,
+    "bank": "left"
   },
   {
     "name": "Brokdorf",
@@ -125,7 +140,8 @@
     "lat": 53.865014,
     "lng": 9.318124,
     "routeDistanceKm": 52.5,
-    "offsetKm": 2.81
+    "offsetKm": 2.81,
+    "bank": "left"
   },
   {
     "name": "Freiburg (Elbe)",
@@ -133,7 +149,8 @@
     "lat": 53.825248,
     "lng": 9.28872,
     "routeDistanceKm": 56.2,
-    "offsetKm": 0.09
+    "offsetKm": 0.09,
+    "bank": "left"
   },
   {
     "name": "Oederquart",
@@ -141,7 +158,8 @@
     "lat": 53.8,
     "lng": 9.25,
     "routeDistanceKm": 56.6,
-    "offsetKm": 3.63
+    "offsetKm": 3.63,
+    "bank": "left"
   },
   {
     "name": "Hamelwörden",
@@ -149,7 +167,8 @@
     "lat": 53.791423,
     "lng": 9.324878,
     "routeDistanceKm": 62.7,
-    "offsetKm": 0.86
+    "offsetKm": 0.86,
+    "bank": "left"
   },
   {
     "name": "Wischhafen",
@@ -157,7 +176,8 @@
     "lat": 53.773478,
     "lng": 9.318411,
     "routeDistanceKm": 64.2,
-    "offsetKm": 0.02
+    "offsetKm": 0.02,
+    "bank": "left"
   },
   {
     "name": "Hamelwördenermoor",
@@ -165,7 +185,8 @@
     "lat": 53.773563,
     "lng": 9.290539,
     "routeDistanceKm": 64.3,
-    "offsetKm": 1.85
+    "offsetKm": 1.85,
+    "bank": "left"
   },
   {
     "name": "Neuland",
@@ -173,7 +194,8 @@
     "lat": 53.751714,
     "lng": 9.325783,
     "routeDistanceKm": 66.7,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": "left"
   },
   {
     "name": "Wolfsbruch",
@@ -181,7 +203,8 @@
     "lat": 53.743213,
     "lng": 9.302687,
     "routeDistanceKm": 66.8,
-    "offsetKm": 1.85
+    "offsetKm": 1.85,
+    "bank": "left"
   },
   {
     "name": "Dornbusch",
@@ -189,7 +212,8 @@
     "lat": 53.734048,
     "lng": 9.346329,
     "routeDistanceKm": 69,
-    "offsetKm": 0.32
+    "offsetKm": 0.32,
+    "bank": "left"
   },
   {
     "name": "Krautsand",
@@ -197,7 +221,8 @@
     "lat": 53.75509,
     "lng": 9.381762,
     "routeDistanceKm": 72.2,
-    "offsetKm": 0.16
+    "offsetKm": 0.16,
+    "bank": "left"
   },
   {
     "name": "Glückstadt",
@@ -205,7 +230,8 @@
     "lat": 53.787927,
     "lng": 9.423816,
     "routeDistanceKm": 72.6,
-    "offsetKm": 4.54
+    "offsetKm": 4.54,
+    "bank": "left"
   },
   {
     "name": "Drochtersen",
@@ -213,7 +239,8 @@
     "lat": 53.709515,
     "lng": 9.385403,
     "routeDistanceKm": 76.7,
-    "offsetKm": 2.29
+    "offsetKm": 2.29,
+    "bank": "left"
   },
   {
     "name": "Kollmar",
@@ -221,7 +248,8 @@
     "lat": 53.732771,
     "lng": 9.495151,
     "routeDistanceKm": 79,
-    "offsetKm": 4.46
+    "offsetKm": 4.46,
+    "bank": "left"
   },
   {
     "name": "Assel",
@@ -229,7 +257,8 @@
     "lat": 53.690903,
     "lng": 9.435099,
     "routeDistanceKm": 80.8,
-    "offsetKm": 0.85
+    "offsetKm": 0.85,
+    "bank": "left"
   },
   {
     "name": "Stade",
@@ -237,7 +266,8 @@
     "lat": 53.599794,
     "lng": 9.475438,
     "routeDistanceKm": 93.4,
-    "offsetKm": 0.29
+    "offsetKm": 0.29,
+    "bank": "left"
   },
   {
     "name": "Hollern-Twielenfleth",
@@ -245,7 +275,8 @@
     "lat": 53.59707,
     "lng": 9.529815,
     "routeDistanceKm": 98.8,
-    "offsetKm": 1.6
+    "offsetKm": 1.6,
+    "bank": "left"
   },
   {
     "name": "Haseldorf",
@@ -253,7 +284,8 @@
     "lat": 53.634221,
     "lng": 9.596169,
     "routeDistanceKm": 99.9,
-    "offsetKm": 4.03
+    "offsetKm": 4.03,
+    "bank": "left"
   },
   {
     "name": "Agathenburg",
@@ -261,7 +293,8 @@
     "lat": 53.5667,
     "lng": 9.53333,
     "routeDistanceKm": 101.7,
-    "offsetKm": 3.84
+    "offsetKm": 3.84,
+    "bank": "left"
   },
   {
     "name": "Hetlingen",
@@ -269,7 +302,8 @@
     "lat": 53.607726,
     "lng": 9.637337,
     "routeDistanceKm": 104.8,
-    "offsetKm": 3.66
+    "offsetKm": 3.66,
+    "bank": "left"
   },
   {
     "name": "Grünendeich",
@@ -277,7 +311,8 @@
     "lat": 53.573276,
     "lng": 9.609178,
     "routeDistanceKm": 105.3,
-    "offsetKm": 0.45
+    "offsetKm": 0.45,
+    "bank": "left"
   },
   {
     "name": "Steinkirchen",
@@ -285,7 +320,8 @@
     "lat": 53.564299,
     "lng": 9.600612,
     "routeDistanceKm": 105.3,
-    "offsetKm": 1.59
+    "offsetKm": 1.59,
+    "bank": "left"
   },
   {
     "name": "Mittelnkirchen",
@@ -293,7 +329,8 @@
     "lat": 53.549325,
     "lng": 9.61549,
     "routeDistanceKm": 107.2,
-    "offsetKm": 2.69
+    "offsetKm": 2.69,
+    "bank": "left"
   },
   {
     "name": "Guderhandviertel",
@@ -301,7 +338,8 @@
     "lat": 53.541607,
     "lng": 9.607126,
     "routeDistanceKm": 107.2,
-    "offsetKm": 3.71
+    "offsetKm": 3.71,
+    "bank": "left"
   },
   {
     "name": "Neuenkirchen",
@@ -309,7 +347,8 @@
     "lat": 53.527458,
     "lng": 9.609537,
     "routeDistanceKm": 109.5,
-    "offsetKm": 4.82
+    "offsetKm": 4.82,
+    "bank": "left"
   },
   {
     "name": "Wedel",
@@ -317,7 +356,8 @@
     "lat": 53.581023,
     "lng": 9.703877,
     "routeDistanceKm": 110.1,
-    "offsetKm": 3.75
+    "offsetKm": 3.75,
+    "bank": "left"
   },
   {
     "name": "Jork",
@@ -325,7 +365,8 @@
     "lat": 53.532844,
     "lng": 9.681432,
     "routeDistanceKm": 112.5,
-    "offsetKm": 1
+    "offsetKm": 1,
+    "bank": "left"
   },
   {
     "name": "Ladekop",
@@ -333,7 +374,8 @@
     "lat": 53.518314,
     "lng": 9.670825,
     "routeDistanceKm": 112.5,
-    "offsetKm": 2.76
+    "offsetKm": 2.76,
+    "bank": "left"
   },
   {
     "name": "Borstel",
@@ -341,7 +383,8 @@
     "lat": 53.538119,
     "lng": 9.690183,
     "routeDistanceKm": 112.8,
-    "offsetKm": 0.23
+    "offsetKm": 0.23,
+    "bank": "left"
   },
   {
     "name": "Estebrügge",
@@ -349,7 +392,8 @@
     "lat": 53.510897,
     "lng": 9.727148,
     "routeDistanceKm": 115.2,
-    "offsetKm": 3.06
+    "offsetKm": 3.06,
+    "bank": "left"
   },
   {
     "name": "Hove",
@@ -357,7 +401,8 @@
     "lat": 53.518703,
     "lng": 9.730769,
     "routeDistanceKm": 115.2,
-    "offsetKm": 2.22
+    "offsetKm": 2.22,
+    "bank": "left"
   },
   {
     "name": "Königreich",
@@ -365,7 +410,8 @@
     "lat": 53.530736,
     "lng": 9.740434,
     "routeDistanceKm": 115.7,
-    "offsetKm": 1.14
+    "offsetKm": 1.14,
+    "bank": "left"
   },
   {
     "name": "Rübke",
@@ -373,7 +419,8 @@
     "lat": 53.490465,
     "lng": 9.76646,
     "routeDistanceKm": 122.3,
-    "offsetKm": 4.73
+    "offsetKm": 4.73,
+    "bank": "left"
   },
   {
     "name": "Hamburg",
@@ -381,7 +428,8 @@
     "lat": 53.550172,
     "lng": 10.001317,
     "routeDistanceKm": 141,
-    "offsetKm": 0.32
+    "offsetKm": 0.32,
+    "bank": "both"
   },
   {
     "name": "Bullenhausen",
@@ -389,7 +437,17 @@
     "lat": 53.447174,
     "lng": 10.076127,
     "routeDistanceKm": 154.3,
-    "offsetKm": 2.5
+    "offsetKm": 2.5,
+    "bank": "both"
+  },
+  {
+    "name": "Meckelfeld",
+    "place": "village",
+    "lat": 53.421806,
+    "lng": 10.024229,
+    "routeDistanceKm": 155.8,
+    "offsetKm": 4.34,
+    "bank": "left"
   },
   {
     "name": "Fünfhausen",
@@ -397,7 +455,8 @@
     "lat": 53.445555,
     "lng": 10.128234,
     "routeDistanceKm": 157.1,
-    "offsetKm": 0.15
+    "offsetKm": 0.15,
+    "bank": "both"
   },
   {
     "name": "Over",
@@ -405,7 +464,8 @@
     "lat": 53.432949,
     "lng": 10.097442,
     "routeDistanceKm": 157.4,
-    "offsetKm": 2.57
+    "offsetKm": 2.57,
+    "bank": "both"
   },
   {
     "name": "Rosenweide",
@@ -413,7 +473,8 @@
     "lat": 53.42083,
     "lng": 10.121933,
     "routeDistanceKm": 158.7,
-    "offsetKm": 1.93
+    "offsetKm": 1.93,
+    "bank": "both"
   },
   {
     "name": "Klein-Rosenweide",
@@ -421,7 +482,17 @@
     "lat": 53.42028,
     "lng": 10.113916,
     "routeDistanceKm": 158.7,
-    "offsetKm": 2.36
+    "offsetKm": 2.36,
+    "bank": "both"
+  },
+  {
+    "name": "Hörsten",
+    "place": "village",
+    "lat": 53.411643,
+    "lng": 10.065776,
+    "routeDistanceKm": 159.2,
+    "offsetKm": 2.81,
+    "bank": "left"
   },
   {
     "name": "Fliegenberg",
@@ -429,7 +500,8 @@
     "lat": 53.416088,
     "lng": 10.138074,
     "routeDistanceKm": 159.6,
-    "offsetKm": 1.71
+    "offsetKm": 1.71,
+    "bank": "both"
   },
   {
     "name": "Howe",
@@ -437,7 +509,8 @@
     "lat": 53.421611,
     "lng": 10.14737,
     "routeDistanceKm": 159.7,
-    "offsetKm": 0.86
+    "offsetKm": 0.86,
+    "bank": "both"
   },
   {
     "name": "Hoopte",
@@ -445,7 +518,17 @@
     "lat": 53.394848,
     "lng": 10.170727,
     "routeDistanceKm": 162.4,
-    "offsetKm": 2.1
+    "offsetKm": 2.1,
+    "bank": "both"
+  },
+  {
+    "name": "Stelle",
+    "place": "village",
+    "lat": 53.381427,
+    "lng": 10.111735,
+    "routeDistanceKm": 163.2,
+    "offsetKm": 3.68,
+    "bank": "left"
   },
   {
     "name": "Stöckte",
@@ -453,7 +536,35 @@
     "lat": 53.384354,
     "lng": 10.190668,
     "routeDistanceKm": 164,
-    "offsetKm": 2.68
+    "offsetKm": 2.68,
+    "bank": "both"
+  },
+  {
+    "name": "Achterdeich",
+    "place": "village",
+    "lat": 53.376526,
+    "lng": 10.130442,
+    "routeDistanceKm": 164.3,
+    "offsetKm": 3.22,
+    "bank": "left"
+  },
+  {
+    "name": "Ashausen",
+    "place": "village",
+    "lat": 53.363328,
+    "lng": 10.136708,
+    "routeDistanceKm": 165,
+    "offsetKm": 4.21,
+    "bank": "left"
+  },
+  {
+    "name": "Gehrden",
+    "place": "village",
+    "lat": 53.370195,
+    "lng": 10.155137,
+    "routeDistanceKm": 165.1,
+    "offsetKm": 2.98,
+    "bank": "left"
   },
   {
     "name": "Winsen (Luhe)",
@@ -461,7 +572,17 @@
     "lat": 53.363647,
     "lng": 10.205921,
     "routeDistanceKm": 165.5,
-    "offsetKm": 4.33
+    "offsetKm": 4.33,
+    "bank": "both"
+  },
+  {
+    "name": "Grevelau",
+    "place": "village",
+    "lat": 53.356962,
+    "lng": 10.184347,
+    "routeDistanceKm": 165.6,
+    "offsetKm": 4.05,
+    "bank": "left"
   },
   {
     "name": "Laßrönne",
@@ -469,7 +590,8 @@
     "lat": 53.389036,
     "lng": 10.228337,
     "routeDistanceKm": 165.8,
-    "offsetKm": 1.3
+    "offsetKm": 1.3,
+    "bank": "both"
   },
   {
     "name": "Tönnhausen",
@@ -477,7 +599,8 @@
     "lat": 53.37356,
     "lng": 10.261263,
     "routeDistanceKm": 166,
-    "offsetKm": 3.73
+    "offsetKm": 3.73,
+    "bank": "both"
   },
   {
     "name": "Drage",
@@ -485,7 +608,26 @@
     "lat": 53.414048,
     "lng": 10.264673,
     "routeDistanceKm": 169,
-    "offsetKm": 1.33
+    "offsetKm": 1.33,
+    "bank": "both"
+  },
+  {
+    "name": "Hunden",
+    "place": "village",
+    "lat": 53.371364,
+    "lng": 10.295925,
+    "routeDistanceKm": 170.4,
+    "offsetKm": 4.23,
+    "bank": "left"
+  },
+  {
+    "name": "Mover",
+    "place": "village",
+    "lat": 53.365268,
+    "lng": 10.288913,
+    "routeDistanceKm": 170.4,
+    "offsetKm": 4.32,
+    "bank": "left"
   },
   {
     "name": "Drennhausen",
@@ -493,7 +635,8 @@
     "lat": 53.417795,
     "lng": 10.271458,
     "routeDistanceKm": 171.2,
-    "offsetKm": 1.09
+    "offsetKm": 1.09,
+    "bank": "both"
   },
   {
     "name": "Elbstorf",
@@ -501,7 +644,8 @@
     "lat": 53.420566,
     "lng": 10.290295,
     "routeDistanceKm": 172.2,
-    "offsetKm": 0.89
+    "offsetKm": 0.89,
+    "bank": "both"
   },
   {
     "name": "Stove",
@@ -509,7 +653,8 @@
     "lat": 53.42658,
     "lng": 10.306649,
     "routeDistanceKm": 173.1,
-    "offsetKm": 0.84
+    "offsetKm": 0.84,
+    "bank": "both"
   },
   {
     "name": "Börnsen",
@@ -517,7 +662,8 @@
     "lat": 53.476201,
     "lng": 10.28404,
     "routeDistanceKm": 173.4,
-    "offsetKm": 4.76
+    "offsetKm": 4.76,
+    "bank": "right"
   },
   {
     "name": "Voßmoor",
@@ -525,7 +671,8 @@
     "lat": 53.447668,
     "lng": 10.303931,
     "routeDistanceKm": 174,
-    "offsetKm": 1.36
+    "offsetKm": 1.36,
+    "bank": "both"
   },
   {
     "name": "Escheburg",
@@ -533,7 +680,8 @@
     "lat": 53.466625,
     "lng": 10.310146,
     "routeDistanceKm": 174.3,
-    "offsetKm": 3.38
+    "offsetKm": 3.38,
+    "bank": "both"
   },
   {
     "name": "Schwinde",
@@ -541,7 +689,8 @@
     "lat": 53.421969,
     "lng": 10.326014,
     "routeDistanceKm": 175.6,
-    "offsetKm": 1.39
+    "offsetKm": 1.39,
+    "bank": "both"
   },
   {
     "name": "Fahrendorf",
@@ -549,7 +698,8 @@
     "lat": 53.467367,
     "lng": 10.348027,
     "routeDistanceKm": 175.8,
-    "offsetKm": 3.84
+    "offsetKm": 3.84,
+    "bank": "both"
   },
   {
     "name": "Rönne",
@@ -557,7 +707,8 @@
     "lat": 53.419556,
     "lng": 10.340348,
     "routeDistanceKm": 176.6,
-    "offsetKm": 1.39
+    "offsetKm": 1.39,
+    "bank": "both"
   },
   {
     "name": "Niedermarschacht",
@@ -565,7 +716,8 @@
     "lat": 53.417743,
     "lng": 10.350482,
     "routeDistanceKm": 176.9,
-    "offsetKm": 1.49
+    "offsetKm": 1.49,
+    "bank": "both"
   },
   {
     "name": "Hohenhorn",
@@ -573,7 +725,8 @@
     "lat": 53.476205,
     "lng": 10.368767,
     "routeDistanceKm": 177.2,
-    "offsetKm": 4.92
+    "offsetKm": 4.92,
+    "bank": "right"
   },
   {
     "name": "Geesthacht",
@@ -581,7 +734,8 @@
     "lat": 53.437468,
     "lng": 10.367824,
     "routeDistanceKm": 177.9,
-    "offsetKm": 0.75
+    "offsetKm": 0.75,
+    "bank": "both"
   },
   {
     "name": "Hamwarde",
@@ -589,7 +743,8 @@
     "lat": 53.452625,
     "lng": 10.421923,
     "routeDistanceKm": 179.2,
-    "offsetKm": 4.11
+    "offsetKm": 4.11,
+    "bank": "right"
   },
   {
     "name": "Obermarschacht",
@@ -597,7 +752,8 @@
     "lat": 53.415997,
     "lng": 10.369821,
     "routeDistanceKm": 179.5,
-    "offsetKm": 1.2
+    "offsetKm": 1.2,
+    "bank": "both"
   },
   {
     "name": "Wiershop",
@@ -605,7 +761,8 @@
     "lat": 53.441534,
     "lng": 10.451988,
     "routeDistanceKm": 180.6,
-    "offsetKm": 4.54
+    "offsetKm": 4.54,
+    "bank": "both"
   },
   {
     "name": "Eichholz",
@@ -613,7 +770,8 @@
     "lat": 53.39046,
     "lng": 10.349364,
     "routeDistanceKm": 181,
-    "offsetKm": 4.2
+    "offsetKm": 4.2,
+    "bank": "both"
   },
   {
     "name": "Tespe",
@@ -621,7 +779,8 @@
     "lat": 53.393575,
     "lng": 10.415758,
     "routeDistanceKm": 183.3,
-    "offsetKm": 1.17
+    "offsetKm": 1.17,
+    "bank": "both"
   },
   {
     "name": "Bütlingen",
@@ -629,7 +788,8 @@
     "lat": 53.370338,
     "lng": 10.413253,
     "routeDistanceKm": 185.3,
-    "offsetKm": 3.52
+    "offsetKm": 3.52,
+    "bank": "both"
   },
   {
     "name": "Krukow",
@@ -637,7 +797,26 @@
     "lat": 53.419615,
     "lng": 10.481627,
     "routeDistanceKm": 185.8,
-    "offsetKm": 3.3
+    "offsetKm": 3.3,
+    "bank": "both"
+  },
+  {
+    "name": "Horburg",
+    "place": "village",
+    "lat": 53.354789,
+    "lng": 10.400011,
+    "routeDistanceKm": 186,
+    "offsetKm": 4.68,
+    "bank": "left"
+  },
+  {
+    "name": "Barum",
+    "place": "village",
+    "lat": 53.351069,
+    "lng": 10.40789,
+    "routeDistanceKm": 186.9,
+    "offsetKm": 4.86,
+    "bank": "left"
   },
   {
     "name": "Lüdershausen",
@@ -645,7 +824,8 @@
     "lat": 53.352662,
     "lng": 10.453025,
     "routeDistanceKm": 188.7,
-    "offsetKm": 4
+    "offsetKm": 4,
+    "bank": "both"
   },
   {
     "name": "Juliusburg",
@@ -653,7 +833,8 @@
     "lat": 53.416705,
     "lng": 10.504801,
     "routeDistanceKm": 189.2,
-    "offsetKm": 3.72
+    "offsetKm": 3.72,
+    "bank": "both"
   },
   {
     "name": "Artlenburg",
@@ -661,7 +842,8 @@
     "lat": 53.373402,
     "lng": 10.489905,
     "routeDistanceKm": 190.1,
-    "offsetKm": 0.83
+    "offsetKm": 0.83,
+    "bank": "both"
   },
   {
     "name": "Schnakenbek",
@@ -669,7 +851,8 @@
     "lat": 53.38602,
     "lng": 10.50232,
     "routeDistanceKm": 190.4,
-    "offsetKm": 0.7
+    "offsetKm": 0.7,
+    "bank": "both"
   },
   {
     "name": "Krüzen",
@@ -677,7 +860,8 @@
     "lat": 53.402185,
     "lng": 10.526756,
     "routeDistanceKm": 191.5,
-    "offsetKm": 2.94
+    "offsetKm": 2.94,
+    "bank": "both"
   },
   {
     "name": "Lauenburg/Elbe",
@@ -685,7 +869,8 @@
     "lat": 53.37898,
     "lng": 10.551389,
     "routeDistanceKm": 193.8,
-    "offsetKm": 0.88
+    "offsetKm": 0.88,
+    "bank": "both"
   },
   {
     "name": "Echem",
@@ -693,7 +878,8 @@
     "lat": 53.337215,
     "lng": 10.534201,
     "routeDistanceKm": 194.2,
-    "offsetKm": 3.81
+    "offsetKm": 3.81,
+    "bank": "both"
   },
   {
     "name": "Hohnstorf",
@@ -701,7 +887,8 @@
     "lat": 53.366701,
     "lng": 10.549999,
     "routeDistanceKm": 194.6,
-    "offsetKm": 0.4
+    "offsetKm": 0.4,
+    "bank": "both"
   },
   {
     "name": "Bullendorf",
@@ -709,7 +896,8 @@
     "lat": 53.347798,
     "lng": 10.571697,
     "routeDistanceKm": 195.4,
-    "offsetKm": 2.62
+    "offsetKm": 2.62,
+    "bank": "both"
   },
   {
     "name": "Buchhorst",
@@ -717,7 +905,8 @@
     "lat": 53.38465,
     "lng": 10.567719,
     "routeDistanceKm": 197.1,
-    "offsetKm": 1.32
+    "offsetKm": 1.32,
+    "bank": "both"
   },
   {
     "name": "Basedow",
@@ -725,7 +914,8 @@
     "lat": 53.418922,
     "lng": 10.584332,
     "routeDistanceKm": 197.2,
-    "offsetKm": 4.68
+    "offsetKm": 4.68,
+    "bank": "right"
   },
   {
     "name": "Hittbergen",
@@ -733,7 +923,26 @@
     "lat": 53.345325,
     "lng": 10.593885,
     "routeDistanceKm": 197.8,
-    "offsetKm": 3.25
+    "offsetKm": 3.25,
+    "bank": "both"
+  },
+  {
+    "name": "Lüdersburg",
+    "place": "village",
+    "lat": 53.317409,
+    "lng": 10.573633,
+    "routeDistanceKm": 198.4,
+    "offsetKm": 4.17,
+    "bank": "left"
+  },
+  {
+    "name": "Jürgenstorf",
+    "place": "village",
+    "lat": 53.326147,
+    "lng": 10.596513,
+    "routeDistanceKm": 198.7,
+    "offsetKm": 3.36,
+    "bank": "left"
   },
   {
     "name": "Lanze",
@@ -741,7 +950,8 @@
     "lat": 53.390192,
     "lng": 10.606684,
     "routeDistanceKm": 198.9,
-    "offsetKm": 1.59
+    "offsetKm": 1.59,
+    "bank": "both"
   },
   {
     "name": "Bickhusen",
@@ -749,7 +959,8 @@
     "lat": 53.390703,
     "lng": 10.63254,
     "routeDistanceKm": 200.3,
-    "offsetKm": 1.75
+    "offsetKm": 1.75,
+    "bank": "both"
   },
   {
     "name": "Barförde",
@@ -757,7 +968,8 @@
     "lat": 53.366445,
     "lng": 10.629979,
     "routeDistanceKm": 200.5,
-    "offsetKm": 0.95
+    "offsetKm": 0.95,
+    "bank": "both"
   },
   {
     "name": "Wendewisch",
@@ -765,7 +977,8 @@
     "lat": 53.351308,
     "lng": 10.647526,
     "routeDistanceKm": 201.8,
-    "offsetKm": 2.45
+    "offsetKm": 2.45,
+    "bank": "both"
   },
   {
     "name": "Nostorf",
@@ -773,7 +986,8 @@
     "lat": 53.406839,
     "lng": 10.654659,
     "routeDistanceKm": 202.8,
-    "offsetKm": 3.69
+    "offsetKm": 3.69,
+    "bank": "both"
   },
   {
     "name": "Garlstorf",
@@ -781,7 +995,8 @@
     "lat": 53.349973,
     "lng": 10.673824,
     "routeDistanceKm": 203.2,
-    "offsetKm": 2.73
+    "offsetKm": 2.73,
+    "bank": "both"
   },
   {
     "name": "Schwartow",
@@ -789,7 +1004,8 @@
     "lat": 53.397153,
     "lng": 10.748144,
     "routeDistanceKm": 206.3,
-    "offsetKm": 3.01
+    "offsetKm": 3.01,
+    "bank": "right"
   },
   {
     "name": "Boizenburg/Elbe",
@@ -797,7 +1013,8 @@
     "lat": 53.375079,
     "lng": 10.723236,
     "routeDistanceKm": 206.4,
-    "offsetKm": 0.32
+    "offsetKm": 0.32,
+    "bank": "both"
   },
   {
     "name": "Brackede",
@@ -805,7 +1022,8 @@
     "lat": 53.355185,
     "lng": 10.702946,
     "routeDistanceKm": 209.1,
-    "offsetKm": 1.55
+    "offsetKm": 1.55,
+    "bank": "both"
   },
   {
     "name": "Bahlen",
@@ -813,7 +1031,8 @@
     "lat": 53.365875,
     "lng": 10.762529,
     "routeDistanceKm": 211.3,
-    "offsetKm": 1.89
+    "offsetKm": 1.89,
+    "bank": "both"
   },
   {
     "name": "Neu Gülze",
@@ -821,7 +1040,8 @@
     "lat": 53.372301,
     "lng": 10.791405,
     "routeDistanceKm": 211.5,
-    "offsetKm": 3.86
+    "offsetKm": 3.86,
+    "bank": "both"
   },
   {
     "name": "Gülze",
@@ -829,7 +1049,17 @@
     "lat": 53.353136,
     "lng": 10.809711,
     "routeDistanceKm": 212.7,
-    "offsetKm": 4.14
+    "offsetKm": 4.14,
+    "bank": "right"
+  },
+  {
+    "name": "Neu Neetze",
+    "place": "village",
+    "lat": 53.290213,
+    "lng": 10.650698,
+    "routeDistanceKm": 215.8,
+    "offsetKm": 4.36,
+    "bank": "left"
   },
   {
     "name": "Garze",
@@ -837,7 +1067,8 @@
     "lat": 53.308038,
     "lng": 10.694417,
     "routeDistanceKm": 217,
-    "offsetKm": 2.84
+    "offsetKm": 2.84,
+    "bank": "both"
   },
   {
     "name": "Bleckeder Moor",
@@ -845,7 +1076,8 @@
     "lat": 53.297988,
     "lng": 10.668254,
     "routeDistanceKm": 217.2,
-    "offsetKm": 4.65
+    "offsetKm": 4.65,
+    "bank": "both"
   },
   {
     "name": "Bleckede",
@@ -853,7 +1085,8 @@
     "lat": 53.293306,
     "lng": 10.729996,
     "routeDistanceKm": 217.5,
-    "offsetKm": 1.15
+    "offsetKm": 1.15,
+    "bank": "both"
   },
   {
     "name": "Breetze",
@@ -861,7 +1094,8 @@
     "lat": 53.264461,
     "lng": 10.706854,
     "routeDistanceKm": 217.9,
-    "offsetKm": 4.66
+    "offsetKm": 4.66,
+    "bank": "both"
   },
   {
     "name": "Nindorf",
@@ -869,7 +1103,8 @@
     "lat": 53.261733,
     "lng": 10.743705,
     "routeDistanceKm": 219.4,
-    "offsetKm": 4.03
+    "offsetKm": 4.03,
+    "bank": "both"
   },
   {
     "name": "Stiepelse",
@@ -877,7 +1112,8 @@
     "lat": 53.288753,
     "lng": 10.801971,
     "routeDistanceKm": 222.5,
-    "offsetKm": 0.09
+    "offsetKm": 0.09,
+    "bank": "both"
   },
   {
     "name": "Alt Garge",
@@ -885,7 +1121,8 @@
     "lat": 53.268927,
     "lng": 10.794178,
     "routeDistanceKm": 222.9,
-    "offsetKm": 1.96
+    "offsetKm": 1.96,
+    "bank": "both"
   },
   {
     "name": "Sumte",
@@ -893,7 +1130,8 @@
     "lat": 53.28773,
     "lng": 10.877052,
     "routeDistanceKm": 224.6,
-    "offsetKm": 3.56
+    "offsetKm": 3.56,
+    "bank": "right"
   },
   {
     "name": "Neu Garge",
@@ -901,7 +1139,8 @@
     "lat": 53.271917,
     "lng": 10.828445,
     "routeDistanceKm": 225.4,
-    "offsetKm": 0.08
+    "offsetKm": 0.08,
+    "bank": "both"
   },
   {
     "name": "Barskamp",
@@ -909,7 +1148,8 @@
     "lat": 53.243244,
     "lng": 10.783697,
     "routeDistanceKm": 226.9,
-    "offsetKm": 3.65
+    "offsetKm": 3.65,
+    "bank": "both"
   },
   {
     "name": "Viehle",
@@ -917,7 +1157,8 @@
     "lat": 53.259367,
     "lng": 10.835566,
     "routeDistanceKm": 227.2,
-    "offsetKm": 0.07
+    "offsetKm": 0.07,
+    "bank": "both"
   },
   {
     "name": "Walmsburg",
@@ -925,7 +1166,17 @@
     "lat": 53.240444,
     "lng": 10.845701,
     "routeDistanceKm": 228.4,
-    "offsetKm": 1.85
+    "offsetKm": 1.85,
+    "bank": "both"
+  },
+  {
+    "name": "Tosterglope",
+    "place": "village",
+    "lat": 53.207084,
+    "lng": 10.817629,
+    "routeDistanceKm": 228.8,
+    "offsetKm": 4.02,
+    "bank": "left"
   },
   {
     "name": "Konau",
@@ -933,7 +1184,8 @@
     "lat": 53.249663,
     "lng": 10.876501,
     "routeDistanceKm": 230.4,
-    "offsetKm": 0.17
+    "offsetKm": 0.17,
+    "bank": "both"
   },
   {
     "name": "Popelau",
@@ -941,7 +1193,17 @@
     "lat": 53.24725,
     "lng": 10.882486,
     "routeDistanceKm": 230.7,
-    "offsetKm": 0.33
+    "offsetKm": 0.33,
+    "bank": "both"
+  },
+  {
+    "name": "Ventschau",
+    "place": "village",
+    "lat": 53.198643,
+    "lng": 10.8506,
+    "routeDistanceKm": 231.6,
+    "offsetKm": 3.85,
+    "bank": "left"
   },
   {
     "name": "Katemin",
@@ -949,7 +1211,8 @@
     "lat": 53.229769,
     "lng": 10.876855,
     "routeDistanceKm": 231.9,
-    "offsetKm": 1.41
+    "offsetKm": 1.41,
+    "bank": "both"
   },
   {
     "name": "Darchau",
@@ -957,7 +1220,8 @@
     "lat": 53.239828,
     "lng": 10.895823,
     "routeDistanceKm": 232,
-    "offsetKm": 0.27
+    "offsetKm": 0.27,
+    "bank": "both"
   },
   {
     "name": "Neu Darchau",
@@ -965,7 +1229,8 @@
     "lat": 53.228131,
     "lng": 10.886468,
     "routeDistanceKm": 232.3,
-    "offsetKm": 1.13
+    "offsetKm": 1.13,
+    "bank": "both"
   },
   {
     "name": "Haar",
@@ -973,7 +1238,8 @@
     "lat": 53.261057,
     "lng": 10.918495,
     "routeDistanceKm": 233.4,
-    "offsetKm": 2.86
+    "offsetKm": 2.86,
+    "bank": "both"
   },
   {
     "name": "Klein Kühren",
@@ -981,7 +1247,8 @@
     "lat": 53.226527,
     "lng": 10.909182,
     "routeDistanceKm": 233.8,
-    "offsetKm": 0.84
+    "offsetKm": 0.84,
+    "bank": "both"
   },
   {
     "name": "Stapel",
@@ -989,7 +1256,8 @@
     "lat": 53.252503,
     "lng": 10.961355,
     "routeDistanceKm": 234.5,
-    "offsetKm": 3.16
+    "offsetKm": 3.16,
+    "bank": "both"
   },
   {
     "name": "Vockfey",
@@ -997,7 +1265,8 @@
     "lat": 53.224834,
     "lng": 10.93749,
     "routeDistanceKm": 235.5,
-    "offsetKm": 0.27
+    "offsetKm": 0.27,
+    "bank": "both"
   },
   {
     "name": "Sammatz",
@@ -1005,7 +1274,8 @@
     "lat": 53.194056,
     "lng": 10.900596,
     "routeDistanceKm": 235.8,
-    "offsetKm": 3.86
+    "offsetKm": 3.86,
+    "bank": "both"
   },
   {
     "name": "Schutschur",
@@ -1013,7 +1283,8 @@
     "lat": 53.215568,
     "lng": 10.928464,
     "routeDistanceKm": 235.9,
-    "offsetKm": 0.85
+    "offsetKm": 0.85,
+    "bank": "both"
   },
   {
     "name": "Gutitz",
@@ -1021,7 +1292,8 @@
     "lat": 53.232894,
     "lng": 10.980274,
     "routeDistanceKm": 236.8,
-    "offsetKm": 2.77
+    "offsetKm": 2.77,
+    "bank": "both"
   },
   {
     "name": "Glienitz",
@@ -1029,7 +1301,8 @@
     "lat": 53.207288,
     "lng": 10.945058,
     "routeDistanceKm": 237.5,
-    "offsetKm": 0.82
+    "offsetKm": 0.82,
+    "bank": "both"
   },
   {
     "name": "Pommau",
@@ -1037,7 +1310,8 @@
     "lat": 53.212664,
     "lng": 10.956672,
     "routeDistanceKm": 237.8,
-    "offsetKm": 0.11
+    "offsetKm": 0.11,
+    "bank": "both"
   },
   {
     "name": "Wietzetze",
@@ -1045,7 +1319,8 @@
     "lat": 53.1845,
     "lng": 10.9314,
     "routeDistanceKm": 238.2,
-    "offsetKm": 3.43
+    "offsetKm": 3.43,
+    "bank": "both"
   },
   {
     "name": "Drethem",
@@ -1053,7 +1328,8 @@
     "lat": 53.202136,
     "lng": 10.956,
     "routeDistanceKm": 238.3,
-    "offsetKm": 0.9
+    "offsetKm": 0.9,
+    "bank": "both"
   },
   {
     "name": "Zeetze",
@@ -1061,7 +1337,8 @@
     "lat": 53.22785,
     "lng": 10.986635,
     "routeDistanceKm": 238.7,
-    "offsetKm": 2.55
+    "offsetKm": 2.55,
+    "bank": "both"
   },
   {
     "name": "Bahrendorf",
@@ -1069,7 +1346,8 @@
     "lat": 53.186704,
     "lng": 10.946677,
     "routeDistanceKm": 239.4,
-    "offsetKm": 2.54
+    "offsetKm": 2.54,
+    "bank": "both"
   },
   {
     "name": "Tiesmesland",
@@ -1077,7 +1355,8 @@
     "lat": 53.1898,
     "lng": 10.9791,
     "routeDistanceKm": 240.8,
-    "offsetKm": 0.64
+    "offsetKm": 0.64,
+    "bank": "both"
   },
   {
     "name": "Tießau",
@@ -1085,7 +1364,8 @@
     "lat": 53.1802,
     "lng": 10.9836,
     "routeDistanceKm": 241.1,
-    "offsetKm": 1.42
+    "offsetKm": 1.42,
+    "bank": "both"
   },
   {
     "name": "Stixe",
@@ -1093,7 +1373,8 @@
     "lat": 53.208061,
     "lng": 11.016562,
     "routeDistanceKm": 241.7,
-    "offsetKm": 2.26
+    "offsetKm": 2.26,
+    "bank": "both"
   },
   {
     "name": "Rassau",
@@ -1101,7 +1382,8 @@
     "lat": 53.18772,
     "lng": 11.012734,
     "routeDistanceKm": 242.6,
-    "offsetKm": 0.26
+    "offsetKm": 0.26,
+    "bank": "both"
   },
   {
     "name": "Kaarßen",
@@ -1109,7 +1391,8 @@
     "lat": 53.193764,
     "lng": 11.043526,
     "routeDistanceKm": 243.8,
-    "offsetKm": 2.14
+    "offsetKm": 2.14,
+    "bank": "both"
   },
   {
     "name": "Harlingen",
@@ -1117,7 +1400,8 @@
     "lat": 53.1503,
     "lng": 10.9813,
     "routeDistanceKm": 245.3,
-    "offsetKm": 4.03
+    "offsetKm": 4.03,
+    "bank": "both"
   },
   {
     "name": "Bitter",
@@ -1125,7 +1409,8 @@
     "lat": 53.168371,
     "lng": 11.035483,
     "routeDistanceKm": 245.3,
-    "offsetKm": 0.1
+    "offsetKm": 0.1,
+    "bank": "both"
   },
   {
     "name": "Hitzacker (Elbe)",
@@ -1133,7 +1418,8 @@
     "lat": 53.151212,
     "lng": 11.044094,
     "routeDistanceKm": 246.7,
-    "offsetKm": 1.22
+    "offsetKm": 1.22,
+    "bank": "both"
   },
   {
     "name": "Sarenseck",
@@ -1141,7 +1427,8 @@
     "lat": 53.126147,
     "lng": 11.014563,
     "routeDistanceKm": 246.7,
-    "offsetKm": 4.59
+    "offsetKm": 4.59,
+    "bank": "both"
   },
   {
     "name": "Pinnau",
@@ -1149,7 +1436,8 @@
     "lat": 53.180193,
     "lng": 11.078391,
     "routeDistanceKm": 247.6,
-    "offsetKm": 2.28
+    "offsetKm": 2.28,
+    "bank": "both"
   },
   {
     "name": "Laake",
@@ -1157,7 +1445,17 @@
     "lat": 53.154432,
     "lng": 11.075133,
     "routeDistanceKm": 248.9,
-    "offsetKm": 0.13
+    "offsetKm": 0.13,
+    "bank": "both"
+  },
+  {
+    "name": "Riskau",
+    "place": "village",
+    "lat": 53.1089,
+    "lng": 11.0325,
+    "routeDistanceKm": 249.1,
+    "offsetKm": 3.74,
+    "bank": "left"
   },
   {
     "name": "Streetz",
@@ -1165,7 +1463,17 @@
     "lat": 53.1086,
     "lng": 11.0593,
     "routeDistanceKm": 249.6,
-    "offsetKm": 4.71
+    "offsetKm": 4.71,
+    "bank": "both"
+  },
+  {
+    "name": "Tripkau",
+    "place": "village",
+    "lat": 53.105533,
+    "lng": 11.042341,
+    "routeDistanceKm": 249.8,
+    "offsetKm": 3.6,
+    "bank": "left"
   },
   {
     "name": "Gümse",
@@ -1173,7 +1481,8 @@
     "lat": 53.1137,
     "lng": 11.144,
     "routeDistanceKm": 251.3,
-    "offsetKm": 4.42
+    "offsetKm": 4.42,
+    "bank": "both"
   },
   {
     "name": "Breese in der Marsch",
@@ -1181,7 +1490,8 @@
     "lat": 53.110289,
     "lng": 11.132425,
     "routeDistanceKm": 251.3,
-    "offsetKm": 4.33
+    "offsetKm": 4.33,
+    "bank": "both"
   },
   {
     "name": "Strachauer Rad",
@@ -1189,7 +1499,26 @@
     "lat": 53.142135,
     "lng": 11.118844,
     "routeDistanceKm": 251.5,
-    "offsetKm": 1.05
+    "offsetKm": 1.05,
+    "bank": "both"
+  },
+  {
+    "name": "Lüggau",
+    "place": "village",
+    "lat": 53.097781,
+    "lng": 11.076356,
+    "routeDistanceKm": 251.8,
+    "offsetKm": 2.98,
+    "bank": "left"
+  },
+  {
+    "name": "Schmarsau",
+    "place": "village",
+    "lat": 53.087033,
+    "lng": 11.054774,
+    "routeDistanceKm": 251.8,
+    "offsetKm": 4.79,
+    "bank": "left"
   },
   {
     "name": "Raffatz",
@@ -1197,7 +1526,35 @@
     "lat": 53.153329,
     "lng": 11.108577,
     "routeDistanceKm": 252.3,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": "both"
+  },
+  {
+    "name": "Nebenstedt",
+    "place": "village",
+    "lat": 53.0977,
+    "lng": 11.1266,
+    "routeDistanceKm": 252.8,
+    "offsetKm": 2.22,
+    "bank": "left"
+  },
+  {
+    "name": "Dannenberg (Elbe)",
+    "place": "town",
+    "lat": 53.09891,
+    "lng": 11.096072,
+    "routeDistanceKm": 252.8,
+    "offsetKm": 2.22,
+    "bank": "left"
+  },
+  {
+    "name": "Splietau",
+    "place": "village",
+    "lat": 53.092523,
+    "lng": 11.143019,
+    "routeDistanceKm": 252.8,
+    "offsetKm": 3.28,
+    "bank": "left"
   },
   {
     "name": "Wilkenstorf",
@@ -1205,7 +1562,8 @@
     "lat": 53.159405,
     "lng": 11.112328,
     "routeDistanceKm": 253,
-    "offsetKm": 0.07
+    "offsetKm": 0.07,
+    "bank": "both"
   },
   {
     "name": "Bohnenburg",
@@ -1213,7 +1571,8 @@
     "lat": 53.165101,
     "lng": 11.123477,
     "routeDistanceKm": 254,
-    "offsetKm": 0.05
+    "offsetKm": 0.05,
+    "bank": "both"
   },
   {
     "name": "Tripkau",
@@ -1221,7 +1580,8 @@
     "lat": 53.183548,
     "lng": 11.108774,
     "routeDistanceKm": 255.2,
-    "offsetKm": 1.81
+    "offsetKm": 1.81,
+    "bank": "both"
   },
   {
     "name": "Woosmer",
@@ -1229,7 +1589,8 @@
     "lat": 53.200002,
     "lng": 11.183292,
     "routeDistanceKm": 256.9,
-    "offsetKm": 3.22
+    "offsetKm": 3.22,
+    "bank": "both"
   },
   {
     "name": "Wehningen",
@@ -1237,7 +1598,8 @@
     "lat": 53.170483,
     "lng": 11.167302,
     "routeDistanceKm": 257.9,
-    "offsetKm": 0.18
+    "offsetKm": 0.18,
+    "bank": "both"
   },
   {
     "name": "Quickborn",
@@ -1245,7 +1607,17 @@
     "lat": 53.106504,
     "lng": 11.195597,
     "routeDistanceKm": 261.7,
-    "offsetKm": 4.71
+    "offsetKm": 4.71,
+    "bank": "both"
+  },
+  {
+    "name": "Klein Gusborn",
+    "place": "village",
+    "lat": 53.083817,
+    "lng": 11.19447,
+    "routeDistanceKm": 263.5,
+    "offsetKm": 4.39,
+    "bank": "left"
   },
   {
     "name": "Dömitz",
@@ -1253,7 +1625,8 @@
     "lat": 53.138488,
     "lng": 11.260928,
     "routeDistanceKm": 268.4,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": "both"
   },
   {
     "name": "Neu Kaliß",
@@ -1261,7 +1634,8 @@
     "lat": 53.173954,
     "lng": 11.297682,
     "routeDistanceKm": 268.4,
-    "offsetKm": 4.58
+    "offsetKm": 4.58,
+    "bank": "right"
   },
   {
     "name": "Polz",
@@ -1269,7 +1643,17 @@
     "lat": 53.121532,
     "lng": 11.355017,
     "routeDistanceKm": 270.6,
-    "offsetKm": 4.55
+    "offsetKm": 4.55,
+    "bank": "right"
+  },
+  {
+    "name": "Gusborn",
+    "place": "village",
+    "lat": 53.079293,
+    "lng": 11.203523,
+    "routeDistanceKm": 270.9,
+    "offsetKm": 4.25,
+    "bank": "left"
   },
   {
     "name": "Brandleben",
@@ -1277,7 +1661,8 @@
     "lat": 53.122106,
     "lng": 11.248472,
     "routeDistanceKm": 272.4,
-    "offsetKm": 1.6
+    "offsetKm": 1.6,
+    "bank": "both"
   },
   {
     "name": "Cacherien",
@@ -1285,7 +1670,8 @@
     "lat": 53.108331,
     "lng": 11.234134,
     "routeDistanceKm": 273,
-    "offsetKm": 2.64
+    "offsetKm": 2.64,
+    "bank": "both"
   },
   {
     "name": "Langendorf, Elbe",
@@ -1293,7 +1679,8 @@
     "lat": 53.103739,
     "lng": 11.248632,
     "routeDistanceKm": 273.4,
-    "offsetKm": 1.84
+    "offsetKm": 1.84,
+    "bank": "both"
   },
   {
     "name": "Groß Gusborn",
@@ -1301,7 +1688,8 @@
     "lat": 53.080383,
     "lng": 11.214403,
     "routeDistanceKm": 275.2,
-    "offsetKm": 4.86
+    "offsetKm": 4.86,
+    "bank": "both"
   },
   {
     "name": "Lenzerwische",
@@ -1309,7 +1697,26 @@
     "lat": 53.077837,
     "lng": 11.321143,
     "routeDistanceKm": 278.6,
-    "offsetKm": 0.19
+    "offsetKm": 0.19,
+    "bank": "both"
+  },
+  {
+    "name": "Marleben",
+    "place": "village",
+    "lat": 53.012548,
+    "lng": 11.301636,
+    "routeDistanceKm": 278.8,
+    "offsetKm": 4.81,
+    "bank": "left"
+  },
+  {
+    "name": "Klautze",
+    "place": "village",
+    "lat": 53.010339,
+    "lng": 11.305969,
+    "routeDistanceKm": 279,
+    "offsetKm": 4.9,
+    "bank": "left"
   },
   {
     "name": "Laase",
@@ -1317,7 +1724,8 @@
     "lat": 53.066105,
     "lng": 11.306556,
     "routeDistanceKm": 279.3,
-    "offsetKm": 1.36
+    "offsetKm": 1.36,
+    "bank": "both"
   },
   {
     "name": "Gedelitz",
@@ -1325,7 +1733,8 @@
     "lat": 53.03148,
     "lng": 11.303042,
     "routeDistanceKm": 281.4,
-    "offsetKm": 4.03
+    "offsetKm": 4.03,
+    "bank": "both"
   },
   {
     "name": "Gorleben",
@@ -1333,7 +1742,8 @@
     "lat": 53.04838,
     "lng": 11.356904,
     "routeDistanceKm": 282,
-    "offsetKm": 0.95
+    "offsetKm": 0.95,
+    "bank": "both"
   },
   {
     "name": "Meetschow",
@@ -1341,7 +1751,8 @@
     "lat": 53.0483,
     "lng": 11.388,
     "routeDistanceKm": 283.7,
-    "offsetKm": 1.93
+    "offsetKm": 1.93,
+    "bank": "both"
   },
   {
     "name": "Laasche",
@@ -1349,7 +1760,8 @@
     "lat": 53.040721,
     "lng": 11.41476,
     "routeDistanceKm": 284.1,
-    "offsetKm": 3.62
+    "offsetKm": 3.62,
+    "bank": "both"
   },
   {
     "name": "Vietze",
@@ -1357,7 +1769,8 @@
     "lat": 53.069703,
     "lng": 11.405005,
     "routeDistanceKm": 286.5,
-    "offsetKm": 0.86
+    "offsetKm": 0.86,
+    "bank": "both"
   },
   {
     "name": "Brünkendorf",
@@ -1365,7 +1778,8 @@
     "lat": 53.054675,
     "lng": 11.433451,
     "routeDistanceKm": 288.8,
-    "offsetKm": 2.7
+    "offsetKm": 2.7,
+    "bank": "both"
   },
   {
     "name": "Eldenburg",
@@ -1373,7 +1787,8 @@
     "lat": 53.114913,
     "lng": 11.439225,
     "routeDistanceKm": 289.5,
-    "offsetKm": 3.7
+    "offsetKm": 3.7,
+    "bank": "right"
   },
   {
     "name": "Lenzen (Elbe)",
@@ -1381,7 +1796,8 @@
     "lat": 53.090801,
     "lng": 11.474862,
     "routeDistanceKm": 290.9,
-    "offsetKm": 1.43
+    "offsetKm": 1.43,
+    "bank": "both"
   },
   {
     "name": "Pevestorf",
@@ -1389,7 +1805,8 @@
     "lat": 53.058755,
     "lng": 11.454084,
     "routeDistanceKm": 291.5,
-    "offsetKm": 2.32
+    "offsetKm": 2.32,
+    "bank": "both"
   },
   {
     "name": "Restorf",
@@ -1397,7 +1814,17 @@
     "lat": 53.041594,
     "lng": 11.44549,
     "routeDistanceKm": 292.4,
-    "offsetKm": 4.19
+    "offsetKm": 4.19,
+    "bank": "both"
+  },
+  {
+    "name": "Gartow",
+    "place": "village",
+    "lat": 53.025499,
+    "lng": 11.458415,
+    "routeDistanceKm": 295.3,
+    "offsetKm": 0.25,
+    "bank": "left"
   },
   {
     "name": "Holtorf",
@@ -1405,7 +1832,17 @@
     "lat": 53.032535,
     "lng": 11.508223,
     "routeDistanceKm": 295.8,
-    "offsetKm": 3.04
+    "offsetKm": 3.04,
+    "bank": "both"
+  },
+  {
+    "name": "Nienwalde",
+    "place": "village",
+    "lat": 53.005207,
+    "lng": 11.487824,
+    "routeDistanceKm": 297.2,
+    "offsetKm": 2.27,
+    "bank": "left"
   },
   {
     "name": "Ferbitz",
@@ -1413,7 +1850,8 @@
     "lat": 53.098064,
     "lng": 11.565557,
     "routeDistanceKm": 297.6,
-    "offsetKm": 4.53
+    "offsetKm": 4.53,
+    "bank": "right"
   },
   {
     "name": "Lanz",
@@ -1421,7 +1859,8 @@
     "lat": 53.073035,
     "lng": 11.598112,
     "routeDistanceKm": 298.5,
-    "offsetKm": 2.98
+    "offsetKm": 2.98,
+    "bank": "both"
   },
   {
     "name": "Schnackenburg",
@@ -1429,7 +1868,8 @@
     "lat": 53.036474,
     "lng": 11.564476,
     "routeDistanceKm": 300.1,
-    "offsetKm": 1.01
+    "offsetKm": 1.01,
+    "bank": "both"
   },
   {
     "name": "Kapern",
@@ -1437,7 +1877,8 @@
     "lat": 53.017716,
     "lng": 11.539944,
     "routeDistanceKm": 300.3,
-    "offsetKm": 3.65
+    "offsetKm": 3.65,
+    "bank": "both"
   },
   {
     "name": "Gummern",
@@ -1445,7 +1886,8 @@
     "lat": 53.017237,
     "lng": 11.561458,
     "routeDistanceKm": 301,
-    "offsetKm": 2.85
+    "offsetKm": 2.85,
+    "bank": "both"
   },
   {
     "name": "Cumlosen",
@@ -1453,7 +1895,8 @@
     "lat": 53.032241,
     "lng": 11.657903,
     "routeDistanceKm": 306.6,
-    "offsetKm": 0.16
+    "offsetKm": 0.16,
+    "bank": "right"
   },
   {
     "name": "Wentdorf",
@@ -1461,7 +1904,8 @@
     "lat": 53.026735,
     "lng": 11.672019,
     "routeDistanceKm": 307,
-    "offsetKm": 1.19
+    "offsetKm": 1.19,
+    "bank": "both"
   },
   {
     "name": "Wanzer",
@@ -1469,7 +1913,8 @@
     "lat": 52.992865,
     "lng": 11.603236,
     "routeDistanceKm": 309.6,
-    "offsetKm": 2.98
+    "offsetKm": 2.98,
+    "bank": "both"
   },
   {
     "name": "Aulosen",
@@ -1477,7 +1922,35 @@
     "lat": 52.992682,
     "lng": 11.583179,
     "routeDistanceKm": 309.6,
-    "offsetKm": 3.97
+    "offsetKm": 3.97,
+    "bank": "both"
+  },
+  {
+    "name": "Bömenzien",
+    "place": "village",
+    "lat": 52.990739,
+    "lng": 11.545291,
+    "routeDistanceKm": 310,
+    "offsetKm": 1.61,
+    "bank": "left"
+  },
+  {
+    "name": "Gollensdorf",
+    "place": "village",
+    "lat": 52.957732,
+    "lng": 11.549925,
+    "routeDistanceKm": 310,
+    "offsetKm": 4.16,
+    "bank": "left"
+  },
+  {
+    "name": "Drösede",
+    "place": "village",
+    "lat": 52.976371,
+    "lng": 11.552285,
+    "routeDistanceKm": 310,
+    "offsetKm": 2.2,
+    "bank": "left"
   },
   {
     "name": "Pollitz",
@@ -1485,7 +1958,8 @@
     "lat": 52.970608,
     "lng": 11.621906,
     "routeDistanceKm": 310.5,
-    "offsetKm": 4.62
+    "offsetKm": 4.62,
+    "bank": "both"
   },
   {
     "name": "Bentwisch",
@@ -1493,7 +1967,26 @@
     "lat": 53.039352,
     "lng": 11.733338,
     "routeDistanceKm": 313.4,
-    "offsetKm": 4.71
+    "offsetKm": 4.71,
+    "bank": "right"
+  },
+  {
+    "name": "Deutsch",
+    "place": "village",
+    "lat": 52.966003,
+    "lng": 11.585811,
+    "routeDistanceKm": 315.8,
+    "offsetKm": 2.42,
+    "bank": "left"
+  },
+  {
+    "name": "Groß Garz",
+    "place": "village",
+    "lat": 52.934485,
+    "lng": 11.609896,
+    "routeDistanceKm": 316,
+    "offsetKm": 4.33,
+    "bank": "left"
   },
   {
     "name": "Wahrenberg",
@@ -1501,7 +1994,8 @@
     "lat": 52.983085,
     "lng": 11.673607,
     "routeDistanceKm": 316.3,
-    "offsetKm": 1.18
+    "offsetKm": 1.18,
+    "bank": "both"
   },
   {
     "name": "Geestgottberg",
@@ -1509,7 +2003,8 @@
     "lat": 52.955374,
     "lng": 11.73022,
     "routeDistanceKm": 317.6,
-    "offsetKm": 3.26
+    "offsetKm": 3.26,
+    "bank": "both"
   },
   {
     "name": "Lindenberg",
@@ -1517,7 +2012,8 @@
     "lat": 53.026253,
     "lng": 11.733473,
     "routeDistanceKm": 320.4,
-    "offsetKm": 3.81
+    "offsetKm": 3.81,
+    "bank": "right"
   },
   {
     "name": "Wittenberge",
@@ -1525,7 +2021,8 @@
     "lat": 52.998372,
     "lng": 11.75072,
     "routeDistanceKm": 321.5,
-    "offsetKm": 0.84
+    "offsetKm": 0.84,
+    "bank": "both"
   },
   {
     "name": "Breese",
@@ -1533,7 +2030,8 @@
     "lat": 53.000555,
     "lng": 11.789273,
     "routeDistanceKm": 322.2,
-    "offsetKm": 1.99
+    "offsetKm": 1.99,
+    "bank": "both"
   },
   {
     "name": "Weisen",
@@ -1541,7 +2039,8 @@
     "lat": 53.026668,
     "lng": 11.791212,
     "routeDistanceKm": 322.2,
-    "offsetKm": 4.37
+    "offsetKm": 4.37,
+    "bank": "right"
   },
   {
     "name": "Losenrade",
@@ -1549,7 +2048,8 @@
     "lat": 52.966539,
     "lng": 11.765354,
     "routeDistanceKm": 324.7,
-    "offsetKm": 1.41
+    "offsetKm": 1.41,
+    "bank": "both"
   },
   {
     "name": "Beuster",
@@ -1557,7 +2057,8 @@
     "lat": 52.939427,
     "lng": 11.787249,
     "routeDistanceKm": 326.4,
-    "offsetKm": 2.69
+    "offsetKm": 2.69,
+    "bank": "both"
   },
   {
     "name": "Hinzdorf",
@@ -1565,7 +2066,8 @@
     "lat": 52.960693,
     "lng": 11.814517,
     "routeDistanceKm": 327.8,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": "both"
   },
   {
     "name": "Groß Lüben",
@@ -1573,7 +2075,8 @@
     "lat": 52.960332,
     "lng": 11.919051,
     "routeDistanceKm": 331.6,
-    "offsetKm": 4.22
+    "offsetKm": 4.22,
+    "bank": "right"
   },
   {
     "name": "Rühstädt",
@@ -1581,7 +2084,8 @@
     "lat": 52.9197,
     "lng": 11.868625,
     "routeDistanceKm": 336.3,
-    "offsetKm": 0.02
+    "offsetKm": 0.02,
+    "bank": "both"
   },
   {
     "name": "Herzfelde",
@@ -1589,7 +2093,17 @@
     "lat": 52.889339,
     "lng": 11.810599,
     "routeDistanceKm": 337.9,
-    "offsetKm": 3.91
+    "offsetKm": 3.91,
+    "bank": "both"
+  },
+  {
+    "name": "Seehausen (Altmark)",
+    "place": "town",
+    "lat": 52.889184,
+    "lng": 11.752083,
+    "routeDistanceKm": 338.5,
+    "offsetKm": 4.91,
+    "bank": "left"
   },
   {
     "name": "Schönberg",
@@ -1597,7 +2111,8 @@
     "lat": 52.877834,
     "lng": 11.829561,
     "routeDistanceKm": 338.5,
-    "offsetKm": 4.16
+    "offsetKm": 4.16,
+    "bank": "both"
   },
   {
     "name": "Neukirchen (Altmark)",
@@ -1605,7 +2120,17 @@
     "lat": 52.878662,
     "lng": 11.862481,
     "routeDistanceKm": 342.3,
-    "offsetKm": 3.54
+    "offsetKm": 3.54,
+    "bank": "both"
+  },
+  {
+    "name": "Lichterfelde",
+    "place": "village",
+    "lat": 52.855106,
+    "lng": 11.867777,
+    "routeDistanceKm": 344.6,
+    "offsetKm": 4.31,
+    "bank": "left"
   },
   {
     "name": "Wendemark",
@@ -1613,7 +2138,8 @@
     "lat": 52.859824,
     "lng": 11.92636,
     "routeDistanceKm": 345.2,
-    "offsetKm": 3.82
+    "offsetKm": 3.82,
+    "bank": "both"
   },
   {
     "name": "Legde",
@@ -1621,7 +2147,8 @@
     "lat": 52.919588,
     "lng": 11.963632,
     "routeDistanceKm": 345.6,
-    "offsetKm": 3.27
+    "offsetKm": 3.27,
+    "bank": "both"
   },
   {
     "name": "Werben (Elbe)",
@@ -1629,7 +2156,8 @@
     "lat": 52.86123,
     "lng": 11.982205,
     "routeDistanceKm": 348.1,
-    "offsetKm": 2.14
+    "offsetKm": 2.14,
+    "bank": "both"
   },
   {
     "name": "Quitzöbel",
@@ -1637,7 +2165,8 @@
     "lat": 52.892877,
     "lng": 11.985302,
     "routeDistanceKm": 349,
-    "offsetKm": 1.31
+    "offsetKm": 1.31,
+    "bank": "both"
   },
   {
     "name": "Nitzow",
@@ -1645,7 +2174,8 @@
     "lat": 52.874654,
     "lng": 12.053248,
     "routeDistanceKm": 352.5,
-    "offsetKm": 1.29
+    "offsetKm": 1.29,
+    "bank": "both"
   },
   {
     "name": "Dahlen",
@@ -1653,7 +2183,8 @@
     "lat": 52.860367,
     "lng": 12.052922,
     "routeDistanceKm": 354.8,
-    "offsetKm": 0.82
+    "offsetKm": 0.82,
+    "bank": "both"
   },
   {
     "name": "Toppel",
@@ -1661,7 +2192,17 @@
     "lat": 52.847181,
     "lng": 12.058803,
     "routeDistanceKm": 355.8,
-    "offsetKm": 0.48
+    "offsetKm": 0.48,
+    "bank": "both"
+  },
+  {
+    "name": "Behrendorf",
+    "place": "village",
+    "lat": 52.826909,
+    "lng": 11.960707,
+    "routeDistanceKm": 355.9,
+    "offsetKm": 2.27,
+    "bank": "left"
   },
   {
     "name": "Räbel",
@@ -1669,7 +2210,8 @@
     "lat": 52.833438,
     "lng": 12.028363,
     "routeDistanceKm": 356.3,
-    "offsetKm": 1.84
+    "offsetKm": 1.84,
+    "bank": "both"
   },
   {
     "name": "Berge",
@@ -1677,7 +2219,17 @@
     "lat": 52.820573,
     "lng": 11.997041,
     "routeDistanceKm": 358.4,
-    "offsetKm": 4.09
+    "offsetKm": 4.09,
+    "bank": "both"
+  },
+  {
+    "name": "Giesenslage",
+    "place": "village",
+    "lat": 52.805976,
+    "lng": 11.956394,
+    "routeDistanceKm": 359,
+    "offsetKm": 1.94,
+    "bank": "left"
   },
   {
     "name": "Jederitz",
@@ -1685,7 +2237,8 @@
     "lat": 52.803049,
     "lng": 12.133429,
     "routeDistanceKm": 359.6,
-    "offsetKm": 4.57
+    "offsetKm": 4.57,
+    "bank": "right"
   },
   {
     "name": "Havelberg",
@@ -1693,7 +2246,8 @@
     "lat": 52.825043,
     "lng": 12.074193,
     "routeDistanceKm": 359.6,
-    "offsetKm": 0.37
+    "offsetKm": 0.37,
+    "bank": "right"
   },
   {
     "name": "Wöplitz",
@@ -1701,7 +2255,17 @@
     "lat": 52.831194,
     "lng": 12.121869,
     "routeDistanceKm": 359.6,
-    "offsetKm": 3.46
+    "offsetKm": 3.46,
+    "bank": "right"
+  },
+  {
+    "name": "Busch",
+    "place": "village",
+    "lat": 52.785232,
+    "lng": 11.950334,
+    "routeDistanceKm": 359.9,
+    "offsetKm": 2.61,
+    "bank": "left"
   },
   {
     "name": "Sandau (Elbe)",
@@ -1709,7 +2273,8 @@
     "lat": 52.78907,
     "lng": 12.048005,
     "routeDistanceKm": 363.9,
-    "offsetKm": 0.13
+    "offsetKm": 0.13,
+    "bank": "both"
   },
   {
     "name": "Sandauerholz",
@@ -1717,7 +2282,8 @@
     "lat": 52.791753,
     "lng": 12.005118,
     "routeDistanceKm": 364.5,
-    "offsetKm": 2.46
+    "offsetKm": 2.46,
+    "bank": "both"
   },
   {
     "name": "Rosenhof",
@@ -1725,7 +2291,8 @@
     "lat": 52.766248,
     "lng": 12.023859,
     "routeDistanceKm": 366.8,
-    "offsetKm": 1.46
+    "offsetKm": 1.46,
+    "bank": "both"
   },
   {
     "name": "Wulkau",
@@ -1733,7 +2300,8 @@
     "lat": 52.760999,
     "lng": 12.069257,
     "routeDistanceKm": 368,
-    "offsetKm": 1.32
+    "offsetKm": 1.32,
+    "bank": "both"
   },
   {
     "name": "Osterholz",
@@ -1741,7 +2309,8 @@
     "lat": 52.750472,
     "lng": 12.027029,
     "routeDistanceKm": 368.5,
-    "offsetKm": 1.68
+    "offsetKm": 1.68,
+    "bank": "both"
   },
   {
     "name": "Altenzaun",
@@ -1749,7 +2318,17 @@
     "lat": 52.741097,
     "lng": 12.026407,
     "routeDistanceKm": 369.5,
-    "offsetKm": 1.87
+    "offsetKm": 1.87,
+    "bank": "both"
+  },
+  {
+    "name": "Schwarzholz",
+    "place": "village",
+    "lat": 52.747264,
+    "lng": 11.976732,
+    "routeDistanceKm": 369.9,
+    "offsetKm": 0.06,
+    "bank": "left"
   },
   {
     "name": "Kamern",
@@ -1757,7 +2336,17 @@
     "lat": 52.749906,
     "lng": 12.113038,
     "routeDistanceKm": 370.2,
-    "offsetKm": 3.76
+    "offsetKm": 3.76,
+    "bank": "right"
+  },
+  {
+    "name": "Hindenburg",
+    "place": "village",
+    "lat": 52.753393,
+    "lng": 11.928867,
+    "routeDistanceKm": 371.3,
+    "offsetKm": 3.16,
+    "bank": "left"
   },
   {
     "name": "Dalchau",
@@ -1765,7 +2354,8 @@
     "lat": 52.707772,
     "lng": 12.01792,
     "routeDistanceKm": 371.8,
-    "offsetKm": 3.34
+    "offsetKm": 3.34,
+    "bank": "both"
   },
   {
     "name": "Schönfeld",
@@ -1773,7 +2363,89 @@
     "lat": 52.726608,
     "lng": 12.060821,
     "routeDistanceKm": 372,
-    "offsetKm": 0.11
+    "offsetKm": 0.11,
+    "bank": "both"
+  },
+  {
+    "name": "Hohenberg-Krusemark",
+    "place": "village",
+    "lat": 52.72663,
+    "lng": 11.948326,
+    "routeDistanceKm": 373.2,
+    "offsetKm": 0.03,
+    "bank": "left"
+  },
+  {
+    "name": "Gethlingen",
+    "place": "village",
+    "lat": 52.753744,
+    "lng": 11.896213,
+    "routeDistanceKm": 373.2,
+    "offsetKm": 4.56,
+    "bank": "left"
+  },
+  {
+    "name": "Plätz",
+    "place": "village",
+    "lat": 52.738924,
+    "lng": 11.888217,
+    "routeDistanceKm": 373.2,
+    "offsetKm": 4.2,
+    "bank": "left"
+  },
+  {
+    "name": "Bertkow",
+    "place": "village",
+    "lat": 52.725769,
+    "lng": 11.903918,
+    "routeDistanceKm": 373.5,
+    "offsetKm": 2.92,
+    "bank": "left"
+  },
+  {
+    "name": "Baben",
+    "place": "village",
+    "lat": 52.696937,
+    "lng": 11.890657,
+    "routeDistanceKm": 374.9,
+    "offsetKm": 4.48,
+    "bank": "left"
+  },
+  {
+    "name": "Groß Ellingen",
+    "place": "village",
+    "lat": 52.70532,
+    "lng": 11.962912,
+    "routeDistanceKm": 376,
+    "offsetKm": 0.06,
+    "bank": "left"
+  },
+  {
+    "name": "Lindtorf",
+    "place": "village",
+    "lat": 52.6833,
+    "lng": 11.9167,
+    "routeDistanceKm": 376.1,
+    "offsetKm": 3.85,
+    "bank": "left"
+  },
+  {
+    "name": "Rindtorf",
+    "place": "village",
+    "lat": 52.676214,
+    "lng": 11.923297,
+    "routeDistanceKm": 376.1,
+    "offsetKm": 4.07,
+    "bank": "left"
+  },
+  {
+    "name": "Beelitz",
+    "place": "village",
+    "lat": 52.688566,
+    "lng": 11.953432,
+    "routeDistanceKm": 376.2,
+    "offsetKm": 1.82,
+    "bank": "left"
   },
   {
     "name": "Scharlibbe",
@@ -1781,7 +2453,17 @@
     "lat": 52.696397,
     "lng": 12.070647,
     "routeDistanceKm": 376.3,
-    "offsetKm": 0
+    "offsetKm": 0,
+    "bank": "both"
+  },
+  {
+    "name": "Klein Ellingen",
+    "place": "village",
+    "lat": 52.713757,
+    "lng": 11.981482,
+    "routeDistanceKm": 376.8,
+    "offsetKm": 1.51,
+    "bank": "left"
   },
   {
     "name": "Klietz",
@@ -1789,7 +2471,8 @@
     "lat": 52.667269,
     "lng": 12.067984,
     "routeDistanceKm": 379.6,
-    "offsetKm": 0.27
+    "offsetKm": 0.27,
+    "bank": "both"
   },
   {
     "name": "Arneburg",
@@ -1797,7 +2480,8 @@
     "lat": 52.674454,
     "lng": 12.003502,
     "routeDistanceKm": 381.3,
-    "offsetKm": 3.7
+    "offsetKm": 3.7,
+    "bank": "both"
   },
   {
     "name": "Bürs",
@@ -1805,7 +2489,8 @@
     "lat": 52.673609,
     "lng": 11.984983,
     "routeDistanceKm": 381.7,
-    "offsetKm": 4.73
+    "offsetKm": 4.73,
+    "bank": "both"
   },
   {
     "name": "Neuermark-Lübars",
@@ -1813,7 +2498,17 @@
     "lat": 52.650022,
     "lng": 12.042507,
     "routeDistanceKm": 382.1,
-    "offsetKm": 0.16
+    "offsetKm": 0.16,
+    "bank": "both"
+  },
+  {
+    "name": "Sanne",
+    "place": "village",
+    "lat": 52.657025,
+    "lng": 11.939139,
+    "routeDistanceKm": 382.7,
+    "offsetKm": 4.39,
+    "bank": "left"
   },
   {
     "name": "Hohengöhren Damm",
@@ -1821,7 +2516,8 @@
     "lat": 52.617703,
     "lng": 12.098707,
     "routeDistanceKm": 385.2,
-    "offsetKm": 3.94
+    "offsetKm": 3.94,
+    "bank": "right"
   },
   {
     "name": "Hohengöhren",
@@ -1829,7 +2525,8 @@
     "lat": 52.61571,
     "lng": 12.036374,
     "routeDistanceKm": 386,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": "both"
   },
   {
     "name": "Schönhausen Damm",
@@ -1837,7 +2534,8 @@
     "lat": 52.604714,
     "lng": 12.108846,
     "routeDistanceKm": 386.2,
-    "offsetKm": 4.93
+    "offsetKm": 4.93,
+    "bank": "right"
   },
   {
     "name": "Wischer",
@@ -1845,7 +2543,8 @@
     "lat": 52.640838,
     "lng": 11.961002,
     "routeDistanceKm": 388,
-    "offsetKm": 4.91
+    "offsetKm": 4.91,
+    "bank": "both"
   },
   {
     "name": "Billberge",
@@ -1853,7 +2552,8 @@
     "lat": 52.631028,
     "lng": 12.003505,
     "routeDistanceKm": 388,
-    "offsetKm": 2.39
+    "offsetKm": 2.39,
+    "bank": "both"
   },
   {
     "name": "Storkau (Elbe)",
@@ -1861,7 +2561,8 @@
     "lat": 52.613523,
     "lng": 11.999822,
     "routeDistanceKm": 388.1,
-    "offsetKm": 0.99
+    "offsetKm": 0.99,
+    "bank": "both"
   },
   {
     "name": "Arnim",
@@ -1869,7 +2570,8 @@
     "lat": 52.626838,
     "lng": 11.946786,
     "routeDistanceKm": 388.1,
-    "offsetKm": 4.86
+    "offsetKm": 4.86,
+    "bank": "both"
   },
   {
     "name": "Staffelde",
@@ -1877,7 +2579,8 @@
     "lat": 52.601119,
     "lng": 11.957309,
     "routeDistanceKm": 390.6,
-    "offsetKm": 3.35
+    "offsetKm": 3.35,
+    "bank": "both"
   },
   {
     "name": "Hämerten",
@@ -1885,7 +2588,8 @@
     "lat": 52.589669,
     "lng": 11.987517,
     "routeDistanceKm": 390.9,
-    "offsetKm": 1.04
+    "offsetKm": 1.04,
+    "bank": "both"
   },
   {
     "name": "Langensalzwedel",
@@ -1893,7 +2597,8 @@
     "lat": 52.581496,
     "lng": 11.941593,
     "routeDistanceKm": 391,
-    "offsetKm": 4.19
+    "offsetKm": 4.19,
+    "bank": "both"
   },
   {
     "name": "Schönhausen (Elbe)",
@@ -1901,7 +2606,17 @@
     "lat": 52.582479,
     "lng": 12.037814,
     "routeDistanceKm": 394.1,
-    "offsetKm": 0.33
+    "offsetKm": 0.33,
+    "bank": "both"
+  },
+  {
+    "name": "Miltern",
+    "place": "village",
+    "lat": 52.558063,
+    "lng": 11.933649,
+    "routeDistanceKm": 396.2,
+    "offsetKm": 3.08,
+    "bank": "left"
   },
   {
     "name": "Kabelitz",
@@ -1909,7 +2624,17 @@
     "lat": 52.542355,
     "lng": 12.049555,
     "routeDistanceKm": 398,
-    "offsetKm": 1.97
+    "offsetKm": 1.97,
+    "bank": "both"
+  },
+  {
+    "name": "Grobleben",
+    "place": "village",
+    "lat": 52.525544,
+    "lng": 11.895808,
+    "routeDistanceKm": 398.8,
+    "offsetKm": 4.13,
+    "bank": "left"
   },
   {
     "name": "Fischbeck (Elbe)",
@@ -1917,7 +2642,8 @@
     "lat": 52.540015,
     "lng": 12.015767,
     "routeDistanceKm": 399.2,
-    "offsetKm": 0.05
+    "offsetKm": 0.05,
+    "bank": "both"
   },
   {
     "name": "Tangermünde",
@@ -1925,7 +2651,17 @@
     "lat": 52.54311,
     "lng": 11.972252,
     "routeDistanceKm": 400.7,
-    "offsetKm": 2.54
+    "offsetKm": 2.54,
+    "bank": "both"
+  },
+  {
+    "name": "Bölsdorf",
+    "place": "village",
+    "lat": 52.508077,
+    "lng": 11.926759,
+    "routeDistanceKm": 401.8,
+    "offsetKm": 1.64,
+    "bank": "left"
   },
   {
     "name": "Steinitz",
@@ -1933,7 +2669,8 @@
     "lat": 52.513702,
     "lng": 12.040004,
     "routeDistanceKm": 403.9,
-    "offsetKm": 2.05
+    "offsetKm": 2.05,
+    "bank": "right"
   },
   {
     "name": "Jerichow",
@@ -1941,7 +2678,8 @@
     "lat": 52.497636,
     "lng": 12.025753,
     "routeDistanceKm": 405.2,
-    "offsetKm": 0.22
+    "offsetKm": 0.22,
+    "bank": "both"
   },
   {
     "name": "Mangelsdorf",
@@ -1949,7 +2687,8 @@
     "lat": 52.511726,
     "lng": 12.066679,
     "routeDistanceKm": 406.1,
-    "offsetKm": 3.16
+    "offsetKm": 3.16,
+    "bank": "right"
   },
   {
     "name": "Klein-Mangelsdorf",
@@ -1957,7 +2696,8 @@
     "lat": 52.516463,
     "lng": 12.092465,
     "routeDistanceKm": 406.1,
-    "offsetKm": 4.88
+    "offsetKm": 4.88,
+    "bank": "right"
   },
   {
     "name": "Redekin",
@@ -1965,7 +2705,8 @@
     "lat": 52.466936,
     "lng": 12.076231,
     "routeDistanceKm": 407.7,
-    "offsetKm": 3.27
+    "offsetKm": 3.27,
+    "bank": "right"
   },
   {
     "name": "Scharteucke",
@@ -1973,7 +2714,8 @@
     "lat": 52.454687,
     "lng": 12.084916,
     "routeDistanceKm": 407.9,
-    "offsetKm": 4.46
+    "offsetKm": 4.46,
+    "bank": "right"
   },
   {
     "name": "Neuredekin",
@@ -1981,7 +2723,8 @@
     "lat": 52.455205,
     "lng": 12.062447,
     "routeDistanceKm": 409,
-    "offsetKm": 3.14
+    "offsetKm": 3.14,
+    "bank": "right"
   },
   {
     "name": "Klietznick",
@@ -1989,7 +2732,8 @@
     "lat": 52.470112,
     "lng": 12.020711,
     "routeDistanceKm": 409.1,
-    "offsetKm": 0.12
+    "offsetKm": 0.12,
+    "bank": "both"
   },
   {
     "name": "Schelldorf",
@@ -1997,7 +2741,8 @@
     "lat": 52.471228,
     "lng": 11.978463,
     "routeDistanceKm": 410.6,
-    "offsetKm": 2.18
+    "offsetKm": 2.18,
+    "bank": "both"
   },
   {
     "name": "Buch",
@@ -2005,7 +2750,8 @@
     "lat": 52.485436,
     "lng": 11.948442,
     "routeDistanceKm": 410.6,
-    "offsetKm": 4.74
+    "offsetKm": 4.74,
+    "bank": "both"
   },
   {
     "name": "Jerchel",
@@ -2013,7 +2759,8 @@
     "lat": 52.460749,
     "lng": 11.944811,
     "routeDistanceKm": 410.8,
-    "offsetKm": 4.18
+    "offsetKm": 4.18,
+    "bank": "both"
   },
   {
     "name": "Nielebock",
@@ -2021,7 +2768,8 @@
     "lat": 52.435673,
     "lng": 12.06495,
     "routeDistanceKm": 412.7,
-    "offsetKm": 4.04
+    "offsetKm": 4.04,
+    "bank": "right"
   },
   {
     "name": "Ferchland",
@@ -2029,7 +2777,8 @@
     "lat": 52.439911,
     "lng": 12.002302,
     "routeDistanceKm": 413.1,
-    "offsetKm": 0.03
+    "offsetKm": 0.03,
+    "bank": "both"
   },
   {
     "name": "Grieben",
@@ -2037,7 +2786,8 @@
     "lat": 52.435629,
     "lng": 11.957822,
     "routeDistanceKm": 414,
-    "offsetKm": 2.69
+    "offsetKm": 2.69,
+    "bank": "both"
   },
   {
     "name": "Derben",
@@ -2045,7 +2795,8 @@
     "lat": 52.415185,
     "lng": 11.997378,
     "routeDistanceKm": 416.1,
-    "offsetKm": 0.04
+    "offsetKm": 0.04,
+    "bank": "both"
   },
   {
     "name": "Seedorf",
@@ -2053,7 +2804,8 @@
     "lat": 52.411364,
     "lng": 12.065499,
     "routeDistanceKm": 416.3,
-    "offsetKm": 4.57
+    "offsetKm": 4.57,
+    "bank": "right"
   },
   {
     "name": "Bergzow",
@@ -2061,7 +2813,17 @@
     "lat": 52.395964,
     "lng": 12.049643,
     "routeDistanceKm": 417.9,
-    "offsetKm": 3.68
+    "offsetKm": 3.68,
+    "bank": "right"
+  },
+  {
+    "name": "Scheeren",
+    "place": "village",
+    "lat": 52.413523,
+    "lng": 11.874619,
+    "routeDistanceKm": 418.5,
+    "offsetKm": 3.84,
+    "bank": "left"
   },
   {
     "name": "Parey",
@@ -2069,7 +2831,17 @@
     "lat": 52.37962,
     "lng": 11.98604,
     "routeDistanceKm": 419.2,
-    "offsetKm": 1.26
+    "offsetKm": 1.26,
+    "bank": "both"
+  },
+  {
+    "name": "Cobbel",
+    "place": "village",
+    "lat": 52.394277,
+    "lng": 11.86029,
+    "routeDistanceKm": 419.7,
+    "offsetKm": 3.07,
+    "bank": "left"
   },
   {
     "name": "Bittkau",
@@ -2077,7 +2849,8 @@
     "lat": 52.413591,
     "lng": 11.963865,
     "routeDistanceKm": 421.2,
-    "offsetKm": 1.32
+    "offsetKm": 1.32,
+    "bank": "both"
   },
   {
     "name": "Güsen",
@@ -2085,7 +2858,8 @@
     "lat": 52.34293,
     "lng": 11.979979,
     "routeDistanceKm": 426.6,
-    "offsetKm": 4.22
+    "offsetKm": 4.22,
+    "bank": "right"
   },
   {
     "name": "Zerben",
@@ -2093,7 +2867,8 @@
     "lat": 52.357209,
     "lng": 11.951529,
     "routeDistanceKm": 426.9,
-    "offsetKm": 1.75
+    "offsetKm": 1.75,
+    "bank": "both"
   },
   {
     "name": "Ringfurth",
@@ -2101,7 +2876,8 @@
     "lat": 52.380994,
     "lng": 11.904539,
     "routeDistanceKm": 427.8,
-    "offsetKm": 2.28
+    "offsetKm": 2.28,
+    "bank": "both"
   },
   {
     "name": "Sandfurth",
@@ -2109,7 +2885,35 @@
     "lat": 52.362739,
     "lng": 11.893212,
     "routeDistanceKm": 429.3,
-    "offsetKm": 1.25
+    "offsetKm": 1.25,
+    "bank": "both"
+  },
+  {
+    "name": "Mahlwinkel",
+    "place": "village",
+    "lat": 52.394137,
+    "lng": 11.785745,
+    "routeDistanceKm": 429.7,
+    "offsetKm": 4.32,
+    "bank": "left"
+  },
+  {
+    "name": "Wenddorf",
+    "place": "village",
+    "lat": 52.382886,
+    "lng": 11.743995,
+    "routeDistanceKm": 430.4,
+    "offsetKm": 4.45,
+    "bank": "left"
+  },
+  {
+    "name": "Angern",
+    "place": "village",
+    "lat": 52.357444,
+    "lng": 11.73555,
+    "routeDistanceKm": 430.6,
+    "offsetKm": 3.51,
+    "bank": "left"
   },
   {
     "name": "Ihleburg",
@@ -2117,7 +2921,8 @@
     "lat": 52.330853,
     "lng": 11.915792,
     "routeDistanceKm": 431,
-    "offsetKm": 2.24
+    "offsetKm": 2.24,
+    "bank": "both"
   },
   {
     "name": "Uetz",
@@ -2125,7 +2930,8 @@
     "lat": 52.365458,
     "lng": 11.846552,
     "routeDistanceKm": 432.4,
-    "offsetKm": 3.71
+    "offsetKm": 3.71,
+    "bank": "both"
   },
   {
     "name": "Parchau",
@@ -2133,7 +2939,8 @@
     "lat": 52.321553,
     "lng": 11.883063,
     "routeDistanceKm": 432.7,
-    "offsetKm": 1.74
+    "offsetKm": 1.74,
+    "bank": "both"
   },
   {
     "name": "Kehnert",
@@ -2141,7 +2948,8 @@
     "lat": 52.342493,
     "lng": 11.858125,
     "routeDistanceKm": 433,
-    "offsetKm": 1.1
+    "offsetKm": 1.1,
+    "bank": "both"
   },
   {
     "name": "Bertingen",
@@ -2149,7 +2957,8 @@
     "lat": 52.349714,
     "lng": 11.835222,
     "routeDistanceKm": 434.9,
-    "offsetKm": 2.45
+    "offsetKm": 2.45,
+    "bank": "both"
   },
   {
     "name": "Burg",
@@ -2157,7 +2966,8 @@
     "lat": 52.270563,
     "lng": 11.85882,
     "routeDistanceKm": 440.5,
-    "offsetKm": 1.53
+    "offsetKm": 1.53,
+    "bank": "right"
   },
   {
     "name": "Detershagen",
@@ -2165,7 +2975,44 @@
     "lat": 52.244694,
     "lng": 11.812475,
     "routeDistanceKm": 442.3,
-    "offsetKm": 3.64
+    "offsetKm": 3.64,
+    "bank": "right"
+  },
+  {
+    "name": "Schricke",
+    "place": "village",
+    "lat": 52.303259,
+    "lng": 11.661412,
+    "routeDistanceKm": 442.7,
+    "offsetKm": 2.72,
+    "bank": "left"
+  },
+  {
+    "name": "Mose",
+    "place": "village",
+    "lat": 52.275901,
+    "lng": 11.62828,
+    "routeDistanceKm": 444,
+    "offsetKm": 4.52,
+    "bank": "left"
+  },
+  {
+    "name": "Farsleben",
+    "place": "village",
+    "lat": 52.275834,
+    "lng": 11.655118,
+    "routeDistanceKm": 444,
+    "offsetKm": 2.77,
+    "bank": "left"
+  },
+  {
+    "name": "Zielitz",
+    "place": "village",
+    "lat": 52.28845,
+    "lng": 11.675246,
+    "routeDistanceKm": 444,
+    "offsetKm": 1.27,
+    "bank": "left"
   },
   {
     "name": "Schartau",
@@ -2173,7 +3020,8 @@
     "lat": 52.2882,
     "lng": 11.790337,
     "routeDistanceKm": 445.3,
-    "offsetKm": 0.25
+    "offsetKm": 0.25,
+    "bank": "both"
   },
   {
     "name": "Rogätz",
@@ -2181,7 +3029,8 @@
     "lat": 52.315376,
     "lng": 11.767499,
     "routeDistanceKm": 445.4,
-    "offsetKm": 3.12
+    "offsetKm": 3.12,
+    "bank": "both"
   },
   {
     "name": "Loitsche",
@@ -2189,7 +3038,8 @@
     "lat": 52.296949,
     "lng": 11.699651,
     "routeDistanceKm": 447.6,
-    "offsetKm": 4.77
+    "offsetKm": 4.77,
+    "bank": "both"
   },
   {
     "name": "Niegripp",
@@ -2197,7 +3047,8 @@
     "lat": 52.264729,
     "lng": 11.759136,
     "routeDistanceKm": 449.6,
-    "offsetKm": 0.05
+    "offsetKm": 0.05,
+    "bank": "both"
   },
   {
     "name": "Heinrichsberg",
@@ -2205,7 +3056,8 @@
     "lat": 52.273204,
     "lng": 11.735457,
     "routeDistanceKm": 450.3,
-    "offsetKm": 1.49
+    "offsetKm": 1.49,
+    "bank": "both"
   },
   {
     "name": "Möser",
@@ -2213,7 +3065,26 @@
     "lat": 52.21637,
     "lng": 11.792546,
     "routeDistanceKm": 453.6,
-    "offsetKm": 4.42
+    "offsetKm": 4.42,
+    "bank": "both"
+  },
+  {
+    "name": "Wolmirstedt",
+    "place": "town",
+    "lat": 52.248492,
+    "lng": 11.626739,
+    "routeDistanceKm": 453.9,
+    "offsetKm": 4.18,
+    "bank": "left"
+  },
+  {
+    "name": "Elbeu",
+    "place": "village",
+    "lat": 52.237194,
+    "lng": 11.618504,
+    "routeDistanceKm": 454.3,
+    "offsetKm": 4.44,
+    "bank": "left"
   },
   {
     "name": "Glindenberg",
@@ -2221,7 +3092,8 @@
     "lat": 52.241394,
     "lng": 11.682307,
     "routeDistanceKm": 456.9,
-    "offsetKm": 1.81
+    "offsetKm": 1.81,
+    "bank": "both"
   },
   {
     "name": "Hohenwarthe",
@@ -2229,7 +3101,8 @@
     "lat": 52.227095,
     "lng": 11.70798,
     "routeDistanceKm": 457.4,
-    "offsetKm": 0.28
+    "offsetKm": 0.28,
+    "bank": "both"
   },
   {
     "name": "Lostau",
@@ -2237,7 +3110,8 @@
     "lat": 52.210721,
     "lng": 11.738623,
     "routeDistanceKm": 460,
-    "offsetKm": 1.02
+    "offsetKm": 1.02,
+    "bank": "both"
   },
   {
     "name": "Alt Lostau",
@@ -2245,7 +3119,8 @@
     "lat": 52.208144,
     "lng": 11.726876,
     "routeDistanceKm": 460.9,
-    "offsetKm": 0.34
+    "offsetKm": 0.34,
+    "bank": "both"
   },
   {
     "name": "Gerwisch",
@@ -2253,7 +3128,8 @@
     "lat": 52.175342,
     "lng": 11.745422,
     "routeDistanceKm": 462.6,
-    "offsetKm": 2.84
+    "offsetKm": 2.84,
+    "bank": "both"
   },
   {
     "name": "Körbelitz",
@@ -2261,7 +3137,8 @@
     "lat": 52.180295,
     "lng": 11.782878,
     "routeDistanceKm": 462.6,
-    "offsetKm": 4.65
+    "offsetKm": 4.65,
+    "bank": "both"
   },
   {
     "name": "Biederitz",
@@ -2269,7 +3146,8 @@
     "lat": 52.15671,
     "lng": 11.719833,
     "routeDistanceKm": 469,
-    "offsetKm": 2.43
+    "offsetKm": 2.43,
+    "bank": "both"
   },
   {
     "name": "Magdeburg",
@@ -2277,7 +3155,8 @@
     "lat": 52.131478,
     "lng": 11.640079,
     "routeDistanceKm": 474.4,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": "both"
   },
   {
     "name": "Gübs",
@@ -2285,7 +3164,8 @@
     "lat": 52.110892,
     "lng": 11.736589,
     "routeDistanceKm": 481.9,
-    "offsetKm": 4.26
+    "offsetKm": 4.26,
+    "bank": "both"
   },
   {
     "name": "Beyendorf",
@@ -2293,7 +3173,8 @@
     "lat": 52.057486,
     "lng": 11.635057,
     "routeDistanceKm": 484.6,
-    "offsetKm": 4.21
+    "offsetKm": 4.21,
+    "bank": "both"
   },
   {
     "name": "Beyendorf-Sohlen",
@@ -2301,7 +3182,8 @@
     "lat": 52.052014,
     "lng": 11.637037,
     "routeDistanceKm": 484.9,
-    "offsetKm": 4.43
+    "offsetKm": 4.43,
+    "bank": "both"
   },
   {
     "name": "Sohlen",
@@ -2309,7 +3191,8 @@
     "lat": 52.047133,
     "lng": 11.639075,
     "routeDistanceKm": 485.1,
-    "offsetKm": 4.65
+    "offsetKm": 4.65,
+    "bank": "both"
   },
   {
     "name": "Pechau",
@@ -2317,7 +3200,17 @@
     "lat": 52.089035,
     "lng": 11.716089,
     "routeDistanceKm": 486.5,
-    "offsetKm": 2.06
+    "offsetKm": 2.06,
+    "bank": "both"
+  },
+  {
+    "name": "Dodendorf",
+    "place": "village",
+    "lat": 52.039425,
+    "lng": 11.613103,
+    "routeDistanceKm": 487.7,
+    "offsetKm": 4.78,
+    "bank": "left"
   },
   {
     "name": "Randau",
@@ -2325,7 +3218,8 @@
     "lat": 52.06216,
     "lng": 11.723004,
     "routeDistanceKm": 487.8,
-    "offsetKm": 0.07
+    "offsetKm": 0.07,
+    "bank": "both"
   },
   {
     "name": "Randau-Calenberge",
@@ -2333,7 +3227,8 @@
     "lat": 52.063227,
     "lng": 11.729576,
     "routeDistanceKm": 487.9,
-    "offsetKm": 0.5
+    "offsetKm": 0.5,
+    "bank": "both"
   },
   {
     "name": "Calenberge",
@@ -2341,7 +3236,8 @@
     "lat": 52.064376,
     "lng": 11.741538,
     "routeDistanceKm": 488.2,
-    "offsetKm": 1.25
+    "offsetKm": 1.25,
+    "bank": "both"
   },
   {
     "name": "Schönebeck (Elbe)",
@@ -2349,7 +3245,8 @@
     "lat": 52.0206,
     "lng": 11.738328,
     "routeDistanceKm": 491.5,
-    "offsetKm": 2.63
+    "offsetKm": 2.63,
+    "bank": "both"
   },
   {
     "name": "Grünewalde",
@@ -2357,7 +3254,8 @@
     "lat": 52.028315,
     "lng": 11.745368,
     "routeDistanceKm": 491.5,
-    "offsetKm": 1.71
+    "offsetKm": 1.71,
+    "bank": "both"
   },
   {
     "name": "Elbenau",
@@ -2365,7 +3263,8 @@
     "lat": 52.044741,
     "lng": 11.759391,
     "routeDistanceKm": 492.4,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": "both"
   },
   {
     "name": "Ranies",
@@ -2373,7 +3272,8 @@
     "lat": 52.016694,
     "lng": 11.82688,
     "routeDistanceKm": 498.9,
-    "offsetKm": 0.14
+    "offsetKm": 0.14,
+    "bank": "both"
   },
   {
     "name": "Pömmelte",
@@ -2381,7 +3281,17 @@
     "lat": 51.994588,
     "lng": 11.835428,
     "routeDistanceKm": 499.6,
-    "offsetKm": 2.18
+    "offsetKm": 2.18,
+    "bank": "both"
+  },
+  {
+    "name": "Gnadau",
+    "place": "village",
+    "lat": 51.976359,
+    "lng": 11.778305,
+    "routeDistanceKm": 500,
+    "offsetKm": 2.95,
+    "bank": "left"
   },
   {
     "name": "Glinde",
@@ -2389,7 +3299,8 @@
     "lat": 52.009297,
     "lng": 11.851867,
     "routeDistanceKm": 500.2,
-    "offsetKm": 0.97
+    "offsetKm": 0.97,
+    "bank": "both"
   },
   {
     "name": "Plötzky",
@@ -2397,7 +3308,8 @@
     "lat": 52.05128,
     "lng": 11.802671,
     "routeDistanceKm": 504.6,
-    "offsetKm": 1.7
+    "offsetKm": 1.7,
+    "bank": "both"
   },
   {
     "name": "Gommern",
@@ -2405,7 +3317,8 @@
     "lat": 52.073956,
     "lng": 11.830723,
     "routeDistanceKm": 504.9,
-    "offsetKm": 3.03
+    "offsetKm": 3.03,
+    "bank": "right"
   },
   {
     "name": "Pretzien",
@@ -2413,7 +3326,8 @@
     "lat": 52.046688,
     "lng": 11.829121,
     "routeDistanceKm": 504.9,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": "both"
   },
   {
     "name": "Dannigkow",
@@ -2421,7 +3335,8 @@
     "lat": 52.07017,
     "lng": 11.875422,
     "routeDistanceKm": 509.2,
-    "offsetKm": 3.6
+    "offsetKm": 3.6,
+    "bank": "right"
   },
   {
     "name": "Dornburg",
@@ -2429,7 +3344,8 @@
     "lat": 52.034017,
     "lng": 11.880859,
     "routeDistanceKm": 509.9,
-    "offsetKm": 0.03
+    "offsetKm": 0.03,
+    "bank": "both"
   },
   {
     "name": "Prödel",
@@ -2437,7 +3353,17 @@
     "lat": 52.037377,
     "lng": 11.918173,
     "routeDistanceKm": 511,
-    "offsetKm": 1.89
+    "offsetKm": 1.89,
+    "bank": "right"
+  },
+  {
+    "name": "Döben",
+    "place": "village",
+    "lat": 51.965908,
+    "lng": 11.771978,
+    "routeDistanceKm": 511.2,
+    "offsetKm": 3.82,
+    "bank": "left"
   },
   {
     "name": "Lübs",
@@ -2445,7 +3371,26 @@
     "lat": 52.021146,
     "lng": 11.93908,
     "routeDistanceKm": 511.5,
-    "offsetKm": 3.17
+    "offsetKm": 3.17,
+    "bank": "right"
+  },
+  {
+    "name": "Tornitz",
+    "place": "village",
+    "lat": 51.93049,
+    "lng": 11.848411,
+    "routeDistanceKm": 513.6,
+    "offsetKm": 4.42,
+    "bank": "left"
+  },
+  {
+    "name": "Werkleitz",
+    "place": "village",
+    "lat": 51.92427,
+    "lng": 11.862624,
+    "routeDistanceKm": 515.3,
+    "offsetKm": 4.85,
+    "bank": "left"
   },
   {
     "name": "Gödnitz",
@@ -2453,7 +3398,8 @@
     "lat": 51.995766,
     "lng": 11.920228,
     "routeDistanceKm": 515.6,
-    "offsetKm": 1.09
+    "offsetKm": 1.09,
+    "bank": "both"
   },
   {
     "name": "Gehrden",
@@ -2461,7 +3407,8 @@
     "lat": 52.010118,
     "lng": 11.959322,
     "routeDistanceKm": 515.6,
-    "offsetKm": 4.02
+    "offsetKm": 4.02,
+    "bank": "right"
   },
   {
     "name": "Flötz",
@@ -2469,7 +3416,8 @@
     "lat": 51.987955,
     "lng": 11.923352,
     "routeDistanceKm": 515.6,
-    "offsetKm": 1.65
+    "offsetKm": 1.65,
+    "bank": "both"
   },
   {
     "name": "Wespen",
@@ -2477,7 +3425,8 @@
     "lat": 51.959422,
     "lng": 11.828739,
     "routeDistanceKm": 518.6,
-    "offsetKm": 4.92
+    "offsetKm": 4.92,
+    "bank": "both"
   },
   {
     "name": "Barby",
@@ -2485,7 +3434,8 @@
     "lat": 51.966647,
     "lng": 11.886051,
     "routeDistanceKm": 518.8,
-    "offsetKm": 1.01
+    "offsetKm": 1.01,
+    "bank": "both"
   },
   {
     "name": "Ronney",
@@ -2493,7 +3443,8 @@
     "lat": 51.961472,
     "lng": 11.915159,
     "routeDistanceKm": 520.4,
-    "offsetKm": 0
+    "offsetKm": 0,
+    "bank": "both"
   },
   {
     "name": "Klein Rosenburg",
@@ -2501,7 +3452,8 @@
     "lat": 51.927505,
     "lng": 11.887316,
     "routeDistanceKm": 520.4,
-    "offsetKm": 4.22
+    "offsetKm": 4.22,
+    "bank": "both"
   },
   {
     "name": "Walternienburg",
@@ -2509,7 +3461,8 @@
     "lat": 51.96749,
     "lng": 11.938892,
     "routeDistanceKm": 522.3,
-    "offsetKm": 0.22
+    "offsetKm": 0.22,
+    "bank": "both"
   },
   {
     "name": "Güterglück",
@@ -2517,7 +3470,8 @@
     "lat": 51.987563,
     "lng": 11.993354,
     "routeDistanceKm": 523.8,
-    "offsetKm": 4.07
+    "offsetKm": 4.07,
+    "bank": "both"
   },
   {
     "name": "Trebnitz",
@@ -2525,7 +3479,8 @@
     "lat": 51.974056,
     "lng": 12.024162,
     "routeDistanceKm": 523.8,
-    "offsetKm": 4.95
+    "offsetKm": 4.95,
+    "bank": "both"
   },
   {
     "name": "Nutha-Siedlung",
@@ -2533,7 +3488,8 @@
     "lat": 51.969754,
     "lng": 11.987804,
     "routeDistanceKm": 523.8,
-    "offsetKm": 2.48
+    "offsetKm": 2.48,
+    "bank": "both"
   },
   {
     "name": "Nutha",
@@ -2541,7 +3497,8 @@
     "lat": 51.963658,
     "lng": 12.011999,
     "routeDistanceKm": 524,
-    "offsetKm": 3.85
+    "offsetKm": 3.85,
+    "bank": "both"
   },
   {
     "name": "Kämeritz",
@@ -2549,7 +3506,8 @@
     "lat": 51.954306,
     "lng": 11.972945,
     "routeDistanceKm": 524.2,
-    "offsetKm": 1.09
+    "offsetKm": 1.09,
+    "bank": "both"
   },
   {
     "name": "Groß Rosenburg",
@@ -2557,7 +3515,8 @@
     "lat": 51.916871,
     "lng": 11.888313,
     "routeDistanceKm": 526.7,
-    "offsetKm": 4.84
+    "offsetKm": 4.84,
+    "bank": "both"
   },
   {
     "name": "Breitenhagen",
@@ -2565,7 +3524,8 @@
     "lat": 51.923326,
     "lng": 11.949368,
     "routeDistanceKm": 526.7,
-    "offsetKm": 1.26
+    "offsetKm": 1.26,
+    "bank": "both"
   },
   {
     "name": "Hohenlepte",
@@ -2573,7 +3533,8 @@
     "lat": 51.954674,
     "lng": 12.009477,
     "routeDistanceKm": 529,
-    "offsetKm": 3.17
+    "offsetKm": 3.17,
+    "bank": "both"
   },
   {
     "name": "Badetz",
@@ -2581,7 +3542,8 @@
     "lat": 51.936826,
     "lng": 11.987964,
     "routeDistanceKm": 529,
-    "offsetKm": 0.72
+    "offsetKm": 0.72,
+    "bank": "both"
   },
   {
     "name": "Eichholz",
@@ -2589,7 +3551,8 @@
     "lat": 51.927155,
     "lng": 12.031517,
     "routeDistanceKm": 531.5,
-    "offsetKm": 2.01
+    "offsetKm": 2.01,
+    "bank": "both"
   },
   {
     "name": "Leps",
@@ -2597,7 +3560,8 @@
     "lat": 51.924892,
     "lng": 12.04971,
     "routeDistanceKm": 531.6,
-    "offsetKm": 2.89
+    "offsetKm": 2.89,
+    "bank": "right"
   },
   {
     "name": "Kermen",
@@ -2605,7 +3569,17 @@
     "lat": 51.918238,
     "lng": 12.046391,
     "routeDistanceKm": 531.9,
-    "offsetKm": 2.42
+    "offsetKm": 2.42,
+    "bank": "right"
+  },
+  {
+    "name": "Diebzig",
+    "place": "village",
+    "lat": 51.864931,
+    "lng": 11.939672,
+    "routeDistanceKm": 533.3,
+    "offsetKm": 2.76,
+    "bank": "left"
   },
   {
     "name": "Lödderitz",
@@ -2613,7 +3587,8 @@
     "lat": 51.883421,
     "lng": 11.952686,
     "routeDistanceKm": 534.1,
-    "offsetKm": 4.77
+    "offsetKm": 4.77,
+    "bank": "both"
   },
   {
     "name": "Steckby",
@@ -2621,7 +3596,17 @@
     "lat": 51.892804,
     "lng": 12.028654,
     "routeDistanceKm": 534.7,
-    "offsetKm": 0.09
+    "offsetKm": 0.09,
+    "bank": "both"
+  },
+  {
+    "name": "Mennewitz",
+    "place": "village",
+    "lat": 51.844916,
+    "lng": 11.985157,
+    "routeDistanceKm": 538.3,
+    "offsetKm": 3,
+    "bank": "left"
   },
   {
     "name": "Pakendorf",
@@ -2629,7 +3614,8 @@
     "lat": 51.918396,
     "lng": 12.109505,
     "routeDistanceKm": 538.7,
-    "offsetKm": 4.91
+    "offsetKm": 4.91,
+    "bank": "right"
   },
   {
     "name": "Steutz",
@@ -2637,7 +3623,8 @@
     "lat": 51.877522,
     "lng": 12.079342,
     "routeDistanceKm": 538.8,
-    "offsetKm": 0
+    "offsetKm": 0,
+    "bank": "both"
   },
   {
     "name": "Aken",
@@ -2645,7 +3632,8 @@
     "lat": 51.85,
     "lng": 12.05,
     "routeDistanceKm": 541.9,
-    "offsetKm": 0.99
+    "offsetKm": 0.99,
+    "bank": "both"
   },
   {
     "name": "Susigke",
@@ -2653,7 +3641,8 @@
     "lat": 51.831956,
     "lng": 12.07499,
     "routeDistanceKm": 544,
-    "offsetKm": 2.16
+    "offsetKm": 2.16,
+    "bank": "both"
   },
   {
     "name": "Reppichau",
@@ -2661,7 +3650,8 @@
     "lat": 51.810979,
     "lng": 12.080645,
     "routeDistanceKm": 544.3,
-    "offsetKm": 4.43
+    "offsetKm": 4.43,
+    "bank": "both"
   },
   {
     "name": "Chörau",
@@ -2669,7 +3659,8 @@
     "lat": 51.815467,
     "lng": 12.118171,
     "routeDistanceKm": 547.1,
-    "offsetKm": 3.69
+    "offsetKm": 3.69,
+    "bank": "both"
   },
   {
     "name": "Dessau",
@@ -2677,7 +3668,8 @@
     "lat": 51.830996,
     "lng": 12.243072,
     "routeDistanceKm": 559.8,
-    "offsetKm": 0.33
+    "offsetKm": 0.33,
+    "bank": "both"
   },
   {
     "name": "Roßlau",
@@ -2685,7 +3677,8 @@
     "lat": 51.888283,
     "lng": 12.243458,
     "routeDistanceKm": 565.9,
-    "offsetKm": 3.88
+    "offsetKm": 3.88,
+    "bank": "both"
   },
   {
     "name": "Klieken",
@@ -2693,7 +3686,8 @@
     "lat": 51.889023,
     "lng": 12.370492,
     "routeDistanceKm": 569.7,
-    "offsetKm": 3.9
+    "offsetKm": 3.9,
+    "bank": "both"
   },
   {
     "name": "Kapen",
@@ -2701,7 +3695,8 @@
     "lat": 51.806547,
     "lng": 12.352458,
     "routeDistanceKm": 574.7,
-    "offsetKm": 4.22
+    "offsetKm": 4.22,
+    "bank": "both"
   },
   {
     "name": "Oranienbaum",
@@ -2709,7 +3704,8 @@
     "lat": 51.797973,
     "lng": 12.404533,
     "routeDistanceKm": 575.4,
-    "offsetKm": 4.81
+    "offsetKm": 4.81,
+    "bank": "both"
   },
   {
     "name": "Kakau",
@@ -2717,7 +3713,8 @@
     "lat": 51.804267,
     "lng": 12.432575,
     "routeDistanceKm": 576.5,
-    "offsetKm": 4.63
+    "offsetKm": 4.63,
+    "bank": "both"
   },
   {
     "name": "Horstdorf",
@@ -2725,7 +3722,8 @@
     "lat": 51.818144,
     "lng": 12.436089,
     "routeDistanceKm": 576.6,
-    "offsetKm": 3.41
+    "offsetKm": 3.41,
+    "bank": "both"
   },
   {
     "name": "Wörlitz",
@@ -2733,7 +3731,8 @@
     "lat": 51.841454,
     "lng": 12.419902,
     "routeDistanceKm": 577,
-    "offsetKm": 0.75
+    "offsetKm": 0.75,
+    "bank": "both"
   },
   {
     "name": "Riesigk",
@@ -2741,7 +3740,8 @@
     "lat": 51.823549,
     "lng": 12.468908,
     "routeDistanceKm": 579,
-    "offsetKm": 4.39
+    "offsetKm": 4.39,
+    "bank": "both"
   },
   {
     "name": "Rotehof",
@@ -2749,7 +3749,8 @@
     "lat": 51.820818,
     "lng": 12.465284,
     "routeDistanceKm": 579,
-    "offsetKm": 4.5
+    "offsetKm": 4.5,
+    "bank": "both"
   },
   {
     "name": "Schönitz",
@@ -2757,7 +3758,8 @@
     "lat": 51.834833,
     "lng": 12.469236,
     "routeDistanceKm": 579,
-    "offsetKm": 3.5
+    "offsetKm": 3.5,
+    "bank": "both"
   },
   {
     "name": "Buro",
@@ -2765,7 +3767,8 @@
     "lat": 51.880329,
     "lng": 12.404384,
     "routeDistanceKm": 580.8,
-    "offsetKm": 3
+    "offsetKm": 3,
+    "bank": "both"
   },
   {
     "name": "Zieko",
@@ -2773,7 +3776,8 @@
     "lat": 51.915127,
     "lng": 12.410976,
     "routeDistanceKm": 582.9,
-    "offsetKm": 4.9
+    "offsetKm": 4.9,
+    "bank": "right"
   },
   {
     "name": "Coswig (Anhalt)",
@@ -2781,7 +3785,26 @@
     "lat": 51.884657,
     "lng": 12.456278,
     "routeDistanceKm": 583.3,
-    "offsetKm": 0.41
+    "offsetKm": 0.41,
+    "bank": "both"
+  },
+  {
+    "name": "Gohrau",
+    "place": "village",
+    "lat": 51.814568,
+    "lng": 12.488236,
+    "routeDistanceKm": 585.4,
+    "offsetKm": 2.78,
+    "bank": "left"
+  },
+  {
+    "name": "Rehsen",
+    "place": "village",
+    "lat": 51.827015,
+    "lng": 12.492911,
+    "routeDistanceKm": 585.6,
+    "offsetKm": 1.39,
+    "bank": "left"
   },
   {
     "name": "Möllensdorf",
@@ -2789,7 +3812,17 @@
     "lat": 51.9194,
     "lng": 12.535966,
     "routeDistanceKm": 587.6,
-    "offsetKm": 4.65
+    "offsetKm": 4.65,
+    "bank": "right"
+  },
+  {
+    "name": "Selbitz",
+    "place": "village",
+    "lat": 51.816101,
+    "lng": 12.531716,
+    "routeDistanceKm": 587.7,
+    "offsetKm": 2.73,
+    "bank": "left"
   },
   {
     "name": "Griebo",
@@ -2797,7 +3830,8 @@
     "lat": 51.881243,
     "lng": 12.512346,
     "routeDistanceKm": 587.9,
-    "offsetKm": 0.19
+    "offsetKm": 0.19,
+    "bank": "both"
   },
   {
     "name": "Seegrehna",
@@ -2805,7 +3839,17 @@
     "lat": 51.831923,
     "lng": 12.558547,
     "routeDistanceKm": 592.3,
-    "offsetKm": 4.25
+    "offsetKm": 4.25,
+    "bank": "both"
+  },
+  {
+    "name": "Klitzschena",
+    "place": "village",
+    "lat": 51.816838,
+    "lng": 12.574644,
+    "routeDistanceKm": 594.3,
+    "offsetKm": 3.53,
+    "bank": "left"
   },
   {
     "name": "Bleesern",
@@ -2813,7 +3857,8 @@
     "lat": 51.834634,
     "lng": 12.570655,
     "routeDistanceKm": 595.8,
-    "offsetKm": 3.57
+    "offsetKm": 3.57,
+    "bank": "both"
   },
   {
     "name": "Kienberge",
@@ -2821,7 +3866,8 @@
     "lat": 51.845652,
     "lng": 12.624295,
     "routeDistanceKm": 597.3,
-    "offsetKm": 2.06
+    "offsetKm": 2.06,
+    "bank": "both"
   },
   {
     "name": "Lutherstadt Wittenberg",
@@ -2829,7 +3875,8 @@
     "lat": 51.866653,
     "lng": 12.646761,
     "routeDistanceKm": 599.6,
-    "offsetKm": 0.11
+    "offsetKm": 0.11,
+    "bank": "both"
   },
   {
     "name": "Pratau",
@@ -2837,7 +3884,17 @@
     "lat": 51.842678,
     "lng": 12.642977,
     "routeDistanceKm": 600.6,
-    "offsetKm": 2.45
+    "offsetKm": 2.45,
+    "bank": "both"
+  },
+  {
+    "name": "Lammsdorf",
+    "place": "village",
+    "lat": 51.808713,
+    "lng": 12.672629,
+    "routeDistanceKm": 601.8,
+    "offsetKm": 3.62,
+    "bank": "left"
   },
   {
     "name": "Euper",
@@ -2845,7 +3902,8 @@
     "lat": 51.900248,
     "lng": 12.704091,
     "routeDistanceKm": 602.1,
-    "offsetKm": 4.38
+    "offsetKm": 4.38,
+    "bank": "right"
   },
   {
     "name": "Abtsdorf",
@@ -2853,7 +3911,8 @@
     "lat": 51.888193,
     "lng": 12.727091,
     "routeDistanceKm": 605.2,
-    "offsetKm": 3.55
+    "offsetKm": 3.55,
+    "bank": "right"
   },
   {
     "name": "Bülzig",
@@ -2861,7 +3920,8 @@
     "lat": 51.892835,
     "lng": 12.757137,
     "routeDistanceKm": 605.2,
-    "offsetKm": 4.89
+    "offsetKm": 4.89,
+    "bank": "right"
   },
   {
     "name": "Zörnigall",
@@ -2869,7 +3929,17 @@
     "lat": 51.872459,
     "lng": 12.743822,
     "routeDistanceKm": 606.3,
-    "offsetKm": 2.56
+    "offsetKm": 2.56,
+    "bank": "both"
+  },
+  {
+    "name": "Rackith",
+    "place": "village",
+    "lat": 51.804035,
+    "lng": 12.68741,
+    "routeDistanceKm": 606.4,
+    "offsetKm": 3.15,
+    "bank": "left"
   },
   {
     "name": "Mühlanger",
@@ -2877,7 +3947,17 @@
     "lat": 51.852906,
     "lng": 12.749563,
     "routeDistanceKm": 607.6,
-    "offsetKm": 0.77
+    "offsetKm": 0.77,
+    "bank": "both"
+  },
+  {
+    "name": "Globig",
+    "place": "village",
+    "lat": 51.790371,
+    "lng": 12.74508,
+    "routeDistanceKm": 609,
+    "offsetKm": 1.92,
+    "bank": "left"
   },
   {
     "name": "Dietrichsdorf",
@@ -2885,7 +3965,8 @@
     "lat": 51.859408,
     "lng": 12.774347,
     "routeDistanceKm": 610.9,
-    "offsetKm": 2.38
+    "offsetKm": 2.38,
+    "bank": "both"
   },
   {
     "name": "Külso",
@@ -2893,7 +3974,8 @@
     "lat": 51.867982,
     "lng": 12.782582,
     "routeDistanceKm": 610.9,
-    "offsetKm": 3.3
+    "offsetKm": 3.3,
+    "bank": "right"
   },
   {
     "name": "Iserbegka",
@@ -2901,7 +3983,8 @@
     "lat": 51.837069,
     "lng": 12.78959,
     "routeDistanceKm": 611.6,
-    "offsetKm": 0.09
+    "offsetKm": 0.09,
+    "bank": "both"
   },
   {
     "name": "Raßdorf",
@@ -2909,7 +3992,8 @@
     "lat": 51.871207,
     "lng": 12.818229,
     "routeDistanceKm": 611.7,
-    "offsetKm": 4.33
+    "offsetKm": 4.33,
+    "bank": "right"
   },
   {
     "name": "Wartenburg",
@@ -2917,7 +4001,8 @@
     "lat": 51.810474,
     "lng": 12.777933,
     "routeDistanceKm": 612.9,
-    "offsetKm": 2.69
+    "offsetKm": 2.69,
+    "bank": "both"
   },
   {
     "name": "Zemnick",
@@ -2925,7 +4010,8 @@
     "lat": 51.86544,
     "lng": 12.844073,
     "routeDistanceKm": 614.8,
-    "offsetKm": 4.34
+    "offsetKm": 4.34,
+    "bank": "right"
   },
   {
     "name": "Gielsdorf",
@@ -2933,7 +4019,8 @@
     "lat": 51.848212,
     "lng": 12.836707,
     "routeDistanceKm": 614.8,
-    "offsetKm": 2.36
+    "offsetKm": 2.36,
+    "bank": "both"
   },
   {
     "name": "Lüttchenseyda",
@@ -2941,7 +4028,8 @@
     "lat": 51.856703,
     "lng": 12.893647,
     "routeDistanceKm": 616.3,
-    "offsetKm": 4.79
+    "offsetKm": 4.79,
+    "bank": "right"
   },
   {
     "name": "Meltendorf",
@@ -2949,7 +4037,8 @@
     "lat": 51.855255,
     "lng": 12.877807,
     "routeDistanceKm": 616.3,
-    "offsetKm": 4.04
+    "offsetKm": 4.04,
+    "bank": "right"
   },
   {
     "name": "Gentha",
@@ -2957,7 +4046,8 @@
     "lat": 51.850374,
     "lng": 12.897363,
     "routeDistanceKm": 616.4,
-    "offsetKm": 4.45
+    "offsetKm": 4.45,
+    "bank": "right"
   },
   {
     "name": "Listerfehrda",
@@ -2965,7 +4055,8 @@
     "lat": 51.82065,
     "lng": 12.851503,
     "routeDistanceKm": 616.5,
-    "offsetKm": 0.22
+    "offsetKm": 0.22,
+    "bank": "both"
   },
   {
     "name": "Ruhlsdorf",
@@ -2973,7 +4064,8 @@
     "lat": 51.81834,
     "lng": 12.911541,
     "routeDistanceKm": 619.2,
-    "offsetKm": 3.21
+    "offsetKm": 3.21,
+    "bank": "right"
   },
   {
     "name": "Rehain",
@@ -2981,7 +4073,8 @@
     "lat": 51.808502,
     "lng": 12.925114,
     "routeDistanceKm": 619.2,
-    "offsetKm": 3.83
+    "offsetKm": 3.83,
+    "bank": "right"
   },
   {
     "name": "Gorsdorf",
@@ -2989,7 +4082,8 @@
     "lat": 51.79816,
     "lng": 12.867914,
     "routeDistanceKm": 620,
-    "offsetKm": 0.18
+    "offsetKm": 0.18,
+    "bank": "both"
   },
   {
     "name": "Hemsendorf",
@@ -2997,7 +4091,8 @@
     "lat": 51.79302,
     "lng": 12.881252,
     "routeDistanceKm": 620,
-    "offsetKm": 1.25
+    "offsetKm": 1.25,
+    "bank": "right"
   },
   {
     "name": "Battin",
@@ -3005,7 +4100,26 @@
     "lat": 51.767849,
     "lng": 12.903936,
     "routeDistanceKm": 620.1,
-    "offsetKm": 4.31
+    "offsetKm": 4.31,
+    "bank": "right"
+  },
+  {
+    "name": "Schnellin",
+    "place": "village",
+    "lat": 51.761091,
+    "lng": 12.70977,
+    "routeDistanceKm": 622.4,
+    "offsetKm": 4.56,
+    "bank": "left"
+  },
+  {
+    "name": "Österitz",
+    "place": "village",
+    "lat": 51.736697,
+    "lng": 12.714372,
+    "routeDistanceKm": 622.9,
+    "offsetKm": 4.69,
+    "bank": "left"
   },
   {
     "name": "Schützberg",
@@ -3013,7 +4127,8 @@
     "lat": 51.789647,
     "lng": 12.826333,
     "routeDistanceKm": 623.1,
-    "offsetKm": 0.22
+    "offsetKm": 0.22,
+    "bank": "both"
   },
   {
     "name": "Bleddin",
@@ -3021,7 +4136,8 @@
     "lat": 51.786144,
     "lng": 12.786296,
     "routeDistanceKm": 623.5,
-    "offsetKm": 2.67
+    "offsetKm": 2.67,
+    "bank": "both"
   },
   {
     "name": "Rettig",
@@ -3029,7 +4145,8 @@
     "lat": 51.770946,
     "lng": 12.862905,
     "routeDistanceKm": 625.7,
-    "offsetKm": 2.2
+    "offsetKm": 2.2,
+    "bank": "both"
   },
   {
     "name": "Klöden",
@@ -3037,7 +4154,8 @@
     "lat": 51.759249,
     "lng": 12.829803,
     "routeDistanceKm": 626.5,
-    "offsetKm": 0.09
+    "offsetKm": 0.09,
+    "bank": "both"
   },
   {
     "name": "Kleindröben",
@@ -3045,7 +4163,8 @@
     "lat": 51.743961,
     "lng": 12.83915,
     "routeDistanceKm": 628.9,
-    "offsetKm": 0.19
+    "offsetKm": 0.19,
+    "bank": "both"
   },
   {
     "name": "Rade",
@@ -3053,7 +4172,8 @@
     "lat": 51.753743,
     "lng": 12.885419,
     "routeDistanceKm": 628.9,
-    "offsetKm": 3.55
+    "offsetKm": 3.55,
+    "bank": "right"
   },
   {
     "name": "Trebitz",
@@ -3061,7 +4181,8 @@
     "lat": 51.751056,
     "lng": 12.750282,
     "routeDistanceKm": 631.3,
-    "offsetKm": 4.71
+    "offsetKm": 4.71,
+    "bank": "both"
   },
   {
     "name": "Kleinzerbst",
@@ -3069,7 +4190,8 @@
     "lat": 51.743301,
     "lng": 12.771591,
     "routeDistanceKm": 631.3,
-    "offsetKm": 3.02
+    "offsetKm": 3.02,
+    "bank": "both"
   },
   {
     "name": "Merschwitz",
@@ -3077,7 +4199,8 @@
     "lat": 51.729127,
     "lng": 12.782027,
     "routeDistanceKm": 632.1,
-    "offsetKm": 1.88
+    "offsetKm": 1.88,
+    "bank": "both"
   },
   {
     "name": "Splau",
@@ -3085,7 +4208,8 @@
     "lat": 51.703563,
     "lng": 12.764294,
     "routeDistanceKm": 632.4,
-    "offsetKm": 3.95
+    "offsetKm": 3.95,
+    "bank": "both"
   },
   {
     "name": "Mauken",
@@ -3093,7 +4217,35 @@
     "lat": 51.721046,
     "lng": 12.821419,
     "routeDistanceKm": 633.2,
-    "offsetKm": 0.09
+    "offsetKm": 0.09,
+    "bank": "both"
+  },
+  {
+    "name": "Bad Schmiedeberg",
+    "place": "town",
+    "lat": 51.688378,
+    "lng": 12.740924,
+    "routeDistanceKm": 635.1,
+    "offsetKm": 4.09,
+    "bank": "left"
+  },
+  {
+    "name": "Patzschwig",
+    "place": "village",
+    "lat": 51.687893,
+    "lng": 12.754023,
+    "routeDistanceKm": 635.1,
+    "offsetKm": 3.18,
+    "bank": "left"
+  },
+  {
+    "name": "Kleinkorgau",
+    "place": "village",
+    "lat": 51.676701,
+    "lng": 12.760828,
+    "routeDistanceKm": 635.2,
+    "offsetKm": 2.88,
+    "bank": "left"
   },
   {
     "name": "Priesitz",
@@ -3101,7 +4253,8 @@
     "lat": 51.702299,
     "lng": 12.824474,
     "routeDistanceKm": 635.5,
-    "offsetKm": 1.78
+    "offsetKm": 1.78,
+    "bank": "both"
   },
   {
     "name": "Düßnitz",
@@ -3109,7 +4262,8 @@
     "lat": 51.730567,
     "lng": 12.877397,
     "routeDistanceKm": 636.2,
-    "offsetKm": 2.4
+    "offsetKm": 2.4,
+    "bank": "both"
   },
   {
     "name": "Gehmen",
@@ -3117,7 +4271,17 @@
     "lat": 51.708377,
     "lng": 12.870654,
     "routeDistanceKm": 636.7,
-    "offsetKm": 0.9
+    "offsetKm": 0.9,
+    "bank": "both"
+  },
+  {
+    "name": "Dahlenberg",
+    "place": "village",
+    "lat": 51.639124,
+    "lng": 12.791194,
+    "routeDistanceKm": 639.3,
+    "offsetKm": 4.2,
+    "bank": "left"
   },
   {
     "name": "Greudnitz",
@@ -3125,7 +4289,8 @@
     "lat": 51.67035,
     "lng": 12.841356,
     "routeDistanceKm": 640.7,
-    "offsetKm": 1.71
+    "offsetKm": 1.71,
+    "bank": "both"
   },
   {
     "name": "Wörblitz",
@@ -3133,7 +4298,8 @@
     "lat": 51.661614,
     "lng": 12.850694,
     "routeDistanceKm": 640.9,
-    "offsetKm": 1.93
+    "offsetKm": 1.93,
+    "bank": "both"
   },
   {
     "name": "Proschwitz",
@@ -3141,7 +4307,8 @@
     "lat": 51.655855,
     "lng": 12.859849,
     "routeDistanceKm": 640.9,
-    "offsetKm": 2.36
+    "offsetKm": 2.36,
+    "bank": "both"
   },
   {
     "name": "Mahlitzsch",
@@ -3149,7 +4316,17 @@
     "lat": 51.637167,
     "lng": 12.858556,
     "routeDistanceKm": 640.9,
-    "offsetKm": 4.43
+    "offsetKm": 4.43,
+    "bank": "both"
+  },
+  {
+    "name": "Trossin",
+    "place": "village",
+    "lat": 51.618478,
+    "lng": 12.820885,
+    "routeDistanceKm": 642.2,
+    "offsetKm": 3.81,
+    "bank": "left"
   },
   {
     "name": "Axien",
@@ -3157,7 +4334,8 @@
     "lat": 51.7,
     "lng": 12.8833,
     "routeDistanceKm": 642.5,
-    "offsetKm": 1.5
+    "offsetKm": 1.5,
+    "bank": "both"
   },
   {
     "name": "Hohndorf",
@@ -3165,7 +4343,8 @@
     "lat": 51.693785,
     "lng": 12.917538,
     "routeDistanceKm": 643,
-    "offsetKm": 2.36
+    "offsetKm": 2.36,
+    "bank": "right"
   },
   {
     "name": "Dommitzsch",
@@ -3173,7 +4352,8 @@
     "lat": 51.640116,
     "lng": 12.881846,
     "routeDistanceKm": 645.9,
-    "offsetKm": 3.23
+    "offsetKm": 3.23,
+    "bank": "both"
   },
   {
     "name": "Prettin",
@@ -3181,7 +4361,8 @@
     "lat": 51.660679,
     "lng": 12.926507,
     "routeDistanceKm": 647.7,
-    "offsetKm": 0.17
+    "offsetKm": 0.17,
+    "bank": "both"
   },
   {
     "name": "Plossig",
@@ -3189,7 +4370,8 @@
     "lat": 51.696723,
     "lng": 12.952662,
     "routeDistanceKm": 648,
-    "offsetKm": 4.06
+    "offsetKm": 4.06,
+    "bank": "right"
   },
   {
     "name": "Großtreben",
@@ -3197,7 +4379,8 @@
     "lat": 51.647084,
     "lng": 12.987976,
     "routeDistanceKm": 652,
-    "offsetKm": 0.64
+    "offsetKm": 0.64,
+    "bank": "both"
   },
   {
     "name": "Elsnig",
@@ -3205,7 +4388,8 @@
     "lat": 51.610638,
     "lng": 12.92847,
     "routeDistanceKm": 653.9,
-    "offsetKm": 4.33
+    "offsetKm": 4.33,
+    "bank": "both"
   },
   {
     "name": "Neiden",
@@ -3213,7 +4397,8 @@
     "lat": 51.597908,
     "lng": 12.952151,
     "routeDistanceKm": 655,
-    "offsetKm": 4.06
+    "offsetKm": 4.06,
+    "bank": "both"
   },
   {
     "name": "Mockritz",
@@ -3221,7 +4406,8 @@
     "lat": 51.612098,
     "lng": 12.96898,
     "routeDistanceKm": 655,
-    "offsetKm": 2.11
+    "offsetKm": 2.11,
+    "bank": "both"
   },
   {
     "name": "Dautzschen",
@@ -3229,7 +4415,8 @@
     "lat": 51.637887,
     "lng": 13.007071,
     "routeDistanceKm": 656.3,
-    "offsetKm": 0.77
+    "offsetKm": 0.77,
+    "bank": "both"
   },
   {
     "name": "Döbern",
@@ -3237,7 +4424,8 @@
     "lat": 51.602125,
     "lng": 12.988382,
     "routeDistanceKm": 658.8,
-    "offsetKm": 2.25
+    "offsetKm": 2.25,
+    "bank": "both"
   },
   {
     "name": "Rosenfeld",
@@ -3245,7 +4433,8 @@
     "lat": 51.599616,
     "lng": 13.039757,
     "routeDistanceKm": 661.2,
-    "offsetKm": 0.04
+    "offsetKm": 0.04,
+    "bank": "both"
   },
   {
     "name": "Döbrichau",
@@ -3253,7 +4442,8 @@
     "lat": 51.59635,
     "lng": 13.127964,
     "routeDistanceKm": 662.9,
-    "offsetKm": 4.95
+    "offsetKm": 4.95,
+    "bank": "right"
   },
   {
     "name": "Zwethau",
@@ -3261,7 +4451,8 @@
     "lat": 51.580845,
     "lng": 13.041693,
     "routeDistanceKm": 664.5,
-    "offsetKm": 0.05
+    "offsetKm": 0.05,
+    "bank": "both"
   },
   {
     "name": "Repitz",
@@ -3269,7 +4460,8 @@
     "lat": 51.583748,
     "lng": 13.012433,
     "routeDistanceKm": 665.5,
-    "offsetKm": 1.59
+    "offsetKm": 1.59,
+    "bank": "both"
   },
   {
     "name": "Zinna",
@@ -3277,7 +4469,8 @@
     "lat": 51.568742,
     "lng": 12.955991,
     "routeDistanceKm": 667.6,
-    "offsetKm": 4.23
+    "offsetKm": 4.23,
+    "bank": "both"
   },
   {
     "name": "Welsau",
@@ -3285,7 +4478,8 @@
     "lat": 51.572721,
     "lng": 12.968237,
     "routeDistanceKm": 667.6,
-    "offsetKm": 3.58
+    "offsetKm": 3.58,
+    "bank": "both"
   },
   {
     "name": "Torgau",
@@ -3293,7 +4487,8 @@
     "lat": 51.558127,
     "lng": 13.004654,
     "routeDistanceKm": 667.6,
-    "offsetKm": 0.76
+    "offsetKm": 0.76,
+    "bank": "both"
   },
   {
     "name": "Loßwig",
@@ -3301,7 +4496,8 @@
     "lat": 51.531947,
     "lng": 13.018618,
     "routeDistanceKm": 669.1,
-    "offsetKm": 2.6
+    "offsetKm": 2.6,
+    "bank": "both"
   },
   {
     "name": "Werdau",
@@ -3309,7 +4505,8 @@
     "lat": 51.553294,
     "lng": 13.033764,
     "routeDistanceKm": 669.2,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": "both"
   },
   {
     "name": "Beilrode",
@@ -3317,7 +4514,8 @@
     "lat": 51.568808,
     "lng": 13.069735,
     "routeDistanceKm": 671.7,
-    "offsetKm": 1
+    "offsetKm": 1,
+    "bank": "both"
   },
   {
     "name": "Graditz",
@@ -3325,7 +4523,17 @@
     "lat": 51.544146,
     "lng": 13.060738,
     "routeDistanceKm": 673.6,
-    "offsetKm": 0.05
+    "offsetKm": 0.05,
+    "bank": "both"
+  },
+  {
+    "name": "Beckwitz",
+    "place": "village",
+    "lat": 51.496732,
+    "lng": 12.993719,
+    "routeDistanceKm": 673.7,
+    "offsetKm": 2.85,
+    "bank": "left"
   },
   {
     "name": "Bennewitz",
@@ -3333,7 +4541,8 @@
     "lat": 51.511694,
     "lng": 13.029273,
     "routeDistanceKm": 673.7,
-    "offsetKm": 4.11
+    "offsetKm": 4.11,
+    "bank": "both"
   },
   {
     "name": "Kunzwerda",
@@ -3341,7 +4550,8 @@
     "lat": 51.525711,
     "lng": 13.050181,
     "routeDistanceKm": 673.7,
-    "offsetKm": 2.07
+    "offsetKm": 2.07,
+    "bank": "both"
   },
   {
     "name": "Weßnig",
@@ -3349,7 +4559,17 @@
     "lat": 51.517833,
     "lng": 13.046588,
     "routeDistanceKm": 673.7,
-    "offsetKm": 2.98
+    "offsetKm": 2.98,
+    "bank": "both"
+  },
+  {
+    "name": "Taura",
+    "place": "village",
+    "lat": 51.473538,
+    "lng": 13.008607,
+    "routeDistanceKm": 674,
+    "offsetKm": 4.49,
+    "bank": "left"
   },
   {
     "name": "Triestewitz",
@@ -3357,7 +4577,8 @@
     "lat": 51.535215,
     "lng": 13.098166,
     "routeDistanceKm": 677.6,
-    "offsetKm": 0.07
+    "offsetKm": 0.07,
+    "bank": "both"
   },
   {
     "name": "Pülswerda",
@@ -3365,7 +4586,8 @@
     "lat": 51.526475,
     "lng": 13.072347,
     "routeDistanceKm": 678.6,
-    "offsetKm": 1.82
+    "offsetKm": 1.82,
+    "bank": "both"
   },
   {
     "name": "Mehderitzsch",
@@ -3373,7 +4595,8 @@
     "lat": 51.50359,
     "lng": 13.049481,
     "routeDistanceKm": 679,
-    "offsetKm": 4.21
+    "offsetKm": 4.21,
+    "bank": "both"
   },
   {
     "name": "Kranichau",
@@ -3381,7 +4604,8 @@
     "lat": 51.504553,
     "lng": 13.062827,
     "routeDistanceKm": 679,
-    "offsetKm": 3.41
+    "offsetKm": 3.41,
+    "bank": "both"
   },
   {
     "name": "Kathewitz",
@@ -3389,7 +4613,8 @@
     "lat": 51.52255,
     "lng": 13.108975,
     "routeDistanceKm": 679.7,
-    "offsetKm": 0.14
+    "offsetKm": 0.14,
+    "bank": "both"
   },
   {
     "name": "Arzberg",
@@ -3397,7 +4622,8 @@
     "lat": 51.530344,
     "lng": 13.127023,
     "routeDistanceKm": 679.9,
-    "offsetKm": 1.57
+    "offsetKm": 1.57,
+    "bank": "both"
   },
   {
     "name": "Nichtewitz",
@@ -3405,7 +4631,8 @@
     "lat": 51.533295,
     "lng": 13.135551,
     "routeDistanceKm": 679.9,
-    "offsetKm": 2.23
+    "offsetKm": 2.23,
+    "bank": "both"
   },
   {
     "name": "Adelwitz",
@@ -3413,7 +4640,8 @@
     "lat": 51.509674,
     "lng": 13.129118,
     "routeDistanceKm": 681.4,
-    "offsetKm": 0.62
+    "offsetKm": 0.62,
+    "bank": "both"
   },
   {
     "name": "Köllitsch",
@@ -3421,7 +4649,8 @@
     "lat": 51.500606,
     "lng": 13.119752,
     "routeDistanceKm": 682.3,
-    "offsetKm": 0.05
+    "offsetKm": 0.05,
+    "bank": "both"
   },
   {
     "name": "Döbeltitz",
@@ -3429,7 +4658,8 @@
     "lat": 51.495982,
     "lng": 13.093413,
     "routeDistanceKm": 682.8,
-    "offsetKm": 1.81
+    "offsetKm": 1.81,
+    "bank": "both"
   },
   {
     "name": "Mahitzschen",
@@ -3437,7 +4667,8 @@
     "lat": 51.489045,
     "lng": 13.077689,
     "routeDistanceKm": 682.9,
-    "offsetKm": 3
+    "offsetKm": 3,
+    "bank": "both"
   },
   {
     "name": "Belgern",
@@ -3445,7 +4676,8 @@
     "lat": 51.482822,
     "lng": 13.124611,
     "routeDistanceKm": 684.3,
-    "offsetKm": 0.67
+    "offsetKm": 0.67,
+    "bank": "both"
   },
   {
     "name": "Neußen",
@@ -3453,7 +4685,8 @@
     "lat": 51.449476,
     "lng": 13.115078,
     "routeDistanceKm": 684.4,
-    "offsetKm": 4.18
+    "offsetKm": 4.18,
+    "bank": "both"
   },
   {
     "name": "Puschwitz",
@@ -3461,7 +4694,8 @@
     "lat": 51.466268,
     "lng": 13.104139,
     "routeDistanceKm": 684.4,
-    "offsetKm": 2.94
+    "offsetKm": 2.94,
+    "bank": "both"
   },
   {
     "name": "Treblitzsch",
@@ -3469,7 +4703,8 @@
     "lat": 51.47039,
     "lng": 13.1521,
     "routeDistanceKm": 684.4,
-    "offsetKm": 2.1
+    "offsetKm": 2.1,
+    "bank": "both"
   },
   {
     "name": "Ammelgoßwitz",
@@ -3477,7 +4712,8 @@
     "lat": 51.478812,
     "lng": 13.153586,
     "routeDistanceKm": 685.1,
-    "offsetKm": 1.51
+    "offsetKm": 1.51,
+    "bank": "both"
   },
   {
     "name": "Tauschwitz",
@@ -3485,7 +4721,8 @@
     "lat": 51.494287,
     "lng": 13.148688,
     "routeDistanceKm": 685.9,
-    "offsetKm": 0.14
+    "offsetKm": 0.14,
+    "bank": "both"
   },
   {
     "name": "Kötten",
@@ -3493,7 +4730,8 @@
     "lat": 51.541563,
     "lng": 13.171065,
     "routeDistanceKm": 687.5,
-    "offsetKm": 4.09
+    "offsetKm": 4.09,
+    "bank": "right"
   },
   {
     "name": "Blumberg",
@@ -3501,7 +4739,8 @@
     "lat": 51.519717,
     "lng": 13.184046,
     "routeDistanceKm": 687.5,
-    "offsetKm": 2.13
+    "offsetKm": 2.13,
+    "bank": "right"
   },
   {
     "name": "Packisch",
@@ -3509,7 +4748,8 @@
     "lat": 51.51117,
     "lng": 13.160876,
     "routeDistanceKm": 687.5,
-    "offsetKm": 0.73
+    "offsetKm": 0.73,
+    "bank": "both"
   },
   {
     "name": "Stehla",
@@ -3517,7 +4757,8 @@
     "lat": 51.495483,
     "lng": 13.183339,
     "routeDistanceKm": 689.3,
-    "offsetKm": 0.16
+    "offsetKm": 0.16,
+    "bank": "both"
   },
   {
     "name": "Koßdorf",
@@ -3525,7 +4766,8 @@
     "lat": 51.500438,
     "lng": 13.22839,
     "routeDistanceKm": 689.8,
-    "offsetKm": 3
+    "offsetKm": 3,
+    "bank": "both"
   },
   {
     "name": "Langenrieth",
@@ -3533,7 +4775,8 @@
     "lat": 51.474907,
     "lng": 13.268374,
     "routeDistanceKm": 692.5,
-    "offsetKm": 4.34
+    "offsetKm": 4.34,
+    "bank": "right"
   },
   {
     "name": "Martinskirchen",
@@ -3541,7 +4784,8 @@
     "lat": 51.47171,
     "lng": 13.203793,
     "routeDistanceKm": 693,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": "both"
   },
   {
     "name": "Brottewitz",
@@ -3549,7 +4793,8 @@
     "lat": 51.463608,
     "lng": 13.22004,
     "routeDistanceKm": 693.7,
-    "offsetKm": 0.99
+    "offsetKm": 0.99,
+    "bank": "both"
   },
   {
     "name": "Staritz",
@@ -3557,7 +4802,8 @@
     "lat": 51.444898,
     "lng": 13.173098,
     "routeDistanceKm": 694.5,
-    "offsetKm": 2.62
+    "offsetKm": 2.62,
+    "bank": "both"
   },
   {
     "name": "Burxdorf",
@@ -3565,7 +4811,8 @@
     "lat": 51.458385,
     "lng": 13.258899,
     "routeDistanceKm": 696.8,
-    "offsetKm": 3.08
+    "offsetKm": 3.08,
+    "bank": "both"
   },
   {
     "name": "Weinberge",
@@ -3573,7 +4820,17 @@
     "lat": 51.448317,
     "lng": 13.229472,
     "routeDistanceKm": 696.8,
-    "offsetKm": 0.8
+    "offsetKm": 0.8,
+    "bank": "both"
+  },
+  {
+    "name": "Treptitz",
+    "place": "village",
+    "lat": 51.401452,
+    "lng": 13.1292,
+    "routeDistanceKm": 698.8,
+    "offsetKm": 3.82,
+    "bank": "left"
   },
   {
     "name": "Seydewitz",
@@ -3581,7 +4838,8 @@
     "lat": 51.420143,
     "lng": 13.182219,
     "routeDistanceKm": 699,
-    "offsetKm": 2.29
+    "offsetKm": 2.29,
+    "bank": "both"
   },
   {
     "name": "Oelzschau",
@@ -3589,7 +4847,8 @@
     "lat": 51.435251,
     "lng": 13.159494,
     "routeDistanceKm": 699,
-    "offsetKm": 3.36
+    "offsetKm": 3.36,
+    "bank": "both"
   },
   {
     "name": "Wohlau",
@@ -3597,7 +4856,8 @@
     "lat": 51.423514,
     "lng": 13.1541,
     "routeDistanceKm": 699,
-    "offsetKm": 3.88
+    "offsetKm": 3.88,
+    "bank": "both"
   },
   {
     "name": "Mühlberg/Elbe",
@@ -3605,7 +4865,35 @@
     "lat": 51.434427,
     "lng": 13.217247,
     "routeDistanceKm": 699.7,
-    "offsetKm": 0.29
+    "offsetKm": 0.29,
+    "bank": "both"
+  },
+  {
+    "name": "Cavertitz",
+    "place": "village",
+    "lat": 51.386997,
+    "lng": 13.13013,
+    "routeDistanceKm": 702.6,
+    "offsetKm": 3.79,
+    "bank": "left"
+  },
+  {
+    "name": "Klingenhain",
+    "place": "village",
+    "lat": 51.385967,
+    "lng": 13.153418,
+    "routeDistanceKm": 702.6,
+    "offsetKm": 2.21,
+    "bank": "left"
+  },
+  {
+    "name": "Laas",
+    "place": "village",
+    "lat": 51.366385,
+    "lng": 13.147262,
+    "routeDistanceKm": 702.7,
+    "offsetKm": 3.69,
+    "bank": "left"
   },
   {
     "name": "Außig",
@@ -3613,7 +4901,8 @@
     "lat": 51.404806,
     "lng": 13.189936,
     "routeDistanceKm": 703,
-    "offsetKm": 1.94
+    "offsetKm": 1.94,
+    "bank": "both"
   },
   {
     "name": "Schirmenitz",
@@ -3621,7 +4910,8 @@
     "lat": 51.391122,
     "lng": 13.185503,
     "routeDistanceKm": 703.2,
-    "offsetKm": 2.99
+    "offsetKm": 2.99,
+    "bank": "both"
   },
   {
     "name": "Paußnitz",
@@ -3629,7 +4919,8 @@
     "lat": 51.387611,
     "lng": 13.202597,
     "routeDistanceKm": 703.9,
-    "offsetKm": 2.45
+    "offsetKm": 2.45,
+    "bank": "both"
   },
   {
     "name": "Altenau",
@@ -3637,7 +4928,8 @@
     "lat": 51.419403,
     "lng": 13.26728,
     "routeDistanceKm": 705.1,
-    "offsetKm": 2.44
+    "offsetKm": 2.44,
+    "bank": "both"
   },
   {
     "name": "Jacobsthal",
@@ -3645,7 +4937,8 @@
     "lat": 51.380011,
     "lng": 13.281296,
     "routeDistanceKm": 708.1,
-    "offsetKm": 1.38
+    "offsetKm": 1.38,
+    "bank": "both"
   },
   {
     "name": "Kreinitz",
@@ -3653,7 +4946,8 @@
     "lat": 51.375393,
     "lng": 13.256585,
     "routeDistanceKm": 708.9,
-    "offsetKm": 0.04
+    "offsetKm": 0.04,
+    "bank": "both"
   },
   {
     "name": "Trebnitz",
@@ -3661,7 +4955,8 @@
     "lat": 51.370557,
     "lng": 13.239743,
     "routeDistanceKm": 710.2,
-    "offsetKm": 0.73
+    "offsetKm": 0.73,
+    "bank": "both"
   },
   {
     "name": "Görzig",
@@ -3669,7 +4964,8 @@
     "lat": 51.371003,
     "lng": 13.228357,
     "routeDistanceKm": 710.8,
-    "offsetKm": 1.3
+    "offsetKm": 1.3,
+    "bank": "both"
   },
   {
     "name": "Cottewitz",
@@ -3677,7 +4973,8 @@
     "lat": 51.361998,
     "lng": 13.239648,
     "routeDistanceKm": 710.9,
-    "offsetKm": 0.08
+    "offsetKm": 0.08,
+    "bank": "both"
   },
   {
     "name": "Sahlassan",
@@ -3685,7 +4982,8 @@
     "lat": 51.367461,
     "lng": 13.191233,
     "routeDistanceKm": 711,
-    "offsetKm": 3.46
+    "offsetKm": 3.46,
+    "bank": "both"
   },
   {
     "name": "Strehla",
@@ -3693,7 +4991,8 @@
     "lat": 51.352122,
     "lng": 13.220966,
     "routeDistanceKm": 711.7,
-    "offsetKm": 1.44
+    "offsetKm": 1.44,
+    "bank": "both"
   },
   {
     "name": "Zaußwitz",
@@ -3701,7 +5000,8 @@
     "lat": 51.337898,
     "lng": 13.192156,
     "routeDistanceKm": 711.7,
-    "offsetKm": 3.9
+    "offsetKm": 3.9,
+    "bank": "both"
   },
   {
     "name": "Leckwitz",
@@ -3709,7 +5009,8 @@
     "lat": 51.352393,
     "lng": 13.189682,
     "routeDistanceKm": 711.7,
-    "offsetKm": 3.59
+    "offsetKm": 3.59,
+    "bank": "both"
   },
   {
     "name": "Großrügeln",
@@ -3717,7 +5018,8 @@
     "lat": 51.333803,
     "lng": 13.226286,
     "routeDistanceKm": 711.8,
-    "offsetKm": 2.58
+    "offsetKm": 2.58,
+    "bank": "both"
   },
   {
     "name": "Lorenzkirch",
@@ -3725,7 +5027,8 @@
     "lat": 51.35347,
     "lng": 13.247917,
     "routeDistanceKm": 712.2,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": "both"
   },
   {
     "name": "Schwarzroda",
@@ -3733,7 +5036,8 @@
     "lat": 51.318276,
     "lng": 13.218945,
     "routeDistanceKm": 712.3,
-    "offsetKm": 4.33
+    "offsetKm": 4.33,
+    "bank": "both"
   },
   {
     "name": "Unterreußen",
@@ -3741,7 +5045,8 @@
     "lat": 51.33258,
     "lng": 13.251228,
     "routeDistanceKm": 713.3,
-    "offsetKm": 2.02
+    "offsetKm": 2.02,
+    "bank": "both"
   },
   {
     "name": "Zschepa",
@@ -3749,7 +5054,8 @@
     "lat": 51.350902,
     "lng": 13.265075,
     "routeDistanceKm": 713.5,
-    "offsetKm": 0.17
+    "offsetKm": 0.17,
+    "bank": "both"
   },
   {
     "name": "Oppitzsch",
@@ -3757,7 +5063,8 @@
     "lat": 51.344144,
     "lng": 13.268657,
     "routeDistanceKm": 713.9,
-    "offsetKm": 0.54
+    "offsetKm": 0.54,
+    "bank": "both"
   },
   {
     "name": "Gohlis",
@@ -3765,7 +5072,8 @@
     "lat": 51.344074,
     "lng": 13.292244,
     "routeDistanceKm": 715.6,
-    "offsetKm": 0.1
+    "offsetKm": 0.1,
+    "bank": "both"
   },
   {
     "name": "Neudorf",
@@ -3773,7 +5081,8 @@
     "lat": 51.35229,
     "lng": 13.354338,
     "routeDistanceKm": 715.8,
-    "offsetKm": 4.33
+    "offsetKm": 4.33,
+    "bank": "both"
   },
   {
     "name": "Bobersen",
@@ -3781,7 +5090,8 @@
     "lat": 51.324199,
     "lng": 13.300271,
     "routeDistanceKm": 718,
-    "offsetKm": 0.08
+    "offsetKm": 0.08,
+    "bank": "both"
   },
   {
     "name": "Kalbitz",
@@ -3789,7 +5099,17 @@
     "lat": 51.27313,
     "lng": 13.264143,
     "routeDistanceKm": 719.9,
-    "offsetKm": 4.88
+    "offsetKm": 4.88,
+    "bank": "both"
+  },
+  {
+    "name": "Groptitz",
+    "place": "village",
+    "lat": 51.280295,
+    "lng": 13.24462,
+    "routeDistanceKm": 719.9,
+    "offsetKm": 4.77,
+    "bank": "left"
   },
   {
     "name": "Promnitz",
@@ -3797,7 +5117,8 @@
     "lat": 51.309147,
     "lng": 13.308071,
     "routeDistanceKm": 720.3,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": "both"
   },
   {
     "name": "Riesa",
@@ -3805,7 +5126,8 @@
     "lat": 51.303824,
     "lng": 13.308828,
     "routeDistanceKm": 720.6,
-    "offsetKm": 0.57
+    "offsetKm": 0.57,
+    "bank": "both"
   },
   {
     "name": "Röderau",
@@ -3813,7 +5135,8 @@
     "lat": 51.322105,
     "lng": 13.320649,
     "routeDistanceKm": 721.3,
-    "offsetKm": 1.39
+    "offsetKm": 1.39,
+    "bank": "both"
   },
   {
     "name": "Zeithain",
@@ -3821,7 +5144,8 @@
     "lat": 51.33237,
     "lng": 13.338297,
     "routeDistanceKm": 722.7,
-    "offsetKm": 2.28
+    "offsetKm": 2.28,
+    "bank": "both"
   },
   {
     "name": "Moritz",
@@ -3829,7 +5153,8 @@
     "lat": 51.311183,
     "lng": 13.343849,
     "routeDistanceKm": 723.1,
-    "offsetKm": 0.04
+    "offsetKm": 0.04,
+    "bank": "both"
   },
   {
     "name": "Marksiedlitz",
@@ -3837,7 +5162,8 @@
     "lat": 51.340529,
     "lng": 13.390735,
     "routeDistanceKm": 724.2,
-    "offsetKm": 4.29
+    "offsetKm": 4.29,
+    "bank": "both"
   },
   {
     "name": "Grödel",
@@ -3845,7 +5171,8 @@
     "lat": 51.304612,
     "lng": 13.367762,
     "routeDistanceKm": 724.9,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": "both"
   },
   {
     "name": "Glaubitz",
@@ -3853,7 +5180,8 @@
     "lat": 51.323049,
     "lng": 13.37878,
     "routeDistanceKm": 725.1,
-    "offsetKm": 2.2
+    "offsetKm": 2.2,
+    "bank": "both"
   },
   {
     "name": "Radewitz",
@@ -3861,7 +5189,8 @@
     "lat": 51.332131,
     "lng": 13.391623,
     "routeDistanceKm": 725.2,
-    "offsetKm": 3.46
+    "offsetKm": 3.46,
+    "bank": "both"
   },
   {
     "name": "Heyda",
@@ -3869,7 +5198,8 @@
     "lat": 51.267588,
     "lng": 13.3389,
     "routeDistanceKm": 725.3,
-    "offsetKm": 4.48
+    "offsetKm": 4.48,
+    "bank": "both"
   },
   {
     "name": "Nünchritz",
@@ -3877,7 +5207,8 @@
     "lat": 51.302057,
     "lng": 13.385055,
     "routeDistanceKm": 726.2,
-    "offsetKm": 0.33
+    "offsetKm": 0.33,
+    "bank": "both"
   },
   {
     "name": "Roda",
@@ -3885,7 +5216,8 @@
     "lat": 51.307134,
     "lng": 13.417115,
     "routeDistanceKm": 726.9,
-    "offsetKm": 2.4
+    "offsetKm": 2.4,
+    "bank": "both"
   },
   {
     "name": "Zschaiten",
@@ -3893,7 +5225,8 @@
     "lat": 51.298526,
     "lng": 13.408823,
     "routeDistanceKm": 727.3,
-    "offsetKm": 1.39
+    "offsetKm": 1.39,
+    "bank": "both"
   },
   {
     "name": "Schänitz",
@@ -3901,7 +5234,8 @@
     "lat": 51.282095,
     "lng": 13.388014,
     "routeDistanceKm": 728.1,
-    "offsetKm": 0.72
+    "offsetKm": 0.72,
+    "bank": "both"
   },
   {
     "name": "Weißig",
@@ -3909,7 +5243,8 @@
     "lat": 51.291775,
     "lng": 13.440199,
     "routeDistanceKm": 728.5,
-    "offsetKm": 2.97
+    "offsetKm": 2.97,
+    "bank": "both"
   },
   {
     "name": "Leckwitz",
@@ -3917,7 +5252,8 @@
     "lat": 51.282311,
     "lng": 13.403759,
     "routeDistanceKm": 728.6,
-    "offsetKm": 0.24
+    "offsetKm": 0.24,
+    "bank": "both"
   },
   {
     "name": "Naundörfchen",
@@ -3925,7 +5261,8 @@
     "lat": 51.282445,
     "lng": 13.423466,
     "routeDistanceKm": 729.2,
-    "offsetKm": 1.49
+    "offsetKm": 1.49,
+    "bank": "both"
   },
   {
     "name": "Boritz",
@@ -3933,7 +5270,8 @@
     "lat": 51.273552,
     "lng": 13.394021,
     "routeDistanceKm": 729.4,
-    "offsetKm": 0.76
+    "offsetKm": 0.76,
+    "bank": "both"
   },
   {
     "name": "Goltzscha",
@@ -3941,7 +5279,8 @@
     "lat": 51.270467,
     "lng": 13.43471,
     "routeDistanceKm": 730,
-    "offsetKm": 2.03
+    "offsetKm": 2.03,
+    "bank": "both"
   },
   {
     "name": "Merschwitz",
@@ -3949,7 +5288,8 @@
     "lat": 51.265501,
     "lng": 13.406554,
     "routeDistanceKm": 730.5,
-    "offsetKm": 0.11
+    "offsetKm": 0.11,
+    "bank": "both"
   },
   {
     "name": "Althirschstein",
@@ -3957,7 +5297,8 @@
     "lat": 51.263675,
     "lng": 13.392477,
     "routeDistanceKm": 730.7,
-    "offsetKm": 0.83
+    "offsetKm": 0.83,
+    "bank": "both"
   },
   {
     "name": "Bahra",
@@ -3965,7 +5306,8 @@
     "lat": 51.257928,
     "lng": 13.377199,
     "routeDistanceKm": 730.8,
-    "offsetKm": 1.97
+    "offsetKm": 1.97,
+    "bank": "both"
   },
   {
     "name": "Neuhirschstein",
@@ -3973,7 +5315,8 @@
     "lat": 51.25227,
     "lng": 13.397586,
     "routeDistanceKm": 732,
-    "offsetKm": 0.84
+    "offsetKm": 0.84,
+    "bank": "both"
   },
   {
     "name": "Neuseußlitz",
@@ -3981,7 +5324,8 @@
     "lat": 51.249661,
     "lng": 13.418717,
     "routeDistanceKm": 732.6,
-    "offsetKm": 0.52
+    "offsetKm": 0.52,
+    "bank": "both"
   },
   {
     "name": "Diesbar-Seußlitz",
@@ -3989,7 +5333,8 @@
     "lat": 51.240175,
     "lng": 13.41823,
     "routeDistanceKm": 733.6,
-    "offsetKm": 0.2
+    "offsetKm": 0.2,
+    "bank": "both"
   },
   {
     "name": "Niederlommatzsch",
@@ -3997,7 +5342,8 @@
     "lat": 51.238937,
     "lng": 13.40599,
     "routeDistanceKm": 733.8,
-    "offsetKm": 0.58
+    "offsetKm": 0.58,
+    "bank": "both"
   },
   {
     "name": "Hebelei",
@@ -4005,7 +5351,8 @@
     "lat": 51.234297,
     "lng": 13.413597,
     "routeDistanceKm": 734.2,
-    "offsetKm": 0.48
+    "offsetKm": 0.48,
+    "bank": "both"
   },
   {
     "name": "Nieschütz",
@@ -4013,7 +5360,8 @@
     "lat": 51.220317,
     "lng": 13.417835,
     "routeDistanceKm": 736.7,
-    "offsetKm": 0.25
+    "offsetKm": 0.25,
+    "bank": "both"
   },
   {
     "name": "Golk",
@@ -4021,7 +5369,8 @@
     "lat": 51.21393,
     "lng": 13.428229,
     "routeDistanceKm": 737.2,
-    "offsetKm": 1.25
+    "offsetKm": 1.25,
+    "bank": "both"
   },
   {
     "name": "Niedermuschütz",
@@ -4029,7 +5378,8 @@
     "lat": 51.219032,
     "lng": 13.39761,
     "routeDistanceKm": 737.4,
-    "offsetKm": 0.9
+    "offsetKm": 0.9,
+    "bank": "both"
   },
   {
     "name": "Wölkisch",
@@ -4037,7 +5387,8 @@
     "lat": 51.22429,
     "lng": 13.360848,
     "routeDistanceKm": 737.5,
-    "offsetKm": 3.51
+    "offsetKm": 3.51,
+    "bank": "both"
   },
   {
     "name": "Kleinzadel",
@@ -4045,7 +5396,8 @@
     "lat": 51.20773,
     "lng": 13.410459,
     "routeDistanceKm": 738.5,
-    "offsetKm": 0.21
+    "offsetKm": 0.21,
+    "bank": "both"
   },
   {
     "name": "Daubnitz",
@@ -4053,7 +5405,8 @@
     "lat": 51.191742,
     "lng": 13.3414,
     "routeDistanceKm": 738.7,
-    "offsetKm": 4.91
+    "offsetKm": 4.91,
+    "bank": "both"
   },
   {
     "name": "Schieritz",
@@ -4061,7 +5414,8 @@
     "lat": 51.197007,
     "lng": 13.392021,
     "routeDistanceKm": 739.1,
-    "offsetKm": 1.4
+    "offsetKm": 1.4,
+    "bank": "both"
   },
   {
     "name": "Wachtnitz",
@@ -4069,7 +5423,8 @@
     "lat": 51.189713,
     "lng": 13.349157,
     "routeDistanceKm": 739.1,
-    "offsetKm": 4.47
+    "offsetKm": 4.47,
+    "bank": "both"
   },
   {
     "name": "Zehren",
@@ -4077,7 +5432,8 @@
     "lat": 51.199078,
     "lng": 13.404441,
     "routeDistanceKm": 739.3,
-    "offsetKm": 0.55
+    "offsetKm": 0.55,
+    "bank": "both"
   },
   {
     "name": "Zadel",
@@ -4085,7 +5441,8 @@
     "lat": 51.197941,
     "lng": 13.42663,
     "routeDistanceKm": 740.6,
-    "offsetKm": 0.34
+    "offsetKm": 0.34,
+    "bank": "both"
   },
   {
     "name": "Diera",
@@ -4093,7 +5450,8 @@
     "lat": 51.198216,
     "lng": 13.447369,
     "routeDistanceKm": 742,
-    "offsetKm": 1.09
+    "offsetKm": 1.09,
+    "bank": "both"
   },
   {
     "name": "Keilbusch",
@@ -4101,7 +5459,8 @@
     "lat": 51.185173,
     "lng": 13.442662,
     "routeDistanceKm": 742.5,
-    "offsetKm": 0.27
+    "offsetKm": 0.27,
+    "bank": "both"
   },
   {
     "name": "Oberjahna",
@@ -4109,7 +5468,8 @@
     "lat": 51.159596,
     "lng": 13.421454,
     "routeDistanceKm": 743.3,
-    "offsetKm": 3.46
+    "offsetKm": 3.46,
+    "bank": "both"
   },
   {
     "name": "Gasern",
@@ -4117,7 +5477,8 @@
     "lat": 51.174946,
     "lng": 13.447604,
     "routeDistanceKm": 743.3,
-    "offsetKm": 1
+    "offsetKm": 1,
+    "bank": "both"
   },
   {
     "name": "Naundörfel",
@@ -4125,7 +5486,8 @@
     "lat": 51.200211,
     "lng": 13.477186,
     "routeDistanceKm": 743.5,
-    "offsetKm": 2.47
+    "offsetKm": 2.47,
+    "bank": "both"
   },
   {
     "name": "Niederjahna",
@@ -4133,7 +5495,17 @@
     "lat": 51.16584,
     "lng": 13.434757,
     "routeDistanceKm": 744.1,
-    "offsetKm": 2.34
+    "offsetKm": 2.34,
+    "bank": "both"
+  },
+  {
+    "name": "Löthain",
+    "place": "village",
+    "lat": 51.143037,
+    "lng": 13.410354,
+    "routeDistanceKm": 744.6,
+    "offsetKm": 4.95,
+    "bank": "left"
   },
   {
     "name": "Gröbern",
@@ -4141,7 +5513,8 @@
     "lat": 51.186785,
     "lng": 13.522147,
     "routeDistanceKm": 745.2,
-    "offsetKm": 3.64
+    "offsetKm": 3.64,
+    "bank": "both"
   },
   {
     "name": "Ockrilla",
@@ -4149,7 +5522,8 @@
     "lat": 51.196718,
     "lng": 13.506587,
     "routeDistanceKm": 745.2,
-    "offsetKm": 3.43
+    "offsetKm": 3.43,
+    "bank": "both"
   },
   {
     "name": "Meißen",
@@ -4157,7 +5531,8 @@
     "lat": 51.163087,
     "lng": 13.470494,
     "routeDistanceKm": 746.1,
-    "offsetKm": 0.5
+    "offsetKm": 0.5,
+    "bank": "both"
   },
   {
     "name": "Nassau",
@@ -4165,7 +5540,8 @@
     "lat": 51.169716,
     "lng": 13.513464,
     "routeDistanceKm": 746.6,
-    "offsetKm": 2.47
+    "offsetKm": 2.47,
+    "bank": "both"
   },
   {
     "name": "Semmelsberg",
@@ -4173,7 +5549,8 @@
     "lat": 51.124821,
     "lng": 13.433548,
     "routeDistanceKm": 747.7,
-    "offsetKm": 4.81
+    "offsetKm": 4.81,
+    "bank": "both"
   },
   {
     "name": "Garsebach",
@@ -4181,7 +5558,8 @@
     "lat": 51.129996,
     "lng": 13.43555,
     "routeDistanceKm": 747.7,
-    "offsetKm": 4.35
+    "offsetKm": 4.35,
+    "bank": "both"
   },
   {
     "name": "Niederau",
@@ -4189,7 +5567,8 @@
     "lat": 51.176932,
     "lng": 13.543883,
     "routeDistanceKm": 748.1,
-    "offsetKm": 4.7
+    "offsetKm": 4.7,
+    "bank": "both"
   },
   {
     "name": "Polenz",
@@ -4197,7 +5576,8 @@
     "lat": 51.121762,
     "lng": 13.457361,
     "routeDistanceKm": 748.9,
-    "offsetKm": 3.76
+    "offsetKm": 3.76,
+    "bank": "both"
   },
   {
     "name": "Ullendorf",
@@ -4205,7 +5585,8 @@
     "lat": 51.107198,
     "lng": 13.484608,
     "routeDistanceKm": 750.1,
-    "offsetKm": 3.82
+    "offsetKm": 3.82,
+    "bank": "both"
   },
   {
     "name": "Sörnewitz",
@@ -4213,7 +5594,8 @@
     "lat": 51.13763,
     "lng": 13.520287,
     "routeDistanceKm": 750.7,
-    "offsetKm": 0.17
+    "offsetKm": 0.17,
+    "bank": "both"
   },
   {
     "name": "Weinböhla",
@@ -4221,7 +5603,8 @@
     "lat": 51.161894,
     "lng": 13.564353,
     "routeDistanceKm": 751.5,
-    "offsetKm": 4.17
+    "offsetKm": 4.17,
+    "bank": "both"
   },
   {
     "name": "Scharfenberg",
@@ -4229,7 +5612,8 @@
     "lat": 51.119142,
     "lng": 13.513354,
     "routeDistanceKm": 751.9,
-    "offsetKm": 1.76
+    "offsetKm": 1.76,
+    "bank": "both"
   },
   {
     "name": "Naustadt",
@@ -4237,7 +5621,8 @@
     "lat": 51.11308,
     "lng": 13.510068,
     "routeDistanceKm": 752,
-    "offsetKm": 2.4
+    "offsetKm": 2.4,
+    "bank": "both"
   },
   {
     "name": "Brockwitz",
@@ -4245,7 +5630,8 @@
     "lat": 51.130183,
     "lng": 13.544401,
     "routeDistanceKm": 752.6,
-    "offsetKm": 0.63
+    "offsetKm": 0.63,
+    "bank": "both"
   },
   {
     "name": "Röhrsdorf",
@@ -4253,7 +5639,8 @@
     "lat": 51.094662,
     "lng": 13.519207,
     "routeDistanceKm": 752.8,
-    "offsetKm": 3.67
+    "offsetKm": 3.67,
+    "bank": "both"
   },
   {
     "name": "Pinkowitz",
@@ -4261,7 +5648,8 @@
     "lat": 51.105054,
     "lng": 13.547614,
     "routeDistanceKm": 753.9,
-    "offsetKm": 1.89
+    "offsetKm": 1.89,
+    "bank": "both"
   },
   {
     "name": "Gauernitz",
@@ -4269,7 +5657,8 @@
     "lat": 51.113991,
     "lng": 13.555821,
     "routeDistanceKm": 754.3,
-    "offsetKm": 0.78
+    "offsetKm": 0.78,
+    "bank": "both"
   },
   {
     "name": "Coswig",
@@ -4277,7 +5666,8 @@
     "lat": 51.126731,
     "lng": 13.578398,
     "routeDistanceKm": 754.8,
-    "offsetKm": 1.28
+    "offsetKm": 1.28,
+    "bank": "both"
   },
   {
     "name": "Constappel",
@@ -4285,7 +5675,17 @@
     "lat": 51.105578,
     "lng": 13.564806,
     "routeDistanceKm": 755.6,
-    "offsetKm": 1.05
+    "offsetKm": 1.05,
+    "bank": "both"
+  },
+  {
+    "name": "Klipphausen",
+    "place": "village",
+    "lat": 51.074957,
+    "lng": 13.529355,
+    "routeDistanceKm": 756.2,
+    "offsetKm": 4.76,
+    "bank": "left"
   },
   {
     "name": "Wildberg",
@@ -4293,7 +5693,8 @@
     "lat": 51.101369,
     "lng": 13.579277,
     "routeDistanceKm": 756.5,
-    "offsetKm": 0.89
+    "offsetKm": 0.89,
+    "bank": "both"
   },
   {
     "name": "Kleinschönberg",
@@ -4301,7 +5702,8 @@
     "lat": 51.085054,
     "lng": 13.563788,
     "routeDistanceKm": 757.8,
-    "offsetKm": 2.97
+    "offsetKm": 2.97,
+    "bank": "both"
   },
   {
     "name": "Weistropp",
@@ -4309,7 +5711,8 @@
     "lat": 51.08635,
     "lng": 13.585671,
     "routeDistanceKm": 758,
-    "offsetKm": 1.78
+    "offsetKm": 1.78,
+    "bank": "both"
   },
   {
     "name": "Friedewald",
@@ -4317,7 +5720,8 @@
     "lat": 51.132899,
     "lng": 13.645953,
     "routeDistanceKm": 760.1,
-    "offsetKm": 3.41
+    "offsetKm": 3.41,
+    "bank": "both"
   },
   {
     "name": "Dippelsdorf",
@@ -4325,7 +5729,8 @@
     "lat": 51.140048,
     "lng": 13.661838,
     "routeDistanceKm": 760.6,
-    "offsetKm": 4.61
+    "offsetKm": 4.61,
+    "bank": "right"
   },
   {
     "name": "Reichenberg",
@@ -4333,7 +5738,8 @@
     "lat": 51.126849,
     "lng": 13.680809,
     "routeDistanceKm": 762.9,
-    "offsetKm": 3.98
+    "offsetKm": 3.98,
+    "bank": "both"
   },
   {
     "name": "Boxdorf",
@@ -4341,7 +5747,8 @@
     "lat": 51.11933,
     "lng": 13.698115,
     "routeDistanceKm": 763.2,
-    "offsetKm": 3.93
+    "offsetKm": 3.93,
+    "bank": "both"
   },
   {
     "name": "Radebeul",
@@ -4349,7 +5756,8 @@
     "lat": 51.099977,
     "lng": 13.6768,
     "routeDistanceKm": 763.4,
-    "offsetKm": 1.32
+    "offsetKm": 1.32,
+    "bank": "both"
   },
   {
     "name": "Merbitz",
@@ -4357,7 +5765,8 @@
     "lat": 51.067566,
     "lng": 13.640001,
     "routeDistanceKm": 765.3,
-    "offsetKm": 2.51
+    "offsetKm": 2.51,
+    "bank": "both"
   },
   {
     "name": "Dresden",
@@ -4365,7 +5774,8 @@
     "lat": 51.049329,
     "lng": 13.738144,
     "routeDistanceKm": 772.5,
-    "offsetKm": 0.8
+    "offsetKm": 0.8,
+    "bank": "both"
   },
   {
     "name": "Graupa",
@@ -4373,7 +5783,8 @@
     "lat": 50.999695,
     "lng": 13.91966,
     "routeDistanceKm": 788.3,
-    "offsetKm": 2.7
+    "offsetKm": 2.7,
+    "bank": "both"
   },
   {
     "name": "Heidenau",
@@ -4381,7 +5792,8 @@
     "lat": 50.973585,
     "lng": 13.875392,
     "routeDistanceKm": 790.5,
-    "offsetKm": 0.97
+    "offsetKm": 0.97,
+    "bank": "both"
   },
   {
     "name": "Sürßen",
@@ -4389,7 +5801,8 @@
     "lat": 50.950359,
     "lng": 13.834898,
     "routeDistanceKm": 790.9,
-    "offsetKm": 4.52
+    "offsetKm": 4.52,
+    "bank": "both"
   },
   {
     "name": "Dohna",
@@ -4397,7 +5810,8 @@
     "lat": 50.955232,
     "lng": 13.858701,
     "routeDistanceKm": 790.9,
-    "offsetKm": 2.84
+    "offsetKm": 2.84,
+    "bank": "both"
   },
   {
     "name": "Gorknitz",
@@ -4405,7 +5819,8 @@
     "lat": 50.956443,
     "lng": 13.828814,
     "routeDistanceKm": 790.9,
-    "offsetKm": 4.6
+    "offsetKm": 4.6,
+    "bank": "both"
   },
   {
     "name": "Falkenhain",
@@ -4413,7 +5828,8 @@
     "lat": 50.93865,
     "lng": 13.848404,
     "routeDistanceKm": 791.2,
-    "offsetKm": 4.62
+    "offsetKm": 4.62,
+    "bank": "both"
   },
   {
     "name": "Weesenstein",
@@ -4421,7 +5837,8 @@
     "lat": 50.933352,
     "lng": 13.861593,
     "routeDistanceKm": 791.8,
-    "offsetKm": 4.52
+    "offsetKm": 4.52,
+    "bank": "both"
   },
   {
     "name": "Großsedlitz",
@@ -4429,7 +5846,8 @@
     "lat": 50.952444,
     "lng": 13.886859,
     "routeDistanceKm": 791.8,
-    "offsetKm": 1.77
+    "offsetKm": 1.77,
+    "bank": "both"
   },
   {
     "name": "Müglitztal",
@@ -4437,7 +5855,8 @@
     "lat": 50.9338,
     "lng": 13.859112,
     "routeDistanceKm": 791.8,
-    "offsetKm": 4.59
+    "offsetKm": 4.59,
+    "bank": "both"
   },
   {
     "name": "Meusegast",
@@ -4445,7 +5864,8 @@
     "lat": 50.929482,
     "lng": 13.878531,
     "routeDistanceKm": 791.8,
-    "offsetKm": 4.34
+    "offsetKm": 4.34,
+    "bank": "both"
   },
   {
     "name": "Köttewitz",
@@ -4453,7 +5873,8 @@
     "lat": 50.938891,
     "lng": 13.872351,
     "routeDistanceKm": 791.8,
-    "offsetKm": 3.59
+    "offsetKm": 3.59,
+    "bank": "both"
   },
   {
     "name": "Krebs",
@@ -4461,7 +5882,8 @@
     "lat": 50.936809,
     "lng": 13.891582,
     "routeDistanceKm": 792.2,
-    "offsetKm": 3.28
+    "offsetKm": 3.28,
+    "bank": "both"
   },
   {
     "name": "Niederseidewitz",
@@ -4469,7 +5891,8 @@
     "lat": 50.921432,
     "lng": 13.903342,
     "routeDistanceKm": 792.2,
-    "offsetKm": 4.85
+    "offsetKm": 4.85,
+    "bank": "both"
   },
   {
     "name": "Zuschendorf",
@@ -4477,7 +5900,8 @@
     "lat": 50.932192,
     "lng": 13.914572,
     "routeDistanceKm": 792.2,
-    "offsetKm": 3.71
+    "offsetKm": 3.71,
+    "bank": "both"
   },
   {
     "name": "Dohma",
@@ -4485,7 +5909,8 @@
     "lat": 50.921362,
     "lng": 13.928735,
     "routeDistanceKm": 793.9,
-    "offsetKm": 4.99
+    "offsetKm": 4.99,
+    "bank": "both"
   },
   {
     "name": "Pirna",
@@ -4493,7 +5918,8 @@
     "lat": 50.961692,
     "lng": 13.938664,
     "routeDistanceKm": 794.6,
-    "offsetKm": 0.53
+    "offsetKm": 0.53,
+    "bank": "both"
   },
   {
     "name": "Lohmen",
@@ -4501,7 +5927,8 @@
     "lat": 50.988626,
     "lng": 13.998086,
     "routeDistanceKm": 797.2,
-    "offsetKm": 3.57
+    "offsetKm": 3.57,
+    "bank": "both"
   },
   {
     "name": "Goes",
@@ -4509,7 +5936,8 @@
     "lat": 50.928084,
     "lng": 13.94559,
     "routeDistanceKm": 798.4,
-    "offsetKm": 3.92
+    "offsetKm": 3.92,
+    "bank": "both"
   },
   {
     "name": "Krietzschwitz",
@@ -4517,7 +5945,17 @@
     "lat": 50.928566,
     "lng": 13.979635,
     "routeDistanceKm": 799.7,
-    "offsetKm": 2.57
+    "offsetKm": 2.57,
+    "bank": "both"
+  },
+  {
+    "name": "Kleincotta",
+    "place": "village",
+    "lat": 50.903091,
+    "lng": 13.977417,
+    "routeDistanceKm": 800,
+    "offsetKm": 4.96,
+    "bank": "left"
   },
   {
     "name": "Struppen",
@@ -4525,7 +5963,8 @@
     "lat": 50.935563,
     "lng": 14.0105,
     "routeDistanceKm": 800.4,
-    "offsetKm": 1.18
+    "offsetKm": 1.18,
+    "bank": "both"
   },
   {
     "name": "Naundorf",
@@ -4533,7 +5972,8 @@
     "lat": 50.947386,
     "lng": 14.027818,
     "routeDistanceKm": 801.6,
-    "offsetKm": 0.85
+    "offsetKm": 0.85,
+    "bank": "both"
   },
   {
     "name": "Stadt Wehlen",
@@ -4541,7 +5981,8 @@
     "lat": 50.957091,
     "lng": 14.030753,
     "routeDistanceKm": 802.4,
-    "offsetKm": 0.03
+    "offsetKm": 0.03,
+    "bank": "both"
   },
   {
     "name": "Pötzscha",
@@ -4549,7 +5990,8 @@
     "lat": 50.955041,
     "lng": 14.039068,
     "routeDistanceKm": 802.9,
-    "offsetKm": 0.32
+    "offsetKm": 0.32,
+    "bank": "both"
   },
   {
     "name": "Uttewalde",
@@ -4557,7 +5999,8 @@
     "lat": 50.976762,
     "lng": 14.031029,
     "routeDistanceKm": 803.1,
-    "offsetKm": 2.13
+    "offsetKm": 2.13,
+    "bank": "both"
   },
   {
     "name": "Rathewalde",
@@ -4565,7 +6008,8 @@
     "lat": 50.983452,
     "lng": 14.075717,
     "routeDistanceKm": 805.4,
-    "offsetKm": 2.56
+    "offsetKm": 2.56,
+    "bank": "both"
   },
   {
     "name": "Hohburkersdorf",
@@ -4573,7 +6017,8 @@
     "lat": 50.99769,
     "lng": 14.077085,
     "routeDistanceKm": 805.4,
-    "offsetKm": 4.14
+    "offsetKm": 4.14,
+    "bank": "both"
   },
   {
     "name": "Zeschnig",
@@ -4581,7 +6026,8 @@
     "lat": 50.993436,
     "lng": 14.08632,
     "routeDistanceKm": 805.6,
-    "offsetKm": 3.78
+    "offsetKm": 3.78,
+    "bank": "both"
   },
   {
     "name": "Hohnstein",
@@ -4589,7 +6035,8 @@
     "lat": 50.979784,
     "lng": 14.111122,
     "routeDistanceKm": 806.1,
-    "offsetKm": 3.2
+    "offsetKm": 3.2,
+    "bank": "both"
   },
   {
     "name": "Kurort Rathen",
@@ -4597,7 +6044,8 @@
     "lat": 50.958235,
     "lng": 14.082465,
     "routeDistanceKm": 806.1,
-    "offsetKm": 0.1
+    "offsetKm": 0.1,
+    "bank": "both"
   },
   {
     "name": "Weißig",
@@ -4605,7 +6053,8 @@
     "lat": 50.945753,
     "lng": 14.071632,
     "routeDistanceKm": 808.3,
-    "offsetKm": 0.55
+    "offsetKm": 0.55,
+    "bank": "both"
   },
   {
     "name": "Thürmsdorf",
@@ -4613,7 +6062,8 @@
     "lat": 50.933395,
     "lng": 14.044958,
     "routeDistanceKm": 810.4,
-    "offsetKm": 0.82
+    "offsetKm": 0.82,
+    "bank": "both"
   },
   {
     "name": "Leupoldishain",
@@ -4621,7 +6071,8 @@
     "lat": 50.905797,
     "lng": 14.027568,
     "routeDistanceKm": 811.1,
-    "offsetKm": 3.01
+    "offsetKm": 3.01,
+    "bank": "both"
   },
   {
     "name": "Nikolsdorf",
@@ -4629,7 +6080,8 @@
     "lat": 50.904901,
     "lng": 14.038517,
     "routeDistanceKm": 811.5,
-    "offsetKm": 2.54
+    "offsetKm": 2.54,
+    "bank": "both"
   },
   {
     "name": "Königstein",
@@ -4637,7 +6089,8 @@
     "lat": 50.918526,
     "lng": 14.073227,
     "routeDistanceKm": 812.3,
-    "offsetKm": 0.1
+    "offsetKm": 0.1,
+    "bank": "both"
   },
   {
     "name": "Pfaffendorf",
@@ -4645,7 +6098,8 @@
     "lat": 50.907456,
     "lng": 14.081229,
     "routeDistanceKm": 812.5,
-    "offsetKm": 1.36
+    "offsetKm": 1.36,
+    "bank": "both"
   },
   {
     "name": "Gohrisch",
@@ -4653,7 +6107,8 @@
     "lat": 50.912282,
     "lng": 14.105271,
     "routeDistanceKm": 813.9,
-    "offsetKm": 1.83
+    "offsetKm": 1.83,
+    "bank": "both"
   },
   {
     "name": "Porschdorf",
@@ -4661,7 +6116,8 @@
     "lat": 50.941866,
     "lng": 14.126214,
     "routeDistanceKm": 816,
-    "offsetKm": 1.51
+    "offsetKm": 1.51,
+    "bank": "both"
   },
   {
     "name": "Waitzdorf",
@@ -4669,7 +6125,8 @@
     "lat": 50.955867,
     "lng": 14.137078,
     "routeDistanceKm": 817,
-    "offsetKm": 3.21
+    "offsetKm": 3.21,
+    "bank": "both"
   },
   {
     "name": "Goßdorf",
@@ -4677,7 +6134,8 @@
     "lat": 50.954528,
     "lng": 14.16716,
     "routeDistanceKm": 817,
-    "offsetKm": 3.99
+    "offsetKm": 3.99,
+    "bank": "both"
   },
   {
     "name": "Rathmannsdorf",
@@ -4685,7 +6143,8 @@
     "lat": 50.930063,
     "lng": 14.139261,
     "routeDistanceKm": 817.4,
-    "offsetKm": 0.67
+    "offsetKm": 0.67,
+    "bank": "both"
   },
   {
     "name": "Cunnersdorf",
@@ -4693,7 +6152,8 @@
     "lat": 50.885404,
     "lng": 14.117726,
     "routeDistanceKm": 819.1,
-    "offsetKm": 4.22
+    "offsetKm": 4.22,
+    "bank": "both"
   },
   {
     "name": "Papstdorf",
@@ -4701,7 +6161,8 @@
     "lat": 50.896699,
     "lng": 14.12882,
     "routeDistanceKm": 819.1,
-    "offsetKm": 2.74
+    "offsetKm": 2.74,
+    "bank": "both"
   },
   {
     "name": "Bad Schandau",
@@ -4709,7 +6170,8 @@
     "lat": 50.918091,
     "lng": 14.153402,
     "routeDistanceKm": 819.2,
-    "offsetKm": 0.15
+    "offsetKm": 0.15,
+    "bank": "both"
   },
   {
     "name": "Kleinhennersdorf",
@@ -4717,7 +6179,8 @@
     "lat": 50.906391,
     "lng": 14.145855,
     "routeDistanceKm": 819.2,
-    "offsetKm": 1.24
+    "offsetKm": 1.24,
+    "bank": "both"
   },
   {
     "name": "Krippen",
@@ -4725,7 +6188,8 @@
     "lat": 50.905462,
     "lng": 14.165187,
     "routeDistanceKm": 820.5,
-    "offsetKm": 0.98
+    "offsetKm": 0.98,
+    "bank": "both"
   },
   {
     "name": "Altendorf",
@@ -4733,7 +6197,8 @@
     "lat": 50.935022,
     "lng": 14.182165,
     "routeDistanceKm": 820.7,
-    "offsetKm": 2.52
+    "offsetKm": 2.52,
+    "bank": "both"
   },
   {
     "name": "Kleingießhübel",
@@ -4741,7 +6206,8 @@
     "lat": 50.87545,
     "lng": 14.159789,
     "routeDistanceKm": 821.2,
-    "offsetKm": 4.25
+    "offsetKm": 4.25,
+    "bank": "both"
   },
   {
     "name": "Mittelndorf",
@@ -4749,7 +6215,8 @@
     "lat": 50.936817,
     "lng": 14.204804,
     "routeDistanceKm": 821.7,
-    "offsetKm": 3.23
+    "offsetKm": 3.23,
+    "bank": "both"
   },
   {
     "name": "Reinhardtsdorf",
@@ -4757,7 +6224,8 @@
     "lat": 50.894377,
     "lng": 14.18909,
     "routeDistanceKm": 822.3,
-    "offsetKm": 1.56
+    "offsetKm": 1.56,
+    "bank": "both"
   },
   {
     "name": "Lichtenhain",
@@ -4765,7 +6233,8 @@
     "lat": 50.945119,
     "lng": 14.237273,
     "routeDistanceKm": 823.2,
-    "offsetKm": 4.96
+    "offsetKm": 4.96,
+    "bank": "right"
   },
   {
     "name": "Reinhardtsdorf-Schöna",
@@ -4773,7 +6242,8 @@
     "lat": 50.888318,
     "lng": 14.199851,
     "routeDistanceKm": 823.8,
-    "offsetKm": 1.84
+    "offsetKm": 1.84,
+    "bank": "both"
   },
   {
     "name": "Schöna",
@@ -4781,7 +6251,8 @@
     "lat": 50.884243,
     "lng": 14.213991,
     "routeDistanceKm": 826.8,
-    "offsetKm": 1.27
+    "offsetKm": 1.27,
+    "bank": "both"
   },
   {
     "name": "Mezná",
@@ -4789,7 +6260,8 @@
     "lat": 50.868842,
     "lng": 14.299257,
     "routeDistanceKm": 826.9,
-    "offsetKm": 4.95
+    "offsetKm": 4.95,
+    "bank": "right"
   },
   {
     "name": "Hřensko",
@@ -4797,7 +6269,8 @@
     "lat": 50.873927,
     "lng": 14.240255,
     "routeDistanceKm": 827.4,
-    "offsetKm": 0.8
+    "offsetKm": 0.8,
+    "bank": "both"
   },
   {
     "name": "Janov",
@@ -4805,7 +6278,8 @@
     "lat": 50.859986,
     "lng": 14.266135,
     "routeDistanceKm": 828.5,
-    "offsetKm": 2.95
+    "offsetKm": 2.95,
+    "bank": "both"
   },
   {
     "name": "Labská Stráň",
@@ -4813,7 +6287,8 @@
     "lat": 50.848649,
     "lng": 14.231596,
     "routeDistanceKm": 830.1,
-    "offsetKm": 1.08
+    "offsetKm": 1.08,
+    "bank": "both"
   },
   {
     "name": "Dolní Žleb",
@@ -4821,7 +6296,8 @@
     "lat": 50.841823,
     "lng": 14.216161,
     "routeDistanceKm": 831.4,
-    "offsetKm": 0.12
+    "offsetKm": 0.12,
+    "bank": null
   },
   {
     "name": "Arnoltice",
@@ -4829,7 +6305,8 @@
     "lat": 50.837019,
     "lng": 14.263942,
     "routeDistanceKm": 832.5,
-    "offsetKm": 2.62
+    "offsetKm": 2.62,
+    "bank": null
   },
   {
     "name": "Růžová",
@@ -4837,7 +6314,8 @@
     "lat": 50.84216,
     "lng": 14.293785,
     "routeDistanceKm": 832.5,
-    "offsetKm": 4.79
+    "offsetKm": 4.79,
+    "bank": null
   },
   {
     "name": "Maxičky",
@@ -4845,7 +6323,8 @@
     "lat": 50.813347,
     "lng": 14.180387,
     "routeDistanceKm": 834.5,
-    "offsetKm": 2.95
+    "offsetKm": 2.95,
+    "bank": null
   },
   {
     "name": "Čertova Voda",
@@ -4853,7 +6332,8 @@
     "lat": 50.816647,
     "lng": 14.221289,
     "routeDistanceKm": 834.5,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": null
   },
   {
     "name": "Bynovec",
@@ -4861,7 +6341,8 @@
     "lat": 50.820829,
     "lng": 14.264174,
     "routeDistanceKm": 835.8,
-    "offsetKm": 2.72
+    "offsetKm": 2.72,
+    "bank": null
   },
   {
     "name": "Prostřední Žleb",
@@ -4869,7 +6350,8 @@
     "lat": 50.806256,
     "lng": 14.232176,
     "routeDistanceKm": 835.9,
-    "offsetKm": 0.04
+    "offsetKm": 0.04,
+    "bank": null
   },
   {
     "name": "Kámen",
@@ -4877,7 +6359,8 @@
     "lat": 50.810214,
     "lng": 14.268434,
     "routeDistanceKm": 836.2,
-    "offsetKm": 2.48
+    "offsetKm": 2.48,
+    "bank": null
   },
   {
     "name": "Ludvíkovice",
@@ -4885,7 +6368,8 @@
     "lat": 50.794064,
     "lng": 14.256411,
     "routeDistanceKm": 837,
-    "offsetKm": 1.54
+    "offsetKm": 1.54,
+    "bank": null
   },
   {
     "name": "Huntířov",
@@ -4893,7 +6377,8 @@
     "lat": 50.789435,
     "lng": 14.303424,
     "routeDistanceKm": 837,
-    "offsetKm": 4.89
+    "offsetKm": 4.89,
+    "bank": null
   },
   {
     "name": "Folknáře",
@@ -4901,7 +6386,8 @@
     "lat": 50.780245,
     "lng": 14.254619,
     "routeDistanceKm": 837.6,
-    "offsetKm": 2.13
+    "offsetKm": 2.13,
+    "bank": null
   },
   {
     "name": "Bělá",
@@ -4909,7 +6395,8 @@
     "lat": 50.789299,
     "lng": 14.171137,
     "routeDistanceKm": 839.7,
-    "offsetKm": 2.62
+    "offsetKm": 2.62,
+    "bank": null
   },
   {
     "name": "Horní Oldřichov",
@@ -4917,7 +6404,8 @@
     "lat": 50.777899,
     "lng": 14.163549,
     "routeDistanceKm": 839.7,
-    "offsetKm": 3.04
+    "offsetKm": 3.04,
+    "bank": null
   },
   {
     "name": "Čechy",
@@ -4925,7 +6413,8 @@
     "lat": 50.785791,
     "lng": 14.168151,
     "routeDistanceKm": 839.7,
-    "offsetKm": 2.73
+    "offsetKm": 2.73,
+    "bank": null
   },
   {
     "name": "Nová Ves",
@@ -4933,7 +6422,8 @@
     "lat": 50.787747,
     "lng": 14.152262,
     "routeDistanceKm": 839.7,
-    "offsetKm": 3.87
+    "offsetKm": 3.87,
+    "bank": null
   },
   {
     "name": "Bynov",
@@ -4941,7 +6431,8 @@
     "lat": 50.781837,
     "lng": 14.156014,
     "routeDistanceKm": 839.7,
-    "offsetKm": 3.54
+    "offsetKm": 3.54,
+    "bank": null
   },
   {
     "name": "Dolní Oldřichov",
@@ -4949,7 +6440,8 @@
     "lat": 50.780958,
     "lng": 14.173393,
     "routeDistanceKm": 839.7,
-    "offsetKm": 2.32
+    "offsetKm": 2.32,
+    "bank": null
   },
   {
     "name": "Děčín",
@@ -4957,7 +6449,8 @@
     "lat": 50.78242,
     "lng": 14.214722,
     "routeDistanceKm": 840,
-    "offsetKm": 0.38
+    "offsetKm": 0.38,
+    "bank": null
   },
   {
     "name": "Březiny",
@@ -4965,7 +6458,8 @@
     "lat": 50.763918,
     "lng": 14.245338,
     "routeDistanceKm": 842,
-    "offsetKm": 2.3
+    "offsetKm": 2.3,
+    "bank": null
   },
   {
     "name": "Soutěsky",
@@ -4973,7 +6467,8 @@
     "lat": 50.751026,
     "lng": 14.260381,
     "routeDistanceKm": 842.1,
-    "offsetKm": 3.75
+    "offsetKm": 3.75,
+    "bank": null
   },
   {
     "name": "Bechlejovice",
@@ -4981,7 +6476,8 @@
     "lat": 50.76079,
     "lng": 14.24497,
     "routeDistanceKm": 842.1,
-    "offsetKm": 2.34
+    "offsetKm": 2.34,
+    "bank": null
   },
   {
     "name": "Malá Veleň",
@@ -4989,7 +6485,8 @@
     "lat": 50.741523,
     "lng": 14.270592,
     "routeDistanceKm": 842.3,
-    "offsetKm": 4.89
+    "offsetKm": 4.89,
+    "bank": null
   },
   {
     "name": "Krásný Studenec",
@@ -4997,7 +6494,8 @@
     "lat": 50.762959,
     "lng": 14.15993,
     "routeDistanceKm": 845.3,
-    "offsetKm": 2.33
+    "offsetKm": 2.33,
+    "bank": null
   },
   {
     "name": "Martiněves",
@@ -5005,7 +6503,8 @@
     "lat": 50.769425,
     "lng": 14.122277,
     "routeDistanceKm": 845.6,
-    "offsetKm": 4.95
+    "offsetKm": 4.95,
+    "bank": null
   },
   {
     "name": "Stará Bohyně",
@@ -5013,7 +6512,8 @@
     "lat": 50.739633,
     "lng": 14.142884,
     "routeDistanceKm": 846.9,
-    "offsetKm": 2.85
+    "offsetKm": 2.85,
+    "bank": null
   },
   {
     "name": "Malšovice",
@@ -5021,7 +6521,8 @@
     "lat": 50.735154,
     "lng": 14.169704,
     "routeDistanceKm": 846.9,
-    "offsetKm": 0.95
+    "offsetKm": 0.95,
+    "bank": null
   },
   {
     "name": "Javory",
@@ -5029,7 +6530,8 @@
     "lat": 50.729912,
     "lng": 14.133105,
     "routeDistanceKm": 847,
-    "offsetKm": 3.59
+    "offsetKm": 3.59,
+    "bank": null
   },
   {
     "name": "Nebočady",
@@ -5037,7 +6539,8 @@
     "lat": 50.730937,
     "lng": 14.190466,
     "routeDistanceKm": 847.7,
-    "offsetKm": 0.26
+    "offsetKm": 0.26,
+    "bank": null
   },
   {
     "name": "Choratice",
@@ -5045,7 +6548,8 @@
     "lat": 50.727367,
     "lng": 14.184035,
     "routeDistanceKm": 847.9,
-    "offsetKm": 0.3
+    "offsetKm": 0.3,
+    "bank": null
   },
   {
     "name": "Šachov",
@@ -5053,7 +6557,8 @@
     "lat": 50.710227,
     "lng": 14.140275,
     "routeDistanceKm": 848.5,
-    "offsetKm": 3.86
+    "offsetKm": 3.86,
+    "bank": null
   },
   {
     "name": "Velká Veleň",
@@ -5061,7 +6566,8 @@
     "lat": 50.730649,
     "lng": 14.253505,
     "routeDistanceKm": 848.9,
-    "offsetKm": 4.3
+    "offsetKm": 4.3,
+    "bank": null
   },
   {
     "name": "Lesná",
@@ -5069,7 +6575,8 @@
     "lat": 50.72435,
     "lng": 14.230625,
     "routeDistanceKm": 849,
-    "offsetKm": 2.57
+    "offsetKm": 2.57,
+    "bank": null
   },
   {
     "name": "Prosetín",
@@ -5077,7 +6584,8 @@
     "lat": 50.712642,
     "lng": 14.166482,
     "routeDistanceKm": 849.3,
-    "offsetKm": 2.06
+    "offsetKm": 2.06,
+    "bank": null
   },
   {
     "name": "Dobkovice",
@@ -5085,7 +6593,8 @@
     "lat": 50.714845,
     "lng": 14.193146,
     "routeDistanceKm": 849.5,
-    "offsetKm": 0.21
+    "offsetKm": 0.21,
+    "bank": null
   },
   {
     "name": "Jakuby",
@@ -5093,7 +6602,8 @@
     "lat": 50.714908,
     "lng": 14.197107,
     "routeDistanceKm": 849.6,
-    "offsetKm": 0.05
+    "offsetKm": 0.05,
+    "bank": null
   },
   {
     "name": "Babětín",
@@ -5101,7 +6611,8 @@
     "lat": 50.707907,
     "lng": 14.216433,
     "routeDistanceKm": 850.5,
-    "offsetKm": 1.33
+    "offsetKm": 1.33,
+    "bank": null
   },
   {
     "name": "Těchlovice",
@@ -5109,7 +6620,8 @@
     "lat": 50.696324,
     "lng": 14.204924,
     "routeDistanceKm": 851.7,
-    "offsetKm": 0.19
+    "offsetKm": 0.19,
+    "bank": null
   },
   {
     "name": "Rychnov",
@@ -5117,7 +6629,8 @@
     "lat": 50.687132,
     "lng": 14.261971,
     "routeDistanceKm": 851.9,
-    "offsetKm": 4.3
+    "offsetKm": 4.3,
+    "bank": null
   },
   {
     "name": "Příbram",
@@ -5125,7 +6638,8 @@
     "lat": 50.670029,
     "lng": 14.258508,
     "routeDistanceKm": 852.1,
-    "offsetKm": 4.79
+    "offsetKm": 4.79,
+    "bank": null
   },
   {
     "name": "Přerov",
@@ -5133,7 +6647,8 @@
     "lat": 50.687206,
     "lng": 14.194513,
     "routeDistanceKm": 852.9,
-    "offsetKm": 0.09
+    "offsetKm": 0.09,
+    "bank": null
   },
   {
     "name": "Roztoky",
@@ -5141,7 +6656,8 @@
     "lat": 50.686615,
     "lng": 14.181006,
     "routeDistanceKm": 853.6,
-    "offsetKm": 0.35
+    "offsetKm": 0.35,
+    "bank": null
   },
   {
     "name": "Český Bukov",
@@ -5149,7 +6665,8 @@
     "lat": 50.701033,
     "lng": 14.150109,
     "routeDistanceKm": 854.2,
-    "offsetKm": 2.92
+    "offsetKm": 2.92,
+    "bank": null
   },
   {
     "name": "Malé Březno",
@@ -5157,7 +6674,8 @@
     "lat": 50.672604,
     "lng": 14.172254,
     "routeDistanceKm": 855.3,
-    "offsetKm": 0.27
+    "offsetKm": 0.27,
+    "bank": null
   },
   {
     "name": "Zubrnice",
@@ -5165,7 +6683,8 @@
     "lat": 50.649454,
     "lng": 14.220381,
     "routeDistanceKm": 855.8,
-    "offsetKm": 4.49
+    "offsetKm": 4.49,
+    "bank": null
   },
   {
     "name": "Leština",
@@ -5173,7 +6692,8 @@
     "lat": 50.65836,
     "lng": 14.200149,
     "routeDistanceKm": 855.8,
-    "offsetKm": 2.76
+    "offsetKm": 2.76,
+    "bank": null
   },
   {
     "name": "Povrly",
@@ -5181,7 +6701,8 @@
     "lat": 50.672754,
     "lng": 14.160364,
     "routeDistanceKm": 855.9,
-    "offsetKm": 0.45
+    "offsetKm": 0.45,
+    "bank": null
   },
   {
     "name": "Nová Ves u Pláně",
@@ -5189,7 +6710,8 @@
     "lat": 50.635599,
     "lng": 14.187152,
     "routeDistanceKm": 856.3,
-    "offsetKm": 3.99
+    "offsetKm": 3.99,
+    "bank": null
   },
   {
     "name": "Homole u Panny",
@@ -5197,7 +6719,8 @@
     "lat": 50.629513,
     "lng": 14.186316,
     "routeDistanceKm": 856.4,
-    "offsetKm": 4.57
+    "offsetKm": 4.57,
+    "bank": null
   },
   {
     "name": "Lhota pod Pannou",
@@ -5205,7 +6728,8 @@
     "lat": 50.628537,
     "lng": 14.171758,
     "routeDistanceKm": 856.5,
-    "offsetKm": 4.34
+    "offsetKm": 4.34,
+    "bank": null
   },
   {
     "name": "Neštědice",
@@ -5213,7 +6737,8 @@
     "lat": 50.669668,
     "lng": 14.146427,
     "routeDistanceKm": 857.3,
-    "offsetKm": 0.3
+    "offsetKm": 0.3,
+    "bank": null
   },
   {
     "name": "Velké Březno",
@@ -5221,7 +6746,8 @@
     "lat": 50.662703,
     "lng": 14.141739,
     "routeDistanceKm": 858.1,
-    "offsetKm": 0.38
+    "offsetKm": 0.38,
+    "bank": null
   },
   {
     "name": "Proboštov",
@@ -5229,7 +6755,8 @@
     "lat": 50.625223,
     "lng": 14.150513,
     "routeDistanceKm": 858.1,
-    "offsetKm": 4.52
+    "offsetKm": 4.52,
+    "bank": null
   },
   {
     "name": "Mašovice pod Vysokou",
@@ -5237,7 +6764,8 @@
     "lat": 50.684739,
     "lng": 14.139998,
     "routeDistanceKm": 859.3,
-    "offsetKm": 1.49
+    "offsetKm": 1.49,
+    "bank": null
   },
   {
     "name": "Valtířov",
@@ -5245,7 +6773,8 @@
     "lat": 50.673786,
     "lng": 14.125757,
     "routeDistanceKm": 859.6,
-    "offsetKm": 0
+    "offsetKm": 0,
+    "bank": null
   },
   {
     "name": "Lužec",
@@ -5253,7 +6782,8 @@
     "lat": 50.693998,
     "lng": 14.126171,
     "routeDistanceKm": 859.8,
-    "offsetKm": 2.15
+    "offsetKm": 2.15,
+    "bank": null
   },
   {
     "name": "Lysá",
@@ -5261,7 +6791,8 @@
     "lat": 50.703002,
     "lng": 14.124616,
     "routeDistanceKm": 859.8,
-    "offsetKm": 3.14
+    "offsetKm": 3.14,
+    "bank": null
   },
   {
     "name": "Mírkov",
@@ -5269,7 +6800,8 @@
     "lat": 50.695314,
     "lng": 14.114201,
     "routeDistanceKm": 859.9,
-    "offsetKm": 2.36
+    "offsetKm": 2.36,
+    "bank": null
   },
   {
     "name": "Mojžíř",
@@ -5277,7 +6809,8 @@
     "lat": 50.681611,
     "lng": 14.114338,
     "routeDistanceKm": 860.1,
-    "offsetKm": 0.91
+    "offsetKm": 0.91,
+    "bank": null
   },
   {
     "name": "Ryjice",
@@ -5285,7 +6818,8 @@
     "lat": 50.68795,
     "lng": 14.091998,
     "routeDistanceKm": 860.1,
-    "offsetKm": 2.48
+    "offsetKm": 2.48,
+    "bank": null
   },
   {
     "name": "Olešnice",
@@ -5293,7 +6827,8 @@
     "lat": 50.661898,
     "lng": 14.118163,
     "routeDistanceKm": 861,
-    "offsetKm": 0.76
+    "offsetKm": 0.76,
+    "bank": null
   },
   {
     "name": "Sovolusky",
@@ -5301,7 +6836,8 @@
     "lat": 50.695317,
     "lng": 14.077016,
     "routeDistanceKm": 861.7,
-    "offsetKm": 3.8
+    "offsetKm": 3.8,
+    "bank": null
   },
   {
     "name": "Březí",
@@ -5309,7 +6845,8 @@
     "lat": 50.644682,
     "lng": 14.115678,
     "routeDistanceKm": 862,
-    "offsetKm": 2.43
+    "offsetKm": 2.43,
+    "bank": null
   },
   {
     "name": "Radešín",
@@ -5317,7 +6854,8 @@
     "lat": 50.702425,
     "lng": 14.068385,
     "routeDistanceKm": 862.8,
-    "offsetKm": 4.76
+    "offsetKm": 4.76,
+    "bank": null
   },
   {
     "name": "Žežice",
@@ -5325,7 +6863,8 @@
     "lat": 50.686317,
     "lng": 14.071009,
     "routeDistanceKm": 863,
-    "offsetKm": 3
+    "offsetKm": 3,
+    "bank": null
   },
   {
     "name": "Kojetice",
@@ -5333,7 +6872,8 @@
     "lat": 50.644799,
     "lng": 14.088777,
     "routeDistanceKm": 863.6,
-    "offsetKm": 1.71
+    "offsetKm": 1.71,
+    "bank": null
   },
   {
     "name": "Chuderov",
@@ -5341,7 +6881,8 @@
     "lat": 50.688992,
     "lng": 14.047035,
     "routeDistanceKm": 865.6,
-    "offsetKm": 3.29
+    "offsetKm": 3.29,
+    "bank": null
   },
   {
     "name": "Ústí nad Labem",
@@ -5349,7 +6890,8 @@
     "lat": 50.660333,
     "lng": 14.038136,
     "routeDistanceKm": 866.1,
-    "offsetKm": 0.66
+    "offsetKm": 0.66,
+    "bank": null
   },
   {
     "name": "Trmice",
@@ -5357,7 +6899,8 @@
     "lat": 50.642849,
     "lng": 13.994262,
     "routeDistanceKm": 867.3,
-    "offsetKm": 3.71
+    "offsetKm": 3.71,
+    "bank": null
   },
   {
     "name": "Újezd",
@@ -5365,7 +6908,8 @@
     "lat": 50.636558,
     "lng": 14.006148,
     "routeDistanceKm": 867.6,
-    "offsetKm": 3.03
+    "offsetKm": 3.03,
+    "bank": null
   },
   {
     "name": "Koštov",
@@ -5373,7 +6917,8 @@
     "lat": 50.631766,
     "lng": 13.992924,
     "routeDistanceKm": 867.9,
-    "offsetKm": 4.06
+    "offsetKm": 4.06,
+    "bank": null
   },
   {
     "name": "Vaňov",
@@ -5381,7 +6926,8 @@
     "lat": 50.633581,
     "lng": 14.048004,
     "routeDistanceKm": 868.7,
-    "offsetKm": 0.24
+    "offsetKm": 0.24,
+    "bank": null
   },
   {
     "name": "Milbohov",
@@ -5389,7 +6935,8 @@
     "lat": 50.623719,
     "lng": 14.018138,
     "routeDistanceKm": 869.1,
-    "offsetKm": 2.56
+    "offsetKm": 2.56,
+    "bank": null
   },
   {
     "name": "Podlešín",
@@ -5397,7 +6944,8 @@
     "lat": 50.622517,
     "lng": 14.035268,
     "routeDistanceKm": 869.2,
-    "offsetKm": 1.52
+    "offsetKm": 1.52,
+    "bank": null
   },
   {
     "name": "Brná",
@@ -5405,7 +6953,8 @@
     "lat": 50.622479,
     "lng": 14.077102,
     "routeDistanceKm": 871.1,
-    "offsetKm": 0.19
+    "offsetKm": 0.19,
+    "bank": null
   },
   {
     "name": "Malečov",
@@ -5413,7 +6962,8 @@
     "lat": 50.631924,
     "lng": 14.119446,
     "routeDistanceKm": 871.5,
-    "offsetKm": 3.34
+    "offsetKm": 3.34,
+    "bank": null
   },
   {
     "name": "Tašov",
@@ -5421,7 +6971,8 @@
     "lat": 50.61452,
     "lng": 14.135794,
     "routeDistanceKm": 871.9,
-    "offsetKm": 4.1
+    "offsetKm": 4.1,
+    "bank": null
   },
   {
     "name": "Hlinná",
@@ -5429,7 +6980,8 @@
     "lat": 50.57236,
     "lng": 14.106678,
     "routeDistanceKm": 874.3,
-    "offsetKm": 3.74
+    "offsetKm": 3.74,
+    "bank": null
   },
   {
     "name": "Chvalov",
@@ -5437,7 +6989,8 @@
     "lat": 50.602422,
     "lng": 14.057586,
     "routeDistanceKm": 874.5,
-    "offsetKm": 1.01
+    "offsetKm": 1.01,
+    "bank": null
   },
   {
     "name": "Sebuzín",
@@ -5445,7 +6998,8 @@
     "lat": 50.593297,
     "lng": 14.065507,
     "routeDistanceKm": 874.6,
-    "offsetKm": 0.13
+    "offsetKm": 0.13,
+    "bank": null
   },
   {
     "name": "Dolní Zálezly",
@@ -5453,7 +7007,8 @@
     "lat": 50.597318,
     "lng": 14.043078,
     "routeDistanceKm": 876.1,
-    "offsetKm": 0.52
+    "offsetKm": 0.52,
+    "bank": null
   },
   {
     "name": "Církvice",
@@ -5461,7 +7016,8 @@
     "lat": 50.589257,
     "lng": 14.036937,
     "routeDistanceKm": 876.8,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": null
   },
   {
     "name": "Stebno",
@@ -5469,7 +7025,8 @@
     "lat": 50.615098,
     "lng": 14.017208,
     "routeDistanceKm": 877.1,
-    "offsetKm": 3.03
+    "offsetKm": 3.03,
+    "bank": null
   },
   {
     "name": "Dubice",
@@ -5477,7 +7034,8 @@
     "lat": 50.593613,
     "lng": 14.015132,
     "routeDistanceKm": 877.3,
-    "offsetKm": 1.38
+    "offsetKm": 1.38,
+    "bank": null
   },
   {
     "name": "Habrovany",
@@ -5485,7 +7043,8 @@
     "lat": 50.598571,
     "lng": 13.981683,
     "routeDistanceKm": 877.3,
-    "offsetKm": 3.79
+    "offsetKm": 3.79,
+    "bank": null
   },
   {
     "name": "Radejčín",
@@ -5493,7 +7052,8 @@
     "lat": 50.591925,
     "lng": 13.996522,
     "routeDistanceKm": 877.4,
-    "offsetKm": 2.6
+    "offsetKm": 2.6,
+    "bank": null
   },
   {
     "name": "Žim",
@@ -5501,7 +7061,8 @@
     "lat": 50.584961,
     "lng": 13.965251,
     "routeDistanceKm": 877.5,
-    "offsetKm": 4.77
+    "offsetKm": 4.77,
+    "bank": null
   },
   {
     "name": "Řepnice",
@@ -5509,7 +7070,8 @@
     "lat": 50.566945,
     "lng": 14.057813,
     "routeDistanceKm": 879.6,
-    "offsetKm": 1.09
+    "offsetKm": 1.09,
+    "bank": null
   },
   {
     "name": "Prackovice nad Labem",
@@ -5517,7 +7079,8 @@
     "lat": 50.569417,
     "lng": 14.031963,
     "routeDistanceKm": 880,
-    "offsetKm": 0.58
+    "offsetKm": 0.58,
+    "bank": null
   },
   {
     "name": "Libochovany",
@@ -5525,7 +7088,8 @@
     "lat": 50.566564,
     "lng": 14.039034,
     "routeDistanceKm": 880.1,
-    "offsetKm": 0.03
+    "offsetKm": 0.03,
+    "bank": null
   },
   {
     "name": "Bílý Újezd",
@@ -5533,7 +7097,8 @@
     "lat": 50.547083,
     "lng": 13.976323,
     "routeDistanceKm": 881.3,
-    "offsetKm": 4.5
+    "offsetKm": 4.5,
+    "bank": null
   },
   {
     "name": "Dobkovičky",
@@ -5541,7 +7106,8 @@
     "lat": 50.557127,
     "lng": 14.006921,
     "routeDistanceKm": 881.3,
-    "offsetKm": 2.23
+    "offsetKm": 2.23,
+    "bank": null
   },
   {
     "name": "Litochovice nad Labem",
@@ -5549,7 +7115,8 @@
     "lat": 50.556843,
     "lng": 14.032559,
     "routeDistanceKm": 881.3,
-    "offsetKm": 0.42
+    "offsetKm": 0.42,
+    "bank": null
   },
   {
     "name": "Chotiměř",
@@ -5557,7 +7124,8 @@
     "lat": 50.548221,
     "lng": 14.000884,
     "routeDistanceKm": 881.3,
-    "offsetKm": 2.8
+    "offsetKm": 2.8,
+    "bank": null
   },
   {
     "name": "Velemín",
@@ -5565,7 +7133,8 @@
     "lat": 50.538041,
     "lng": 13.976991,
     "routeDistanceKm": 882.1,
-    "offsetKm": 4.74
+    "offsetKm": 4.74,
+    "bank": null
   },
   {
     "name": "Oparno",
@@ -5573,7 +7142,8 @@
     "lat": 50.539219,
     "lng": 14.008823,
     "routeDistanceKm": 882.1,
-    "offsetKm": 2.58
+    "offsetKm": 2.58,
+    "bank": null
   },
   {
     "name": "Bílinka",
@@ -5581,7 +7151,8 @@
     "lat": 50.521234,
     "lng": 14.002435,
     "routeDistanceKm": 882.4,
-    "offsetKm": 4.12
+    "offsetKm": 4.12,
+    "bank": null
   },
   {
     "name": "Kamýk",
@@ -5589,7 +7160,8 @@
     "lat": 50.558063,
     "lng": 14.077691,
     "routeDistanceKm": 883.5,
-    "offsetKm": 2.03
+    "offsetKm": 2.03,
+    "bank": null
   },
   {
     "name": "Velké Žernoseky",
@@ -5597,7 +7169,8 @@
     "lat": 50.539481,
     "lng": 14.064632,
     "routeDistanceKm": 884.2,
-    "offsetKm": 0.14
+    "offsetKm": 0.14,
+    "bank": null
   },
   {
     "name": "Malíč",
@@ -5605,7 +7178,8 @@
     "lat": 50.543531,
     "lng": 14.082004,
     "routeDistanceKm": 884.2,
-    "offsetKm": 1.45
+    "offsetKm": 1.45,
+    "bank": null
   },
   {
     "name": "Malé Žernoseky",
@@ -5613,7 +7187,8 @@
     "lat": 50.533973,
     "lng": 14.054729,
     "routeDistanceKm": 884.4,
-    "offsetKm": 0.75
+    "offsetKm": 0.75,
+    "bank": null
   },
   {
     "name": "Vchynice",
@@ -5621,7 +7196,8 @@
     "lat": 50.510503,
     "lng": 14.020086,
     "routeDistanceKm": 884.8,
-    "offsetKm": 4.17
+    "offsetKm": 4.17,
+    "bank": null
   },
   {
     "name": "Lhotka nad Labem",
@@ -5629,7 +7205,8 @@
     "lat": 50.52558,
     "lng": 14.047318,
     "routeDistanceKm": 884.8,
-    "offsetKm": 1.63
+    "offsetKm": 1.63,
+    "bank": null
   },
   {
     "name": "Michalovice",
@@ -5637,7 +7214,8 @@
     "lat": 50.536578,
     "lng": 14.081931,
     "routeDistanceKm": 885.6,
-    "offsetKm": 0.99
+    "offsetKm": 0.99,
+    "bank": null
   },
   {
     "name": "Sulejovice",
@@ -5645,7 +7223,8 @@
     "lat": 50.498787,
     "lng": 14.037408,
     "routeDistanceKm": 886.7,
-    "offsetKm": 3.91
+    "offsetKm": 3.91,
+    "bank": null
   },
   {
     "name": "Siřejovice",
@@ -5653,7 +7232,8 @@
     "lat": 50.477835,
     "lng": 14.070159,
     "routeDistanceKm": 886.7,
-    "offsetKm": 4.91
+    "offsetKm": 4.91,
+    "bank": null
   },
   {
     "name": "Píšťany",
@@ -5661,7 +7241,8 @@
     "lat": 50.519223,
     "lng": 14.069095,
     "routeDistanceKm": 886.7,
-    "offsetKm": 0.79
+    "offsetKm": 0.79,
+    "bank": null
   },
   {
     "name": "Lovosice",
@@ -5669,7 +7250,8 @@
     "lat": 50.515003,
     "lng": 14.051756,
     "routeDistanceKm": 886.7,
-    "offsetKm": 2.1
+    "offsetKm": 2.1,
+    "bank": null
   },
   {
     "name": "Lukavec",
@@ -5677,7 +7259,8 @@
     "lat": 50.50164,
     "lng": 14.085692,
     "routeDistanceKm": 886.9,
-    "offsetKm": 2.25
+    "offsetKm": 2.25,
+    "bank": null
   },
   {
     "name": "Prosmyky",
@@ -5685,7 +7268,8 @@
     "lat": 50.515618,
     "lng": 14.090213,
     "routeDistanceKm": 887.5,
-    "offsetKm": 0.7
+    "offsetKm": 0.7,
+    "bank": null
   },
   {
     "name": "Žalhostice",
@@ -5693,7 +7277,8 @@
     "lat": 50.523094,
     "lng": 14.091363,
     "routeDistanceKm": 887.6,
-    "offsetKm": 0.11
+    "offsetKm": 0.11,
+    "bank": null
   },
   {
     "name": "Keblice",
@@ -5701,7 +7286,8 @@
     "lat": 50.480519,
     "lng": 14.101765,
     "routeDistanceKm": 887.6,
-    "offsetKm": 4.67
+    "offsetKm": 4.67,
+    "bank": null
   },
   {
     "name": "Miřejovice",
@@ -5709,7 +7295,8 @@
     "lat": 50.553241,
     "lng": 14.108926,
     "routeDistanceKm": 889.6,
-    "offsetKm": 2.48
+    "offsetKm": 2.48,
+    "bank": null
   },
   {
     "name": "Mlékojedy",
@@ -5717,7 +7304,8 @@
     "lat": 50.527123,
     "lng": 14.119324,
     "routeDistanceKm": 889.9,
-    "offsetKm": 0.47
+    "offsetKm": 0.47,
+    "bank": null
   },
   {
     "name": "Skalice",
@@ -5725,7 +7313,8 @@
     "lat": 50.565016,
     "lng": 14.137282,
     "routeDistanceKm": 891.3,
-    "offsetKm": 3.57
+    "offsetKm": 3.57,
+    "bank": null
   },
   {
     "name": "Žitenice",
@@ -5733,7 +7322,8 @@
     "lat": 50.555383,
     "lng": 14.157125,
     "routeDistanceKm": 891.3,
-    "offsetKm": 2.85
+    "offsetKm": 2.85,
+    "bank": null
   },
   {
     "name": "Litoměřice",
@@ -5741,7 +7331,8 @@
     "lat": 50.53408,
     "lng": 14.131799,
     "routeDistanceKm": 891.9,
-    "offsetKm": 0.26
+    "offsetKm": 0.26,
+    "bank": null
   },
   {
     "name": "Nové Kopisty",
@@ -5749,7 +7340,8 @@
     "lat": 50.503924,
     "lng": 14.121049,
     "routeDistanceKm": 894.1,
-    "offsetKm": 1.89
+    "offsetKm": 1.89,
+    "bank": null
   },
   {
     "name": "Terezín",
@@ -5757,7 +7349,8 @@
     "lat": 50.510716,
     "lng": 14.149717,
     "routeDistanceKm": 895,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": null
   },
   {
     "name": "Bohušovice nad Ohří",
@@ -5765,7 +7358,8 @@
     "lat": 50.49316,
     "lng": 14.150484,
     "routeDistanceKm": 895.2,
-    "offsetKm": 1.76
+    "offsetKm": 1.76,
+    "bank": null
   },
   {
     "name": "Dolánky nad Ohří",
@@ -5773,7 +7367,8 @@
     "lat": 50.472961,
     "lng": 14.163299,
     "routeDistanceKm": 895.2,
-    "offsetKm": 4.09
+    "offsetKm": 4.09,
+    "bank": null
   },
   {
     "name": "Brňany",
@@ -5781,7 +7376,8 @@
     "lat": 50.480969,
     "lng": 14.141856,
     "routeDistanceKm": 895.2,
-    "offsetKm": 3.19
+    "offsetKm": 3.19,
+    "bank": null
   },
   {
     "name": "Hrdly",
@@ -5789,7 +7385,8 @@
     "lat": 50.483628,
     "lng": 14.170866,
     "routeDistanceKm": 895.4,
-    "offsetKm": 3.12
+    "offsetKm": 3.12,
+    "bank": null
   },
   {
     "name": "České Kopisty",
@@ -5797,7 +7394,8 @@
     "lat": 50.525412,
     "lng": 14.167748,
     "routeDistanceKm": 897.8,
-    "offsetKm": 0.13
+    "offsetKm": 0.13,
+    "bank": null
   },
   {
     "name": "Pohořany",
@@ -5805,7 +7403,8 @@
     "lat": 50.561679,
     "lng": 14.169524,
     "routeDistanceKm": 898.2,
-    "offsetKm": 3.83
+    "offsetKm": 3.83,
+    "bank": null
   },
   {
     "name": "Podviní",
@@ -5813,7 +7412,8 @@
     "lat": 50.54811,
     "lng": 14.176146,
     "routeDistanceKm": 898.2,
-    "offsetKm": 2.37
+    "offsetKm": 2.37,
+    "bank": null
   },
   {
     "name": "Trnovany",
@@ -5821,7 +7421,8 @@
     "lat": 50.543213,
     "lng": 14.178939,
     "routeDistanceKm": 898.2,
-    "offsetKm": 1.91
+    "offsetKm": 1.91,
+    "bank": null
   },
   {
     "name": "Ploskovice",
@@ -5829,7 +7430,8 @@
     "lat": 50.560236,
     "lng": 14.198477,
     "routeDistanceKm": 899.4,
-    "offsetKm": 4.17
+    "offsetKm": 4.17,
+    "bank": null
   },
   {
     "name": "Býčkovice",
@@ -5837,7 +7439,8 @@
     "lat": 50.559775,
     "lng": 14.213514,
     "routeDistanceKm": 899.5,
-    "offsetKm": 4.46
+    "offsetKm": 4.46,
+    "bank": null
   },
   {
     "name": "Třeboutice",
@@ -5845,7 +7448,8 @@
     "lat": 50.526536,
     "lng": 14.197665,
     "routeDistanceKm": 900.1,
-    "offsetKm": 0.63
+    "offsetKm": 0.63,
+    "bank": null
   },
   {
     "name": "Počaply",
@@ -5853,7 +7457,8 @@
     "lat": 50.520669,
     "lng": 14.197535,
     "routeDistanceKm": 900.3,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": null
   },
   {
     "name": "Velký Újezd",
@@ -5861,7 +7466,8 @@
     "lat": 50.545301,
     "lng": 14.215507,
     "routeDistanceKm": 900.6,
-    "offsetKm": 2.94
+    "offsetKm": 2.94,
+    "bank": null
   },
   {
     "name": "Zahořany",
@@ -5869,7 +7475,8 @@
     "lat": 50.530546,
     "lng": 14.217793,
     "routeDistanceKm": 901,
-    "offsetKm": 1.55
+    "offsetKm": 1.55,
+    "bank": null
   },
   {
     "name": "Křešice",
@@ -5877,7 +7484,8 @@
     "lat": 50.522588,
     "lng": 14.2145,
     "routeDistanceKm": 901.1,
-    "offsetKm": 0.7
+    "offsetKm": 0.7,
+    "bank": null
   },
   {
     "name": "Encovany",
@@ -5885,7 +7493,8 @@
     "lat": 50.528732,
     "lng": 14.249022,
     "routeDistanceKm": 901.7,
-    "offsetKm": 3.01
+    "offsetKm": 3.01,
+    "bank": null
   },
   {
     "name": "Dolní Encovany",
@@ -5893,7 +7502,8 @@
     "lat": 50.52112,
     "lng": 14.245758,
     "routeDistanceKm": 901.9,
-    "offsetKm": 2.41
+    "offsetKm": 2.41,
+    "bank": null
   },
   {
     "name": "Travčice",
@@ -5901,7 +7511,8 @@
     "lat": 50.503285,
     "lng": 14.189767,
     "routeDistanceKm": 902.1,
-    "offsetKm": 2
+    "offsetKm": 2,
+    "bank": null
   },
   {
     "name": "Nučničky",
@@ -5909,7 +7520,8 @@
     "lat": 50.507141,
     "lng": 14.219211,
     "routeDistanceKm": 902.6,
-    "offsetKm": 0.05
+    "offsetKm": 0.05,
+    "bank": null
   },
   {
     "name": "Nučnice",
@@ -5917,7 +7529,8 @@
     "lat": 50.510945,
     "lng": 14.226417,
     "routeDistanceKm": 902.7,
-    "offsetKm": 0.7
+    "offsetKm": 0.7,
+    "bank": null
   },
   {
     "name": "Trnová",
@@ -5925,7 +7538,8 @@
     "lat": 50.5282,
     "lng": 14.279282,
     "routeDistanceKm": 902.7,
-    "offsetKm": 4.87
+    "offsetKm": 4.87,
+    "bank": null
   },
   {
     "name": "Hrušovany",
@@ -5933,7 +7547,8 @@
     "lat": 50.519726,
     "lng": 14.279788,
     "routeDistanceKm": 902.8,
-    "offsetKm": 4.51
+    "offsetKm": 4.51,
+    "bank": null
   },
   {
     "name": "Okna",
@@ -5941,7 +7556,8 @@
     "lat": 50.504826,
     "lng": 14.23972,
     "routeDistanceKm": 903.2,
-    "offsetKm": 1.3
+    "offsetKm": 1.3,
+    "bank": null
   },
   {
     "name": "Polepy",
@@ -5949,7 +7565,8 @@
     "lat": 50.505627,
     "lng": 14.264468,
     "routeDistanceKm": 903.5,
-    "offsetKm": 3.03
+    "offsetKm": 3.03,
+    "bank": null
   },
   {
     "name": "Vrutice",
@@ -5957,7 +7574,8 @@
     "lat": 50.502112,
     "lng": 14.289747,
     "routeDistanceKm": 904.6,
-    "offsetKm": 4.59
+    "offsetKm": 4.59,
+    "bank": null
   },
   {
     "name": "Lounky",
@@ -5965,7 +7583,8 @@
     "lat": 50.480594,
     "lng": 14.23959,
     "routeDistanceKm": 905.8,
-    "offsetKm": 0.83
+    "offsetKm": 0.83,
+    "bank": null
   },
   {
     "name": "Libotenice",
@@ -5973,7 +7592,8 @@
     "lat": 50.476918,
     "lng": 14.229243,
     "routeDistanceKm": 906,
-    "offsetKm": 0.09
+    "offsetKm": 0.09,
+    "bank": null
   },
   {
     "name": "Chodouny",
@@ -5981,7 +7601,8 @@
     "lat": 50.47317,
     "lng": 14.25048,
     "routeDistanceKm": 906,
-    "offsetKm": 1.62
+    "offsetKm": 1.62,
+    "bank": null
   },
   {
     "name": "Oleško",
@@ -5989,7 +7610,8 @@
     "lat": 50.480395,
     "lng": 14.196414,
     "routeDistanceKm": 906.4,
-    "offsetKm": 2.03
+    "offsetKm": 2.03,
+    "bank": null
   },
   {
     "name": "Doksany",
@@ -5997,7 +7619,8 @@
     "lat": 50.454887,
     "lng": 14.16113,
     "routeDistanceKm": 907.4,
-    "offsetKm": 4.85
+    "offsetKm": 4.85,
+    "bank": null
   },
   {
     "name": "Rohatce",
@@ -6005,7 +7628,8 @@
     "lat": 50.45992,
     "lng": 14.20296,
     "routeDistanceKm": 908,
-    "offsetKm": 1.84
+    "offsetKm": 1.84,
+    "bank": null
   },
   {
     "name": "Nové Dvory",
@@ -6013,7 +7637,8 @@
     "lat": 50.447598,
     "lng": 14.179406,
     "routeDistanceKm": 908,
-    "offsetKm": 3.86
+    "offsetKm": 3.86,
+    "bank": null
   },
   {
     "name": "Hrobce",
@@ -6021,7 +7646,8 @@
     "lat": 50.462468,
     "lng": 14.230796,
     "routeDistanceKm": 908.1,
-    "offsetKm": 0.02
+    "offsetKm": 0.02,
+    "bank": null
   },
   {
     "name": "Černěves",
@@ -6029,7 +7655,8 @@
     "lat": 50.454391,
     "lng": 14.243106,
     "routeDistanceKm": 909.3,
-    "offsetKm": 0.58
+    "offsetKm": 0.58,
+    "bank": null
   },
   {
     "name": "Židovice",
@@ -6037,7 +7664,8 @@
     "lat": 50.446284,
     "lng": 14.233055,
     "routeDistanceKm": 910.2,
-    "offsetKm": 0.13
+    "offsetKm": 0.13,
+    "bank": null
   },
   {
     "name": "Chvalín",
@@ -6045,7 +7673,8 @@
     "lat": 50.434823,
     "lng": 14.196965,
     "routeDistanceKm": 910.8,
-    "offsetKm": 2.93
+    "offsetKm": 2.93,
+    "bank": null
   },
   {
     "name": "Dušníky",
@@ -6053,7 +7682,8 @@
     "lat": 50.424533,
     "lng": 14.190163,
     "routeDistanceKm": 911.3,
-    "offsetKm": 3.74
+    "offsetKm": 3.74,
+    "bank": null
   },
   {
     "name": "Podlusky",
@@ -6061,7 +7691,8 @@
     "lat": 50.420975,
     "lng": 14.226487,
     "routeDistanceKm": 912,
-    "offsetKm": 1.72
+    "offsetKm": 1.72,
+    "bank": null
   },
   {
     "name": "Přestavlky",
@@ -6069,7 +7700,8 @@
     "lat": 50.403511,
     "lng": 14.193855,
     "routeDistanceKm": 912,
-    "offsetKm": 4.74
+    "offsetKm": 4.74,
+    "bank": null
   },
   {
     "name": "Vědomice",
@@ -6077,7 +7709,8 @@
     "lat": 50.433886,
     "lng": 14.253898,
     "routeDistanceKm": 912.5,
-    "offsetKm": 0.64
+    "offsetKm": 0.64,
+    "bank": null
   },
   {
     "name": "Kleneč",
@@ -6085,7 +7718,8 @@
     "lat": 50.392536,
     "lng": 14.248329,
     "routeDistanceKm": 912.9,
-    "offsetKm": 3.94
+    "offsetKm": 3.94,
+    "bank": null
   },
   {
     "name": "Zavadilka",
@@ -6093,7 +7727,8 @@
     "lat": 50.441603,
     "lng": 14.261744,
     "routeDistanceKm": 913.1,
-    "offsetKm": 1.6
+    "offsetKm": 1.6,
+    "bank": null
   },
   {
     "name": "Roudnice nad Labem",
@@ -6101,7 +7736,8 @@
     "lat": 50.424446,
     "lng": 14.260382,
     "routeDistanceKm": 913.3,
-    "offsetKm": 0.3
+    "offsetKm": 0.3,
+    "bank": null
   },
   {
     "name": "Vesce",
@@ -6109,7 +7745,8 @@
     "lat": 50.405651,
     "lng": 14.288756,
     "routeDistanceKm": 914.4,
-    "offsetKm": 2.62
+    "offsetKm": 2.62,
+    "bank": null
   },
   {
     "name": "Krabčice",
@@ -6117,7 +7754,8 @@
     "lat": 50.405371,
     "lng": 14.301315,
     "routeDistanceKm": 914.7,
-    "offsetKm": 3.03
+    "offsetKm": 3.03,
+    "bank": null
   },
   {
     "name": "Dobříň",
@@ -6125,7 +7763,8 @@
     "lat": 50.437638,
     "lng": 14.29369,
     "routeDistanceKm": 916.2,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": null
   },
   {
     "name": "Kyškovice",
@@ -6133,7 +7772,8 @@
     "lat": 50.447971,
     "lng": 14.286045,
     "routeDistanceKm": 917.5,
-    "offsetKm": 0.35
+    "offsetKm": 0.35,
+    "bank": null
   },
   {
     "name": "Vetlá",
@@ -6141,7 +7781,8 @@
     "lat": 50.471671,
     "lng": 14.289383,
     "routeDistanceKm": 918.6,
-    "offsetKm": 1.85
+    "offsetKm": 1.85,
+    "bank": null
   },
   {
     "name": "Vrbice",
@@ -6149,7 +7790,8 @@
     "lat": 50.483197,
     "lng": 14.286495,
     "routeDistanceKm": 918.8,
-    "offsetKm": 3.13
+    "offsetKm": 3.13,
+    "bank": null
   },
   {
     "name": "Brzánky",
@@ -6157,7 +7799,8 @@
     "lat": 50.461837,
     "lng": 14.301186,
     "routeDistanceKm": 918.9,
-    "offsetKm": 0.55
+    "offsetKm": 0.55,
+    "bank": null
   },
   {
     "name": "Svařenice",
@@ -6165,7 +7808,8 @@
     "lat": 50.500096,
     "lng": 14.29995,
     "routeDistanceKm": 920.4,
-    "offsetKm": 4.52
+    "offsetKm": 4.52,
+    "bank": null
   },
   {
     "name": "Kochovice",
@@ -6173,7 +7817,8 @@
     "lat": 50.48556,
     "lng": 14.328247,
     "routeDistanceKm": 920.4,
-    "offsetKm": 2.69
+    "offsetKm": 2.69,
+    "bank": null
   },
   {
     "name": "Záluží",
@@ -6181,7 +7826,8 @@
     "lat": 50.460068,
     "lng": 14.32246,
     "routeDistanceKm": 920.7,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": null
   },
   {
     "name": "Předonín",
@@ -6189,7 +7835,8 @@
     "lat": 50.437751,
     "lng": 14.331181,
     "routeDistanceKm": 921.7,
-    "offsetKm": 1.7
+    "offsetKm": 1.7,
+    "bank": null
   },
   {
     "name": "Račice",
@@ -6197,7 +7844,8 @@
     "lat": 50.461295,
     "lng": 14.351071,
     "routeDistanceKm": 923.5,
-    "offsetKm": 0
+    "offsetKm": 0,
+    "bank": null
   },
   {
     "name": "Hoštka",
@@ -6205,7 +7853,8 @@
     "lat": 50.48859,
     "lng": 14.335,
     "routeDistanceKm": 924.2,
-    "offsetKm": 2.84
+    "offsetKm": 2.84,
+    "bank": null
   },
   {
     "name": "Snědovice",
@@ -6213,7 +7862,8 @@
     "lat": 50.50353,
     "lng": 14.387747,
     "routeDistanceKm": 924.2,
-    "offsetKm": 4.61
+    "offsetKm": 4.61,
+    "bank": null
   },
   {
     "name": "Velešice",
@@ -6221,7 +7871,8 @@
     "lat": 50.488956,
     "lng": 14.360173,
     "routeDistanceKm": 924.2,
-    "offsetKm": 2.45
+    "offsetKm": 2.45,
+    "bank": null
   },
   {
     "name": "Radouň",
@@ -6229,7 +7880,8 @@
     "lat": 50.479804,
     "lng": 14.396479,
     "routeDistanceKm": 924.7,
-    "offsetKm": 3.11
+    "offsetKm": 3.11,
+    "bank": null
   },
   {
     "name": "Chcebuz",
@@ -6237,7 +7889,8 @@
     "lat": 50.483828,
     "lng": 14.423806,
     "routeDistanceKm": 925,
-    "offsetKm": 5
+    "offsetKm": 5,
+    "bank": null
   },
   {
     "name": "Štětí",
@@ -6245,7 +7898,8 @@
     "lat": 50.452902,
     "lng": 14.374719,
     "routeDistanceKm": 926.1,
-    "offsetKm": 0.55
+    "offsetKm": 0.55,
+    "bank": null
   },
   {
     "name": "Stračí",
@@ -6253,7 +7907,8 @@
     "lat": 50.449647,
     "lng": 14.401117,
     "routeDistanceKm": 927.1,
-    "offsetKm": 2.25
+    "offsetKm": 2.25,
+    "bank": null
   },
   {
     "name": "Bechlín",
@@ -6261,7 +7916,8 @@
     "lat": 50.416234,
     "lng": 14.340692,
     "routeDistanceKm": 928,
-    "offsetKm": 3.07
+    "offsetKm": 3.07,
+    "bank": null
   },
   {
     "name": "Počeplice",
@@ -6269,7 +7925,8 @@
     "lat": 50.430133,
     "lng": 14.394091,
     "routeDistanceKm": 929.8,
-    "offsetKm": 0.51
+    "offsetKm": 0.51,
+    "bank": null
   },
   {
     "name": "Horní Počaply",
@@ -6277,7 +7934,8 @@
     "lat": 50.424244,
     "lng": 14.389884,
     "routeDistanceKm": 930,
-    "offsetKm": 0.19
+    "offsetKm": 0.19,
+    "bank": null
   },
   {
     "name": "Ješovice",
@@ -6285,7 +7943,8 @@
     "lat": 50.432375,
     "lng": 14.432579,
     "routeDistanceKm": 932.1,
-    "offsetKm": 1.82
+    "offsetKm": 1.82,
+    "bank": null
   },
   {
     "name": "Tupadly",
@@ -6293,7 +7952,8 @@
     "lat": 50.443275,
     "lng": 14.475568,
     "routeDistanceKm": 933.2,
-    "offsetKm": 4.77
+    "offsetKm": 4.77,
+    "bank": null
   },
   {
     "name": "Křivenice",
@@ -6301,7 +7961,8 @@
     "lat": 50.410027,
     "lng": 14.428382,
     "routeDistanceKm": 933.5,
-    "offsetKm": 0.19
+    "offsetKm": 0.19,
+    "bank": null
   },
   {
     "name": "Želízy",
@@ -6309,7 +7970,8 @@
     "lat": 50.423746,
     "lng": 14.464708,
     "routeDistanceKm": 934.2,
-    "offsetKm": 2.7
+    "offsetKm": 2.7,
+    "bank": null
   },
   {
     "name": "Liběchov",
@@ -6317,7 +7979,8 @@
     "lat": 50.407836,
     "lng": 14.446746,
     "routeDistanceKm": 934.5,
-    "offsetKm": 0.55
+    "offsetKm": 0.55,
+    "bank": null
   },
   {
     "name": "Dolní Zimoř",
@@ -6325,7 +7988,8 @@
     "lat": 50.426615,
     "lng": 14.501364,
     "routeDistanceKm": 935.8,
-    "offsetKm": 4.74
+    "offsetKm": 4.74,
+    "bank": null
   },
   {
     "name": "Dolní Beřkovice",
@@ -6333,7 +7997,8 @@
     "lat": 50.393072,
     "lng": 14.45087,
     "routeDistanceKm": 936,
-    "offsetKm": 0.39
+    "offsetKm": 0.39,
+    "bank": null
   },
   {
     "name": "Strážnice",
@@ -6341,7 +8006,8 @@
     "lat": 50.406639,
     "lng": 14.512445,
     "routeDistanceKm": 936.1,
-    "offsetKm": 4.23
+    "offsetKm": 4.23,
+    "bank": null
   },
   {
     "name": "Střednice",
@@ -6349,7 +8015,8 @@
     "lat": 50.405736,
     "lng": 14.519481,
     "routeDistanceKm": 936.2,
-    "offsetKm": 4.67
+    "offsetKm": 4.67,
+    "bank": null
   },
   {
     "name": "Vehlovice",
@@ -6357,7 +8024,8 @@
     "lat": 50.392979,
     "lng": 14.464745,
     "routeDistanceKm": 936.3,
-    "offsetKm": 0.58
+    "offsetKm": 0.58,
+    "bank": null
   },
   {
     "name": "Vliněves",
@@ -6365,7 +8033,8 @@
     "lat": 50.373366,
     "lng": 14.449589,
     "routeDistanceKm": 938.5,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": null
   },
   {
     "name": "Cítov",
@@ -6373,7 +8042,8 @@
     "lat": 50.372251,
     "lng": 14.398134,
     "routeDistanceKm": 938.6,
-    "offsetKm": 3.71
+    "offsetKm": 3.71,
+    "bank": null
   },
   {
     "name": "Býkev",
@@ -6381,7 +8051,8 @@
     "lat": 50.347168,
     "lng": 14.418021,
     "routeDistanceKm": 940,
-    "offsetKm": 3.11
+    "offsetKm": 3.11,
+    "bank": null
   },
   {
     "name": "Brozánky",
@@ -6389,7 +8060,8 @@
     "lat": 50.353808,
     "lng": 14.459811,
     "routeDistanceKm": 940.8,
-    "offsetKm": 0.29
+    "offsetKm": 0.29,
+    "bank": null
   },
   {
     "name": "Mělník",
@@ -6397,7 +8069,8 @@
     "lat": 50.352079,
     "lng": 14.474828,
     "routeDistanceKm": 941.3,
-    "offsetKm": 0.57
+    "offsetKm": 0.57,
+    "bank": null
   },
   {
     "name": "Hořín",
@@ -6405,7 +8078,8 @@
     "lat": 50.344817,
     "lng": 14.464176,
     "routeDistanceKm": 942.2,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": null
   },
   {
     "name": "Velký Borek",
@@ -6413,7 +8087,8 @@
     "lat": 50.345282,
     "lng": 14.515253,
     "routeDistanceKm": 943.8,
-    "offsetKm": 3.01
+    "offsetKm": 3.01,
+    "bank": null
   },
   {
     "name": "Jelenice",
@@ -6421,7 +8096,8 @@
     "lat": 50.336983,
     "lng": 14.54142,
     "routeDistanceKm": 943.8,
-    "offsetKm": 4.65
+    "offsetKm": 4.65,
+    "bank": null
   },
   {
     "name": "Malý Újezd",
@@ -6429,7 +8105,8 @@
     "lat": 50.332467,
     "lng": 14.529578,
     "routeDistanceKm": 944.1,
-    "offsetKm": 3.81
+    "offsetKm": 3.81,
+    "bank": null
   },
   {
     "name": "Hoření Vinice",
@@ -6437,7 +8114,8 @@
     "lat": 50.323235,
     "lng": 14.509658,
     "routeDistanceKm": 944.6,
-    "offsetKm": 2.5
+    "offsetKm": 2.5,
+    "bank": null
   },
   {
     "name": "Záboří",
@@ -6445,7 +8123,8 @@
     "lat": 50.310071,
     "lng": 14.525384,
     "routeDistanceKm": 944.7,
-    "offsetKm": 4.07
+    "offsetKm": 4.07,
+    "bank": null
   },
   {
     "name": "Dolní Vinice",
@@ -6453,7 +8132,8 @@
     "lat": 50.321899,
     "lng": 14.507038,
     "routeDistanceKm": 944.7,
-    "offsetKm": 2.36
+    "offsetKm": 2.36,
+    "bank": null
   },
   {
     "name": "Kly",
@@ -6461,7 +8141,8 @@
     "lat": 50.308792,
     "lng": 14.501484,
     "routeDistanceKm": 944.8,
-    "offsetKm": 2.77
+    "offsetKm": 2.77,
+    "bank": null
   },
   {
     "name": "Tuhaň",
@@ -6469,7 +8150,8 @@
     "lat": 50.295381,
     "lng": 14.517275,
     "routeDistanceKm": 944.9,
-    "offsetKm": 4.63
+    "offsetKm": 4.63,
+    "bank": null
   },
   {
     "name": "Větrušice",
@@ -6477,7 +8159,8 @@
     "lat": 50.299537,
     "lng": 14.511604,
     "routeDistanceKm": 944.9,
-    "offsetKm": 4.01
+    "offsetKm": 4.01,
+    "bank": null
   },
   {
     "name": "Obříství",
@@ -6485,7 +8168,8 @@
     "lat": 50.295988,
     "lng": 14.477846,
     "routeDistanceKm": 945.7,
-    "offsetKm": 3.2
+    "offsetKm": 3.2,
+    "bank": null
   },
   {
     "name": "Vrbno",
@@ -6493,7 +8177,8 @@
     "lat": 50.324452,
     "lng": 14.451227,
     "routeDistanceKm": 946.5,
-    "offsetKm": 0.19
+    "offsetKm": 0.19,
+    "bank": null
   },
   {
     "name": "Semilkovice",
@@ -6501,7 +8186,8 @@
     "lat": 50.296292,
     "lng": 14.467046,
     "routeDistanceKm": 946.9,
-    "offsetKm": 2.93
+    "offsetKm": 2.93,
+    "bank": null
   },
   {
     "name": "Chlumín",
@@ -6509,7 +8195,8 @@
     "lat": 50.288309,
     "lng": 14.450584,
     "routeDistanceKm": 947.6,
-    "offsetKm": 3.46
+    "offsetKm": 3.46,
+    "bank": null
   },
   {
     "name": "Zálezlice",
@@ -6517,7 +8204,8 @@
     "lat": 50.307923,
     "lng": 14.438042,
     "routeDistanceKm": 947.9,
-    "offsetKm": 1.19
+    "offsetKm": 1.19,
+    "bank": null
   },
   {
     "name": "Kozárovice",
@@ -6525,7 +8213,8 @@
     "lat": 50.312285,
     "lng": 14.425264,
     "routeDistanceKm": 948.8,
-    "offsetKm": 0.71
+    "offsetKm": 0.71,
+    "bank": null
   },
   {
     "name": "Újezdec",
@@ -6533,7 +8222,8 @@
     "lat": 50.283348,
     "lng": 14.420881,
     "routeDistanceKm": 949.2,
-    "offsetKm": 3.88
+    "offsetKm": 3.88,
+    "bank": null
   },
   {
     "name": "Lužec nad Vltavou",
@@ -6541,7 +8231,8 @@
     "lat": 50.321624,
     "lng": 14.400748,
     "routeDistanceKm": 950.6,
-    "offsetKm": 0.15
+    "offsetKm": 0.15,
+    "bank": null
   },
   {
     "name": "Daminěves",
@@ -6549,7 +8240,8 @@
     "lat": 50.360573,
     "lng": 14.385102,
     "routeDistanceKm": 950.7,
-    "offsetKm": 4.54
+    "offsetKm": 4.54,
+    "bank": null
   },
   {
     "name": "Jenišovice",
@@ -6557,7 +8249,8 @@
     "lat": 50.346944,
     "lng": 14.401375,
     "routeDistanceKm": 950.7,
-    "offsetKm": 2.93
+    "offsetKm": 2.93,
+    "bank": null
   },
   {
     "name": "Bukol",
@@ -6565,7 +8258,8 @@
     "lat": 50.314496,
     "lng": 14.391987,
     "routeDistanceKm": 951.7,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": null
   },
   {
     "name": "Hostín u Vojkovic",
@@ -6573,7 +8267,8 @@
     "lat": 50.297326,
     "lng": 14.396987,
     "routeDistanceKm": 952.4,
-    "offsetKm": 1.71
+    "offsetKm": 1.71,
+    "bank": null
   },
   {
     "name": "Vojkovice",
@@ -6581,7 +8276,8 @@
     "lat": 50.296131,
     "lng": 14.375219,
     "routeDistanceKm": 953.4,
-    "offsetKm": 1.26
+    "offsetKm": 1.26,
+    "bank": null
   },
   {
     "name": "Dřínov",
@@ -6589,7 +8285,8 @@
     "lat": 50.273651,
     "lng": 14.397501,
     "routeDistanceKm": 953.4,
-    "offsetKm": 4.17
+    "offsetKm": 4.17,
+    "bank": null
   },
   {
     "name": "Vraňany",
@@ -6597,7 +8294,8 @@
     "lat": 50.317169,
     "lng": 14.361997,
     "routeDistanceKm": 954.3,
-    "offsetKm": 0.72
+    "offsetKm": 0.72,
+    "bank": null
   },
   {
     "name": "Dědibaby",
@@ -6605,7 +8303,8 @@
     "lat": 50.309791,
     "lng": 14.360311,
     "routeDistanceKm": 954.3,
-    "offsetKm": 0.1
+    "offsetKm": 0.1,
+    "bank": null
   },
   {
     "name": "Spomyšl",
@@ -6613,7 +8312,8 @@
     "lat": 50.335427,
     "lng": 14.360522,
     "routeDistanceKm": 954.4,
-    "offsetKm": 2.73
+    "offsetKm": 2.73,
+    "bank": null
   },
   {
     "name": "Jeviněves",
@@ -6621,7 +8321,8 @@
     "lat": 50.344886,
     "lng": 14.33791,
     "routeDistanceKm": 955.6,
-    "offsetKm": 3.78
+    "offsetKm": 3.78,
+    "bank": null
   },
   {
     "name": "Mlčechvosty",
@@ -6629,7 +8330,8 @@
     "lat": 50.318485,
     "lng": 14.338837,
     "routeDistanceKm": 955.7,
-    "offsetKm": 0.86
+    "offsetKm": 0.86,
+    "bank": null
   },
   {
     "name": "Nová Ves",
@@ -6637,7 +8339,8 @@
     "lat": 50.312795,
     "lng": 14.308176,
     "routeDistanceKm": 956,
-    "offsetKm": 2.12
+    "offsetKm": 2.12,
+    "bank": null
   },
   {
     "name": "Ledčice",
@@ -6645,7 +8348,8 @@
     "lat": 50.340947,
     "lng": 14.294467,
     "routeDistanceKm": 956,
-    "offsetKm": 4.62
+    "offsetKm": 4.62,
+    "bank": null
   },
   {
     "name": "Vepřek",
@@ -6653,7 +8357,8 @@
     "lat": 50.308545,
     "lng": 14.323722,
     "routeDistanceKm": 956.1,
-    "offsetKm": 0.99
+    "offsetKm": 0.99,
+    "bank": null
   },
   {
     "name": "Všestudy",
@@ -6661,7 +8366,8 @@
     "lat": 50.29169,
     "lng": 14.341942,
     "routeDistanceKm": 958,
-    "offsetKm": 0.06
+    "offsetKm": 0.06,
+    "bank": null
   },
   {
     "name": "Zlosyň",
@@ -6669,7 +8375,8 @@
     "lat": 50.278543,
     "lng": 14.371372,
     "routeDistanceKm": 958.1,
-    "offsetKm": 2.55
+    "offsetKm": 2.55,
+    "bank": null
   },
   {
     "name": "Nové Ouholice",
@@ -6677,7 +8384,8 @@
     "lat": 50.301054,
     "lng": 14.314851,
     "routeDistanceKm": 958.8,
-    "offsetKm": 1.65
+    "offsetKm": 1.65,
+    "bank": null
   },
   {
     "name": "Staré Ouholice",
@@ -6685,7 +8393,8 @@
     "lat": 50.290406,
     "lng": 14.322801,
     "routeDistanceKm": 959.2,
-    "offsetKm": 0.74
+    "offsetKm": 0.74,
+    "bank": null
   },
   {
     "name": "Veltrusy",
@@ -6693,7 +8402,8 @@
     "lat": 50.271073,
     "lng": 14.327738,
     "routeDistanceKm": 960.7,
-    "offsetKm": 0.82
+    "offsetKm": 0.82,
+    "bank": null
   },
   {
     "name": "Miřejovice",
@@ -6701,7 +8411,8 @@
     "lat": 50.282372,
     "lng": 14.31984,
     "routeDistanceKm": 961.1,
-    "offsetKm": 0.3
+    "offsetKm": 0.3,
+    "bank": null
   },
   {
     "name": "Podhořany",
@@ -6709,7 +8420,8 @@
     "lat": 50.287087,
     "lng": 14.309693,
     "routeDistanceKm": 961.3,
-    "offsetKm": 1.02
+    "offsetKm": 1.02,
+    "bank": null
   },
   {
     "name": "Sazená",
@@ -6717,7 +8429,8 @@
     "lat": 50.305174,
     "lng": 14.287254,
     "routeDistanceKm": 962.2,
-    "offsetKm": 3.57
+    "offsetKm": 3.57,
+    "bank": null
   },
   {
     "name": "Budihostice",
@@ -6725,7 +8438,8 @@
     "lat": 50.295095,
     "lng": 14.253948,
     "routeDistanceKm": 962.2,
-    "offsetKm": 4.49
+    "offsetKm": 4.49,
+    "bank": null
   },
   {
     "name": "Chržín",
@@ -6733,7 +8447,8 @@
     "lat": 50.295339,
     "lng": 14.270076,
     "routeDistanceKm": 962.2,
-    "offsetKm": 3.53
+    "offsetKm": 3.53,
+    "bank": null
   },
   {
     "name": "Hleďsebe 1. díl",
@@ -6741,7 +8456,8 @@
     "lat": 50.280503,
     "lng": 14.305115,
     "routeDistanceKm": 962.2,
-    "offsetKm": 0.56
+    "offsetKm": 0.56,
+    "bank": null
   },
   {
     "name": "Uhy",
@@ -6749,7 +8465,8 @@
     "lat": 50.284232,
     "lng": 14.27386,
     "routeDistanceKm": 962.6,
-    "offsetKm": 2.69
+    "offsetKm": 2.69,
+    "bank": null
   },
   {
     "name": "Velká Bučina",
@@ -6757,7 +8474,8 @@
     "lat": 50.269253,
     "lng": 14.247308,
     "routeDistanceKm": 963.9,
-    "offsetKm": 4
+    "offsetKm": 4,
+    "bank": null
   },
   {
     "name": "Nelahozeves",
@@ -6765,7 +8483,8 @@
     "lat": 50.26148,
     "lng": 14.298811,
     "routeDistanceKm": 964,
-    "offsetKm": 0.25
+    "offsetKm": 0.25,
+    "bank": null
   },
   {
     "name": "Lešany",
@@ -6773,7 +8492,8 @@
     "lat": 50.255776,
     "lng": 14.285398,
     "routeDistanceKm": 964.5,
-    "offsetKm": 1.17
+    "offsetKm": 1.17,
+    "bank": null
   },
   {
     "name": "Olovnice",
@@ -6781,7 +8501,8 @@
     "lat": 50.234595,
     "lng": 14.240378,
     "routeDistanceKm": 965.5,
-    "offsetKm": 4.71
+    "offsetKm": 4.71,
+    "bank": null
   },
   {
     "name": "Zeměchy",
@@ -6789,7 +8510,8 @@
     "lat": 50.230058,
     "lng": 14.267919,
     "routeDistanceKm": 966.1,
-    "offsetKm": 3.21
+    "offsetKm": 3.21,
+    "bank": null
   },
   {
     "name": "Otvovice",
@@ -6797,7 +8519,8 @@
     "lat": 50.21156,
     "lng": 14.272921,
     "routeDistanceKm": 966.4,
-    "offsetKm": 4.3
+    "offsetKm": 4.3,
+    "bank": null
   },
   {
     "name": "Kralupy nad Vltavou",
@@ -6805,7 +8528,8 @@
     "lat": 50.241555,
     "lng": 14.310649,
     "routeDistanceKm": 966.5,
-    "offsetKm": 0.05
+    "offsetKm": 0.05,
+    "bank": null
   },
   {
     "name": "Holubice",
@@ -6813,7 +8537,8 @@
     "lat": 50.202508,
     "lng": 14.292959,
     "routeDistanceKm": 966.5,
-    "offsetKm": 4.56
+    "offsetKm": 4.56,
+    "bank": null
   },
   {
     "name": "Chvatěruby",
@@ -6821,7 +8546,8 @@
     "lat": 50.232738,
     "lng": 14.34268,
     "routeDistanceKm": 969.7,
-    "offsetKm": 0.13
+    "offsetKm": 0.13,
+    "bank": null
   },
   {
     "name": "Úžice",
@@ -6829,7 +8555,8 @@
     "lat": 50.252708,
     "lng": 14.379723,
     "routeDistanceKm": 970.5,
-    "offsetKm": 3.45
+    "offsetKm": 3.45,
+    "bank": null
   },
   {
     "name": "Kozomín",
@@ -6837,7 +8564,8 @@
     "lat": 50.236926,
     "lng": 14.371012,
     "routeDistanceKm": 970.6,
-    "offsetKm": 1.79
+    "offsetKm": 1.79,
+    "bank": null
   },
   {
     "name": "Zlončice",
@@ -6845,7 +8573,8 @@
     "lat": 50.22878,
     "lng": 14.357572,
     "routeDistanceKm": 970.8,
-    "offsetKm": 0.5
+    "offsetKm": 0.5,
+    "bank": null
   },
   {
     "name": "Postřižín",
@@ -6853,7 +8582,8 @@
     "lat": 50.233035,
     "lng": 14.386474,
     "routeDistanceKm": 970.8,
-    "offsetKm": 2.59
+    "offsetKm": 2.59,
+    "bank": null
   },
   {
     "name": "Dolany nad Vltavou",
@@ -6861,7 +8591,8 @@
     "lat": 50.222037,
     "lng": 14.34952,
     "routeDistanceKm": 971.2,
-    "offsetKm": 0.26
+    "offsetKm": 0.26,
+    "bank": null
   },
   {
     "name": "Kozinec",
@@ -6869,7 +8600,8 @@
     "lat": 50.196201,
     "lng": 14.296768,
     "routeDistanceKm": 972.3,
-    "offsetKm": 4.62
+    "offsetKm": 4.62,
+    "bank": null
   },
   {
     "name": "Tursko",
@@ -6877,7 +8609,8 @@
     "lat": 50.191447,
     "lng": 14.322656,
     "routeDistanceKm": 972.8,
-    "offsetKm": 3.29
+    "offsetKm": 3.29,
+    "bank": null
   },
   {
     "name": "Libčice nad Vltavou",
@@ -6885,7 +8618,8 @@
     "lat": 50.198888,
     "lng": 14.362409,
     "routeDistanceKm": 973.5,
-    "offsetKm": 0.61
+    "offsetKm": 0.61,
+    "bank": null
   },
   {
     "name": "Máslovice",
@@ -6893,7 +8627,8 @@
     "lat": 50.208736,
     "lng": 14.378817,
     "routeDistanceKm": 974.6,
-    "offsetKm": 0.28
+    "offsetKm": 0.28,
+    "bank": null
   },
   {
     "name": "Vodochody",
@@ -6901,7 +8636,8 @@
     "lat": 50.206932,
     "lng": 14.397797,
     "routeDistanceKm": 976.1,
-    "offsetKm": 0.08
+    "offsetKm": 0.08,
+    "bank": null
   },
   {
     "name": "Čenkov",
@@ -6909,7 +8645,8 @@
     "lat": 50.228363,
     "lng": 14.43458,
     "routeDistanceKm": 976.2,
-    "offsetKm": 3.55
+    "offsetKm": 3.55,
+    "bank": null
   },
   {
     "name": "Panenské Břežany",
@@ -6917,7 +8654,8 @@
     "lat": 50.21366,
     "lng": 14.440557,
     "routeDistanceKm": 976.2,
-    "offsetKm": 3.09
+    "offsetKm": 3.09,
+    "bank": null
   },
   {
     "name": "Odolena Voda",
@@ -6925,7 +8663,8 @@
     "lat": 50.233412,
     "lng": 14.410781,
     "routeDistanceKm": 976.2,
-    "offsetKm": 3.15
+    "offsetKm": 3.15,
+    "bank": null
   },
   {
     "name": "Hoštice",
@@ -6933,7 +8672,8 @@
     "lat": 50.202199,
     "lng": 14.406662,
     "routeDistanceKm": 976.6,
-    "offsetKm": 0.42
+    "offsetKm": 0.42,
+    "bank": null
   },
   {
     "name": "Klíčany",
@@ -6941,7 +8681,8 @@
     "lat": 50.20188,
     "lng": 14.434212,
     "routeDistanceKm": 977.1,
-    "offsetKm": 2.32
+    "offsetKm": 2.32,
+    "bank": null
   },
   {
     "name": "Drasty",
@@ -6949,7 +8690,8 @@
     "lat": 50.197824,
     "lng": 14.39984,
     "routeDistanceKm": 977.3,
-    "offsetKm": 0.02
+    "offsetKm": 0.02,
+    "bank": null
   },
   {
     "name": "Větrušice",
@@ -6957,7 +8699,8 @@
     "lat": 50.191017,
     "lng": 14.383282,
     "routeDistanceKm": 978.7,
-    "offsetKm": 0.61
+    "offsetKm": 0.61,
+    "bank": null
   },
   {
     "name": "Letky",
@@ -6965,7 +8708,8 @@
     "lat": 50.18825,
     "lng": 14.370537,
     "routeDistanceKm": 978.8,
-    "offsetKm": 1.32
+    "offsetKm": 1.32,
+    "bank": null
   },
   {
     "name": "Řež",
@@ -6973,7 +8717,8 @@
     "lat": 50.172411,
     "lng": 14.361166,
     "routeDistanceKm": 978.8,
-    "offsetKm": 2.54
+    "offsetKm": 2.54,
+    "bank": null
   },
   {
     "name": "Úholičky",
@@ -6981,7 +8726,8 @@
     "lat": 50.161357,
     "lng": 14.335241,
     "routeDistanceKm": 978.8,
-    "offsetKm": 4.75
+    "offsetKm": 4.75,
+    "bank": null
   },
   {
     "name": "Husinec",
@@ -6989,7 +8735,8 @@
     "lat": 50.173742,
     "lng": 14.375078,
     "routeDistanceKm": 978.9,
-    "offsetKm": 1.75
+    "offsetKm": 1.75,
+    "bank": null
   },
   {
     "name": "Sedlec",
@@ -6997,7 +8744,8 @@
     "lat": 50.18676,
     "lng": 14.458159,
     "routeDistanceKm": 980.9,
-    "offsetKm": 3.51
+    "offsetKm": 3.51,
+    "bank": null
   },
   {
     "name": "Přemyšlení",
@@ -7005,7 +8753,8 @@
     "lat": 50.168631,
     "lng": 14.427718,
     "routeDistanceKm": 981,
-    "offsetKm": 1.37
+    "offsetKm": 1.37,
+    "bank": null
   },
   {
     "name": "Veltěž",
@@ -7013,7 +8762,8 @@
     "lat": 50.167873,
     "lng": 14.438287,
     "routeDistanceKm": 981,
-    "offsetKm": 2.07
+    "offsetKm": 2.07,
+    "bank": null
   },
   {
     "name": "Zdiby",
@@ -7021,7 +8771,8 @@
     "lat": 50.167938,
     "lng": 14.451543,
     "routeDistanceKm": 981,
-    "offsetKm": 2.95
+    "offsetKm": 2.95,
+    "bank": null
   },
   {
     "name": "Klecany",
@@ -7029,7 +8780,8 @@
     "lat": 50.175671,
     "lng": 14.411705,
     "routeDistanceKm": 981,
-    "offsetKm": 0.01
+    "offsetKm": 0.01,
+    "bank": null
   },
   {
     "name": "Bořanovice",
@@ -7037,7 +8789,8 @@
     "lat": 50.178597,
     "lng": 14.480305,
     "routeDistanceKm": 981,
-    "offsetKm": 4.88
+    "offsetKm": 4.88,
+    "bank": null
   },
   {
     "name": "Brnky",
@@ -7045,7 +8798,8 @@
     "lat": 50.157267,
     "lng": 14.409779,
     "routeDistanceKm": 983.3,
-    "offsetKm": 0.5
+    "offsetKm": 0.5,
+    "bank": null
   },
   {
     "name": "Roztoky",
@@ -7053,7 +8807,8 @@
     "lat": 50.16083,
     "lng": 14.382415,
     "routeDistanceKm": 983.5,
-    "offsetKm": 1.48
+    "offsetKm": 1.48,
+    "bank": null
   },
   {
     "name": "Únětice",
@@ -7061,7 +8816,8 @@
     "lat": 50.150191,
     "lng": 14.354112,
     "routeDistanceKm": 985.8,
-    "offsetKm": 3.2
+    "offsetKm": 3.2,
+    "bank": null
   },
   {
     "name": "Horoměřice",
@@ -7069,7 +8825,8 @@
     "lat": 50.131779,
     "lng": 14.338729,
     "routeDistanceKm": 986.1,
-    "offsetKm": 3.95
+    "offsetKm": 3.95,
+    "bank": null
   },
   {
     "name": "Praha",
@@ -7077,6 +8834,7 @@
     "lat": 50.087465,
     "lng": 14.421254,
     "routeDistanceKm": 1000.1,
-    "offsetKm": 0.42
+    "offsetKm": 0.42,
+    "bank": null
   }
 ]

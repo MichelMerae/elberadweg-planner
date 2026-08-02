@@ -62,6 +62,10 @@ import {
 } from './lib/route-assembly.mjs';
 import { parseGpxTracks } from './lib/gpx.mjs';
 import { deriveCrossings, dedupeCrossings } from './lib/crossings.mjs';
+// The app's own axis mapping, imported rather than reimplemented: a place keyed
+// here and the same place located at runtime must agree, and the only way to
+// guarantee that is to run the identical function over the identical table.
+import { canonicalKmFromAlt } from '../src/path.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -1152,11 +1156,96 @@ function validate(line, joined, segments) {
 }
 
 // ---------------------------------------------------------------------------
+// Which bank a place is on
+// ---------------------------------------------------------------------------
+
+/**
+ * Which bank the canonical line IS at a given km: 'left' up to the Hamburg
+ * hand-over, 'right' on to the border, null through the Czech section where
+ * there is only one line and the distinction has no meaning.
+ *
+ * A km landing inside a declared join — the 15 m at the Landungsbrücken, the
+ * 3.26 km at the border — matches no segment, so it takes the bank of the
+ * segment it is leaving rather than coming out bankless.
+ */
+function canonicalBankFor(segments) {
+  return (km) => {
+    const inside = segments.find((s) => km >= s.startKm && km <= s.endKm);
+    if (inside) return inside.bank ?? null;
+    let leaving = null;
+    for (const segment of segments) if (segment.startKm <= km) leaving = segment;
+    return leaving?.bank ?? null;
+  };
+}
+
+/**
+ * Locate a place against both banks, or drop it.
+ *
+ * Before this, a place was kept if it was near THE route; now there are two
+ * lines a rider can be on, and a café across the water is as reachable as one
+ * on this side — provided they cross. So a place qualifies on either line.
+ *
+ * Everything stored is still canonical km, because that is the one axis plans
+ * are saved on. A place near the canonical line has one directly. A place only
+ * the alt line reaches does not: its km comes from the crossing table, the same
+ * piecewise mapping the app uses at runtime. Outside the table's span the answer
+ * is null — no crossing bounds that stretch of alt bank, so nothing over there
+ * is reachable and the place is not on this road at all.
+ *
+ * `offsetKm` stays the distance from the line the km was measured on, so it
+ * still answers "how far off my route is this" for whichever line that is.
+ *
+ * @returns {{km: number, offsetKm: number, bank: string|null}|null}
+ */
+function placeOnBanks(lngLat, maxOffsetKm, ctx) {
+  const point = turf.point(lngLat);
+  const onCanonical = turf.nearestPointOnLine(ctx.canonical, point, { units: 'kilometers' });
+  const canonicalOffsetKm = onCanonical.properties.dist;
+  const nearCanonical = canonicalOffsetKm <= maxOffsetKm;
+
+  // The first pass runs before the alt line exists — it only has to place towns
+  // on the canonical axis, so the crossing derivation can name ways after them.
+  if (!ctx.alt) {
+    if (!nearCanonical) return null;
+    return { km: onCanonical.properties.location, offsetKm: canonicalOffsetKm, bank: null };
+  }
+
+  const onAlt = turf.nearestPointOnLine(ctx.alt, point, { units: 'kilometers' });
+  const altOffsetKm = onAlt.properties.dist;
+  const nearAlt = altOffsetKm <= maxOffsetKm;
+  if (!nearCanonical && !nearAlt) return null;
+
+  if (nearCanonical) {
+    const km = onCanonical.properties.location;
+    return {
+      km,
+      offsetKm: canonicalOffsetKm,
+      bank: nearAlt ? 'both' : ctx.bankAt(km),
+    };
+  }
+
+  const km = canonicalKmFromAlt(ctx.crossings, onAlt.properties.location);
+  if (km === null) return null;
+  return { km, offsetKm: altOffsetKm, bank: ctx.altBank };
+}
+
+/** Per-bank tally for the validation report. */
+function perBank(places) {
+  const counts = {};
+  for (const p of places) counts[p.bank ?? 'none'] = (counts[p.bank ?? 'none'] ?? 0) + 1;
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([bank, n]) => `${bank} ${n}`)
+    .join(', ');
+}
+
+// ---------------------------------------------------------------------------
 // Towns
 // ---------------------------------------------------------------------------
 
-async function buildTowns(trimmed, boxes) {
-  const elements = await fetchByChunks(
+/** Fetch the raw town nodes. Separate from placing them: they get placed twice. */
+async function fetchTownElements(boxes) {
+  return fetchByChunks(
     boxes,
     (bbox) =>
       `[out:json][timeout:180];` +
@@ -1165,24 +1254,33 @@ async function buildTowns(trimmed, boxes) {
     'towns',
     (bbox) => join(tmpdir(), `elberadweg-towns.${bbox.replace(/[,.-]/g, '_')}.json`),
   );
+}
 
+/**
+ * Place the town nodes on the route.
+ *
+ * Run twice, and the two passes are the same code on purpose. The first has no
+ * alt line yet — the crossing derivation names unnamed ways after the nearest
+ * town, so towns must exist before crossings do — and the second, once the
+ * crossings are known, is the one that ships.
+ */
+function townRecords(elements, ctx) {
   const towns = [];
   for (const el of elements) {
     if (el.type !== 'node' || !el.tags?.name) continue;
-    const snap = turf.nearestPointOnLine(trimmed, turf.point([el.lon, el.lat]), {
-      units: 'kilometers',
-    });
-    const offsetKm = snap.properties.dist;
-    if (offsetKm > TOWN_MAX_OFFSET_KM) continue;
+    const at = placeOnBanks([el.lon, el.lat], TOWN_MAX_OFFSET_KM, ctx);
+    if (!at) continue;
     towns.push({
       name: el.tags.name,
       place: el.tags.place,
       lat: round(el.lat),
       lng: round(el.lon),
-      routeDistanceKm: round(snap.properties.location, 1),
-      offsetKm: round(offsetKm, 2),
+      routeDistanceKm: round(at.km, 1),
+      offsetKm: round(at.offsetKm, 2),
+      bank: at.bank,
     });
   }
+  // Alt-mapped km interleave with canonical ones, so the sort is not optional.
   towns.sort((a, b) => a.routeDistanceKm - b.routeDistanceKm);
   return towns;
 }
@@ -1268,7 +1366,7 @@ function dedupePois(pois) {
   return kept;
 }
 
-async function buildPois(trimmed, boxes) {
+async function buildPois(ctx, boxes) {
   const elements = await fetchByChunks(
     boxes,
     (b) =>
@@ -1300,11 +1398,8 @@ async function buildPois(trimmed, boxes) {
     if (!name) continue; // unnamed non-viewpoint sight — dropped
 
     const [lng, lat] = coord;
-    const snap = turf.nearestPointOnLine(trimmed, turf.point([lng, lat]), {
-      units: 'kilometers',
-    });
-    const offsetKm = snap.properties.dist;
-    if (offsetKm > POI_MAX_OFFSET[cls.kind]) continue;
+    const at = placeOnBanks([lng, lat], POI_MAX_OFFSET[cls.kind], ctx);
+    if (!at) continue;
 
     const record = {
       name,
@@ -1312,8 +1407,9 @@ async function buildPois(trimmed, boxes) {
       category: cls.category,
       lat: round(lat),
       lng: round(lng),
-      routeDistanceKm: round(snap.properties.location, 1),
-      offsetKm: round(offsetKm, 2),
+      routeDistanceKm: round(at.km, 1),
+      offsetKm: round(at.offsetKm, 2),
+      bank: at.bank,
     };
     if (tags.opening_hours) record.openingHours = tags.opening_hours;
     pois.push(record);
@@ -1328,6 +1424,7 @@ async function buildPois(trimmed, boxes) {
 function validatePois(pois) {
   console.log('\n===== POI VALIDATION =====');
   console.log(`Total POIs: ${pois.length}`);
+  console.log(`Per bank: ${perBank(pois)}`);
 
   const perKind = {};
   const perCategory = {};
@@ -1610,24 +1707,35 @@ async function main() {
   writeFileSync(ROUTE_JSON, JSON.stringify(trimmed));
   console.log(`[write] ${ROUTE_JSON}`);
 
-  // 7. The chunk boxes the place and crossing queries are built on. Towns need a wider
-  //    pad than POIs, so each gets its own set rather than sharing the wider one.
+  // 7. The chunk boxes the place and crossing queries are built on, covering BOTH
+  //    corridors. A place is now kept if it is near either line, so boxing only the
+  //    canonical one would lose the far side of every wide meander: the two banks
+  //    diverge by up to 7.4 km, and a town 5 km off the alt line there sits 12 km
+  //    from the canonical, well outside a 6 km pad. It would have been kept had it
+  //    been queried, and nothing downstream could have noticed it never was.
+  //    Towns need a wider pad than POIs, so each gets its own set.
   assertChunkPadding();
   const coords = trimmed.geometry.coordinates;
-  const townBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: TOWN_PAD_KM });
-  const poiBoxes = chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm: POI_PAD_KM });
-  console.log(`[chunks] ${townBoxes.length} boxes of ~${CHUNK_KM} km`);
+  const altFull = stitched[0].coords.slice(junctions[0].indexA);
+  const bothCorridors = (padKm) => [
+    ...chunkBboxes(coords, { chunkKm: CHUNK_KM, padKm }),
+    ...chunkBboxes(altFull, { chunkKm: CHUNK_KM, padKm }),
+  ];
+  const townBoxes = bothCorridors(TOWN_PAD_KM);
+  const poiBoxes = bothCorridors(POI_PAD_KM);
+  console.log(`[chunks] ${townBoxes.length} town / ${poiBoxes.length} POI boxes of ~${CHUNK_KM} km`);
 
-  // 8. Towns.
-  const towns = await buildTowns(trimmed, townBoxes);
-  writeFileSync(TOWNS_JSON, JSON.stringify(towns, null, 2));
-  console.log(`[write] ${TOWNS_JSON} (${towns.length} towns)`);
+  // 8. Towns, placed on the canonical line only. This pass exists to feed the
+  //    crossing derivation, which names unnamed ways after the nearest town — so
+  //    towns must be located before the crossings that the final tagging needs.
+  const townElements = await fetchTownElements(townBoxes);
+  const canonicalOnly = { canonical: trimmed };
+  const townsForNaming = townRecords(townElements, canonicalOnly);
 
   // 9. Crossings and the alternate bank. The alt line is the left bank from the
   //    Hamburg hand-over onward — see the CROSSING_* constants for why it cannot
   //    start at Cuxhaven. Its own boxes use the town padding, because a crossing
   //    reaches the far bank and the far bank is further off-route than a café.
-  const altFull = stitched[0].coords.slice(junctions[0].indexA);
   const altBoxes = chunkBboxes(altFull, { chunkKm: CHUNK_KM, padKm: TOWN_PAD_KM });
   // Crossings only exist along the right-bank segment: that is precisely the stretch
   // where the canonical line and the alt line are opposite banks of the same river.
@@ -1637,7 +1745,7 @@ async function main() {
     coords,
     altFull,
     altBoxes,
-    towns,
+    townsForNaming,
     bankRange,
   );
   const { altKm } = validateCrossings(crossings, altCoords);
@@ -1654,7 +1762,25 @@ async function main() {
   console.log(`[write] ${ROUTE_ALT_JSON} (${altCoords.length} points, ${altKm.toFixed(2)} km)`);
   console.log(`[write] ${CROSSINGS_JSON} (${crossings.length} crossings)`);
 
-  // 10. Meta, now that the crossing table exists to record.
+  // 10. Towns again, this time knowing both banks. Everything a rider can reach
+  //     from either line, each tagged with the bank it is on and keyed to the one
+  //     canonical axis plans are stored against.
+  const banks = {
+    canonical: trimmed,
+    alt: turf.lineString(altCoords),
+    crossings,
+    bankAt: canonicalBankFor(joined.segments),
+    altBank: 'left',
+  };
+  const towns = townRecords(townElements, banks);
+  writeFileSync(TOWNS_JSON, JSON.stringify(towns, null, 2));
+  console.log(
+    `[write] ${TOWNS_JSON} (${towns.length} towns, ` +
+      `${towns.length - townsForNaming.length} gained from the alt bank)`,
+  );
+  console.log(`[towns] per bank: ${perBank(towns)}`);
+
+  // 11. Meta, now that the crossing table exists to record.
   const meta = {
     routeId: ROUTE_ID,
     totalKm: round(totalKm, 2),
@@ -1692,8 +1818,8 @@ async function main() {
   writeFileSync(ROUTE_META_JSON, JSON.stringify(meta, null, 2));
   console.log(`[write] ${ROUTE_META_JSON}`);
 
-  // 11. POIs (food stops & sights).
-  const pois = await buildPois(trimmed, poiBoxes);
+  // 12. POIs (food stops & sights).
+  const pois = await buildPois(banks, poiBoxes);
   validatePois(pois);
   writeFileSync(POIS_JSON, JSON.stringify(pois, null, 2));
   console.log(`[write] ${POIS_JSON} (${pois.length} POIs)`);
