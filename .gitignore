@@ -6,6 +6,11 @@ src/data/gpx.raw/
 # Playwright MCP scratch output (snapshots/console logs from browser verification)
 .playwright-mcp/
 
+# Agent worktrees. Not .claude/ itself — project Claude config belongs in there and
+# should stay committable. vite.config.js excludes this path from the test glob too:
+# a worktree carries its own copy of the suite, which would otherwise run twice.
+.claude/worktrees/
+
 # OS cruft
 .DS_Store
 Thumbs.db
