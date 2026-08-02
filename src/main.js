@@ -444,9 +444,29 @@ async function boot() {
   // on, so a town names an end only when the two round to the same tenth. Move the end
   // 3 km and the name goes, because that is the truth.
   const NAME_TOLERANCE_KM = 0.05;
-  // Spec §6.3's snap radius. At whole-route zoom one pixel is ~0.7 km, so a click is
-  // worth ±2 km and a town this close is very likely the place the rider meant.
-  const SNAP_OFFER_KM = 3;
+  // How far away a town may be and still be worth OFFERING after a pick. Spec §6.3 set
+  // this at 3 km, reasoning that "at whole-route zoom one pixel is ~0.7 km, so a click is
+  // worth ±2 km". **Both halves of that were wrong, and the feature was unreachable
+  // because of it** (found in use, 2026-08-02, trying to start a trip at Hamburg):
+  //
+  //   - The road is 1026.5 km across a 720 px map, so a pixel is ~1.4 km of straight
+  //     line — twice the estimate. And the corridor MEANDERS, so a pixel of pointer
+  //     error is worth more than that again in along-route km.
+  //   - Measured: a click that landed visually ON Hamburg resolved to km 151.9, and
+  //     Hamburg is at 155.8. **3.9 km off, from a click that looked perfect** — outside
+  //     a 3 km radius, so no offer appeared and the start stayed unnamed. The one
+  //     gesture the snap exists to rescue was the one it refused.
+  //
+  // So the radius is not a judgement about what the rider "very likely meant" — at this
+  // zoom nobody can point that accurately, and a threshold the rider cannot see or
+  // predict reads as the feature being broken. It is now only a sanity cap: name the
+  // nearest town and let one press take it, unless the pick is so far from anything that
+  // naming it would be noise. Ignoring the offer costs nothing; not getting one costs
+  // the rider the exact km of the place they live.
+  //
+  // 25 km is ~20x the corridor's mean town spacing (887 towns over 1026.5 km), so it
+  // only withholds an offer where the rider really is out in open country.
+  const SNAP_OFFER_KM = 25;
 
   // What to call one end of the trip: the RIDER's ends, not the road's — on a
   // downstream trip the start IS the road's destination.
@@ -1081,8 +1101,9 @@ async function boot() {
       ? ` · ${dropped} ${dropped === 1 ? 'day' : 'days'} no longer ${dropped === 1 ? 'fits' : 'fit'} and ${dropped === 1 ? 'was' : 'were'} dropped`
       : '';
     const role = tripEnd === 'start' ? 'start' : 'finish';
-    // Spec §6.3: at whole-route zoom one pixel is ~0.7 km, so a click is worth ±2 km.
-    // Name the town within SNAP_OFFER_KM and let one press take it.
+    // Name the nearest town and let one press take it. SNAP_OFFER_KM is a sanity cap
+    // rather than a guess at what the rider meant — see its definition for why a tight
+    // radius made this unreachable at the zoom the app opens on.
     const town = offerSnap ? nearestTown(towns, km, { withinKm: SNAP_OFFER_KM }) : null;
     // In RIDER km, deliberately, and NOT the spec's absolute `(km 149.3)`. On a trip
     // starting at Hamburg the strip reads `km 0 · Hamburg`, so that figure would be the
