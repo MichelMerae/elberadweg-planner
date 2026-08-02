@@ -196,6 +196,13 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       destinationName: next.destinationName ?? state.destinationName,
       // Same argument-less-render reasoning as the names above.
       elevation: next.elevation ?? state.elevation,
+      // And again for the TRIP's own end names, which are a different fact from the two
+      // above: those name the ROAD's ends and feed the stubs, these name wherever the
+      // rider chose to begin and finish. Derived by main.js from the towns, never stored
+      // — a trip is a startKm, a destinationKm and nothing else — so a render that
+      // dropped them would leave the scale line calling Hamburg "start" until the next
+      // pick, which is precisely what a width-change render must not do.
+      endNames: next.endNames ?? state.endNames,
       // null is MEANINGFUL here, so the fallback is `?? null` and not `?? state.picking`:
       // main.js cancels a pick by rendering with picking: null, and `null ?? state.picking`
       // would keep the control pressed for ever. An argument-less render still preserves
