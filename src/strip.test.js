@@ -1135,10 +1135,27 @@ describe('createStrip - endpoint names', () => {
   // render() is called with no argument on a width change (main.js drives that from
   // a ResizeObserver). Rebuilding from a bare state would drop the names and the
   // strip would silently start calling Prague "finish" after any resize.
-  it('keeps the names through an argument-less re-render', () => {
+  //
+  // TWO re-renders, for the reason the endNames test spells out further down — and this
+  // is the test that reason was first learned on, retro-fitted. The argument-less render
+  // ALONE CANNOT FAIL: `render(next = state)` makes `next.originName` the very value
+  // `state.originName` already holds, so the assertions below pass with or without the
+  // `?? state.originName` half of the merge. Measured: deleting either name's fallback
+  // survived the whole suite while this test looked like it pinned them.
+  //
+  // The PARTIAL render is what pins them — new days, nothing said about either name — so
+  // `next.originName` really is undefined and the fallback really runs. Without it the
+  // scale line drops to "km 0 · start" and the summary to "to finish", which is exactly
+  // what a resize would do to a rider mid-plan.
+  it('keeps the names through a re-render that does not repeat them', () => {
     const strip = mount();
     strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
     strip.render();
+
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · Cuxhaven');
+    expect(el.querySelector('.strip__summary').textContent).toContain('to Prague');
+
+    strip.render({ days: days(100, 200), totalKm: 400, focusedIndex: 0, breaks: [] });
 
     expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · Cuxhaven');
     expect(el.querySelector('.strip__summary').textContent).toContain('to Prague');
@@ -1162,6 +1179,35 @@ describe('createStrip - endpoint names', () => {
     strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [] });
 
     expect(el.querySelector('.strip__range')).toBeNull();
+  });
+
+  // The third fallback in the same state merge, pinned the same way and for the same
+  // reason. main.js loads the profile once, at startup, and never repeats it: every
+  // later render — a resize, a focus, a boundary move — says nothing about `elevation`,
+  // so `next.elevation ?? state.elevation` is the only thing keeping the profile on
+  // screen for the rest of the session.
+  //
+  // Again the argument-less render alone cannot fail it (`next.elevation` IS
+  // `state.elevation`), so the PARTIAL render carries the weight: without the fallback
+  // the profile and its range span vanish on the first re-render that omits them — the
+  // 'omits the range when there is no profile' state above, arrived at by accident.
+  it('keeps the elevation profile through a re-render that does not repeat it', () => {
+    const strip = mount();
+    strip.render({
+      days: days(100),
+      totalKm: 400,
+      focusedIndex: 0,
+      breaks: [],
+      elevation: { spacingM: 250, minM: -1, maxM: 205, elevationsM: [0, 100, 205] },
+    });
+    strip.render();
+
+    expect(el.querySelector('.strip__range').textContent).toContain('-1–205 m');
+
+    strip.render({ days: days(100, 200), totalKm: 400, focusedIndex: 0, breaks: [] });
+
+    expect(el.querySelector('.strip__range')).not.toBeNull();
+    expect(el.querySelector('.strip__range').textContent).toContain('-1–205 m');
   });
 
   it('escapes a name rather than injecting it as markup', () => {
