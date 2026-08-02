@@ -134,8 +134,17 @@ export function createPath({
 
   // Legs: consecutive [from, to] canonical spans, alternating bank line.
   // leg.crossingIn is the crossing ridden to ENTER this leg (null for the first).
-  const canonicalBankAt = (km) =>
-    segments.find((s) => km >= s.startKm && km <= s.endKm)?.bank ?? null;
+  const canonicalBankAt = (km) => {
+    const inside = segments.find((s) => km >= s.startKm && km <= s.endKm);
+    if (inside) return inside.bank ?? null;
+    // Between two segments: the hand-over links, which belong to neither. Take the
+    // bank of the segment being left rather than coming out bankless — the same
+    // rule build-data.mjs uses when it tags places there, so the app and the data
+    // cannot disagree about which bank a hand-over km is on.
+    let leaving = null;
+    for (const s of segments) if (s.startKm <= km) leaving = s;
+    return leaving?.bank ?? null;
+  };
   const flip = (bank) => (bank === 'left' ? 'right' : 'left');
 
   const legList = [];
@@ -244,17 +253,53 @@ export function createPath({
       return leg?.onAlt ? flip(base) : base;
     },
 
-    /** ordered legs for map / strip / rendering. */
+    /**
+     * Ordered legs for map / strip / rendering.
+     *
+     * A leg is one continuous ride on one LINE, but a line is not one bank: the
+     * canonical composite rides the left bank down to the Hamburg hand-over and the
+     * right bank for the 690 km after it. Reporting a single bank per leg labelled
+     * the entire Cuxhaven–Prague road "left bank" — true of its first 139 km and
+     * wrong about the rest. So each leg is cut again wherever the canonical line
+     * changes bank, and same-bank neighbours are merged back so the cuts show up
+     * only where the bank really changes.
+     */
     legs() {
-      return legList.map((leg, i) => ({
-        bank: leg.onAlt ? flip(canonicalBankAt(leg.fromKm) ?? 'right') : canonicalBankAt(leg.fromKm),
-        onAlt: leg.onAlt,
-        fromKm: leg.fromKm,
-        toKm: leg.toKm,
-        riddenLengthKm: legRidden(leg),
-        startRiddenKm: legStartRidden[i],
-        crossingIn: leg.crossingIn,
-      }));
+      const oa = (km) => (km - trip.startKm) * trip.direction;
+      const out = [];
+      legList.forEach((leg, i) => {
+        const cuts = segments
+          .flatMap((s) => [s.startKm, s.endKm])
+          .filter((km) => oa(km) > oa(leg.fromKm) && oa(km) < oa(leg.toKm));
+        const stops = [...new Set([leg.fromKm, ...cuts, leg.toKm])].sort((a, b) => oa(a) - oa(b));
+        let ridden = legStartRidden[i];
+        for (let s = 0; s < stops.length - 1; s += 1) {
+          const fromKm = stops[s];
+          const toKm = stops[s + 1];
+          // Ask at the midpoint: a boundary km belongs to two segments at once.
+          const base = canonicalBankAt((fromKm + toKm) / 2);
+          const bank = leg.onAlt ? flip(base ?? 'right') : base;
+          const riddenLengthKm = leg.onAlt ? altSpan(fromKm, toKm) : Math.abs(toKm - fromKm);
+          const prev = out[out.length - 1];
+          if (prev && s > 0 && prev.bank === bank && prev.onAlt === leg.onAlt) {
+            prev.toKm = toKm;
+            prev.riddenLengthKm += riddenLengthKm;
+          } else {
+            out.push({
+              bank,
+              onAlt: leg.onAlt,
+              fromKm,
+              toKm,
+              riddenLengthKm,
+              startRiddenKm: ridden,
+              // Only the piece that begins the leg was entered by riding a crossing.
+              crossingIn: s === 0 ? leg.crossingIn : null,
+            });
+          }
+          ridden += riddenLengthKm;
+        }
+      });
+      return out;
     },
 
     /** crossings whose canonical km lies in the oriented span (a, b], annotated. */

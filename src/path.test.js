@@ -254,6 +254,62 @@ describe('edge rules', () => {
     expect(legs[1].riddenLengthKm).toBeCloseTo(altKmAt(TABLE, 250));
     expect(legs[1].crossingIn.id).toBe('a');
   });
+  // The real canonical line is not one bank: it rides the left bank down to the
+  // Hamburg hand-over and the right bank for the 690 km after. These pin the split
+  // that fixes the whole-road ribbon reading "left bank · 1000 km".
+  describe('legs() where the canonical line itself changes bank', () => {
+    const TWO_BANK = [
+      { startKm: 0, endKm: 139, bank: 'left' },
+      { startKm: 139, endKm: 400, bank: 'right' },
+    ];
+    const twoBankPath = (tripOpts, chosen = []) =>
+      createPath({
+        trip: createTrip({ totalKm: 400, ...tripOpts }),
+        chosenCrossingIds: chosen,
+        crossings: TABLE,
+        canonicalIndex,
+        altIndex,
+        segments: TWO_BANK,
+      });
+
+    it('splits one crossing-free leg at the hand-over', () => {
+      const legs = twoBankPath({ startKm: 0, destinationKm: 400 }).legs();
+      expect(legs.map((l) => l.bank)).toEqual(['left', 'right']);
+      expect(legs[0]).toMatchObject({ fromKm: 0, toKm: 139 });
+      expect(legs[1]).toMatchObject({ fromKm: 139, toKm: 400 });
+      expect(legs[0].riddenLengthKm).toBeCloseTo(139);
+      expect(legs[1].riddenLengthKm).toBeCloseTo(261);
+    });
+
+    it('keeps startRiddenKm running across the split', () => {
+      const legs = twoBankPath({ startKm: 0, destinationKm: 400 }).legs();
+      expect(legs[0].startRiddenKm).toBeCloseTo(0);
+      expect(legs[1].startRiddenKm).toBeCloseTo(139);
+    });
+
+    it('does not split a leg that stays inside one segment', () => {
+      const legs = twoBankPath({ startKm: 150, destinationKm: 350 }).legs();
+      expect(legs).toHaveLength(1);
+      expect(legs[0].bank).toBe('right');
+    });
+
+    it('attributes the crossing only to the piece that begins the leg', () => {
+      // Cross at a (km 100, inside the LEFT segment): the alt leg then runs
+      // 100 -> 250, straddling the hand-over at 139.
+      const legs = twoBankPath({ startKm: 50, destinationKm: 250 }, ['a']).legs();
+      expect(legs.map((l) => l.bank)).toEqual(['left', 'right', 'left']);
+      expect(legs[0].crossingIn).toBeNull();
+      expect(legs[1].crossingIn.id).toBe('a'); // the alt leg's first piece
+      expect(legs[2].crossingIn).toBeNull(); // ...and not its second
+    });
+
+    it('the ridden pieces of a split leg still sum to the leg', () => {
+      const p = twoBankPath({ startKm: 50, destinationKm: 250 }, ['a']);
+      const total = p.legs().reduce((sum, l) => sum + l.riddenLengthKm, 0);
+      expect(total + 0.5).toBeCloseTo(p.lengthKm); // + the crossing itself
+    });
+  });
+
   it('coords() hops lines at the crossing', () => {
     const p = path({ startKm: 50, destinationKm: 250 }, ['a']);
     const coords = p.coords(50, 250);
