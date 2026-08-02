@@ -19,6 +19,12 @@ describe('slugifyCrossingId', () => {
   it('lowercases, transliterates umlauts, keeps the rounded km', () => {
     expect(slugifyCrossingId('Magdeburg, Sternbrücke', 478.61)).toBe('magdeburg-sternbruecke-479');
   });
+
+  it('keeps a compound id when the name slugifies to nothing', () => {
+    // A name with no ASCII-mappable characters would otherwise leave the km
+    // as the whole id, so two such crossings at one km would collide.
+    expect(slugifyCrossingId('???', 12.3)).toBe('crossing-12');
+  });
 });
 
 describe('deriveCrossings', () => {
