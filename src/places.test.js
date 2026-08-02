@@ -55,7 +55,8 @@ function renderArgs(overrides = {}) {
   };
 }
 
-// The case the 40-row cap exists for: a dense stretch of 451 food POIs.
+// The case the row cap exists for: a stretch longer and denser than the spatial thinning
+// in pois.js can produce (451 food POIs), which is what the backstop is for.
 const MANY = Array.from({ length: 451 }, (_, i) => poi(`Place ${i}`, 161 + i * 0.2));
 
 // jsdom does no layout, so scrollIntoView is missing entirely — the highlight
@@ -270,20 +271,20 @@ describe('createPlaces - key shapes', () => {
   });
 });
 
-describe('createPlaces - the 40-row cap', () => {
-  // Which 40, not just how many. The footer promises "the first 40" and the list
-  // arrives in ride order, so they have to be the 40 the rider meets FIRST — and
-  // counting rows cannot tell the difference: a cap keeping the LAST 40 of the stretch
-  // rendered 40 rows under that same footer and passed this whole file.
-  it('renders the first 40 rows of the stretch and says how many there are', () => {
+describe('createPlaces - the 150-row cap', () => {
+  // Which 150, not just how many. The footer promises "the first 150" and the list
+  // arrives in ride order, so they have to be the 150 the rider meets FIRST — and
+  // counting rows cannot tell the difference: a cap keeping the LAST 150 of the stretch
+  // rendered 150 rows under that same footer and passed this whole file.
+  it('renders the first 150 rows of the stretch and says how many there are', () => {
     const places = mount();
     places.render(renderArgs({ food: MANY }));
 
     const names = [...el.querySelectorAll('[data-place-section="food"] .poi__name')].map((n) => n.textContent);
-    expect(names).toHaveLength(40);
+    expect(names).toHaveLength(150);
     expect(names[0]).toBe('Place 0');
-    expect(names[39]).toBe('Place 39');
-    expect(el.querySelector('.places__more').textContent).toContain('showing the first 40 of 451');
+    expect(names[149]).toBe('Place 149');
+    expect(el.querySelector('.places__more').textContent).toContain('showing the first 150 of 451');
   });
 
   it('counts the whole section in the summary, not the rendered rows', () => {
@@ -303,14 +304,14 @@ describe('createPlaces - the 40-row cap', () => {
     expect(el.querySelector('.places__more')).toBeNull();
   });
 
-  it('collapses back to 40 when the focused day changes', () => {
+  it('collapses back to the cap when the focused day changes', () => {
     const places = mount();
     places.render(renderArgs({ food: MANY }));
     el.querySelector('[data-action="show-all"]').click();
 
     places.render(renderArgs({ dayNumber: 4, startKm: 265, endKm: 320, food: MANY }));
 
-    expect(el.querySelectorAll('[data-place-section="food"]')).toHaveLength(40);
+    expect(el.querySelectorAll('[data-place-section="food"]')).toHaveLength(150);
   });
 
   // Toggling a ☕ re-renders the same stretch; that must not fold the list the
@@ -339,7 +340,7 @@ describe('createPlaces - the 40-row cap', () => {
     el.querySelector('.pois--food [data-action="show-all"]').click();
 
     expect(el.querySelectorAll('[data-place-section="food"]')).toHaveLength(451);
-    expect(el.querySelectorAll('[data-place-section="sight"]')).toHaveLength(40);
+    expect(el.querySelectorAll('[data-place-section="sight"]')).toHaveLength(150);
   });
 
   // "show all" re-renders from the arguments of the last render, so a caller
@@ -872,35 +873,38 @@ describe('createPlaces - oriented trips', () => {
     expect(callbacks.onSelectPoi).toHaveBeenCalledWith(C);
   });
 
-  // Ordering decides which favorites the 40-row cap KEEPS, which is the more serious
-  // half: in absolute order a downstream rider with more than 40 starred places was
-  // shown the 40 furthest from them and lost every one they would pass first.
+  // Ordering decides which favorites the row cap KEEPS, which is the more serious
+  // half: in absolute order a downstream rider with more starred places than the cap was
+  // shown the furthest ones from them and lost every one they would pass first. (The
+  // favorites list is global and takes no thinning — pois.js bounds the day's food and
+  // sights, but nothing bounds how many places a rider stars, so this section is the one
+  // that still meets the cap in practice.)
   it('caps the favorites at the ones the rider meets first, not last', () => {
     const places = mount();
-    // Absolute 200…244. Downstream the rider starts at 797.6, so 244 is met FIRST and
+    // Absolute 200…354. Downstream the rider starts at 797.6, so 354 is met FIRST and
     // 200 last; the five that must drop off are the lowest absolute km, not the highest.
-    const many = Array.from({ length: 45 }, (_, i) => poi(`Fav ${String(i).padStart(2, '0')}`, 200 + i, 'sight'));
+    const many = Array.from({ length: 155 }, (_, i) => poi(`Fav ${String(i).padStart(2, '0')}`, 200 + i, 'sight'));
     places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, favorites: many, dayNumberForKm: () => 1 }));
 
     const rows = favNamesAndKm();
-    expect(rows).toHaveLength(40);
-    expect(rows[0]).toEqual(['Fav 44', 'km 553.6']);
-    expect(rows[39]).toEqual(['Fav 05', 'km 592.6']);
+    expect(rows).toHaveLength(150);
+    expect(rows[0]).toEqual(['Fav 154', 'km 443.6']);
+    expect(rows[149]).toEqual(['Fav 05', 'km 592.6']);
     expect(el.textContent).not.toContain('Fav 00');
-    expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 40 of 45');
+    expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 150 of 155');
   });
 
   // The same argument the caps themselves were wrong about, one layer in: the front of a
   // signed-rider-km list is not the first place the rider reaches, it is the place
   // furthest BEHIND them — one they will never reach at all. So a cap taking the plain
   // front of it drops places on the trip in favour of places off it, under a footer
-  // promising "the first 40". Reachable by design, not exotic: the starred list is global
+  // promising the first N. Reachable by design, not exotic: the starred list is global
   // and plan-independent, so leftovers from a previous plan on this road are the normal
   // case. Ahead of the start is therefore grouped first and the cap eats that group first.
   it('gives the cap the places ahead of the rider before any behind them', () => {
     const places = mount();
     const startLine = poi('Start line', 149.3, 'sight'); // rider km 0, exactly on the start
-    const ahead = Array.from({ length: 35 }, (_, i) => poi(`Ahead ${String(i).padStart(2, '0')}`, 200 + i, 'sight'));
+    const ahead = Array.from({ length: 145 }, (_, i) => poi(`Ahead ${String(i).padStart(2, '0')}`, 200 + i, 'sight'));
     const behind = Array.from({ length: 10 }, (_, i) => poi(`Behind ${String(i).padStart(2, '0')}`, 100 + i, 'sight'));
 
     places.render(renderArgs({
@@ -912,18 +916,18 @@ describe('createPlaces - oriented trips', () => {
     }));
 
     const rows = favNamesAndKm();
-    expect(rows).toHaveLength(40);
-    // Not one of the 36 places on the trip was dropped, so the footer's promise is true.
-    expect(rows.filter(([name]) => name.startsWith('Ahead'))).toHaveLength(35);
+    expect(rows).toHaveLength(150);
+    // Not one of the 146 places on the trip was dropped, so the footer's promise is true.
+    expect(rows.filter(([name]) => name.startsWith('Ahead'))).toHaveLength(145);
     expect(rows[0]).toEqual(['Start line', 'km 0']); // rider km 0 counts as ahead, not behind
-    expect(rows[35]).toEqual(['Ahead 34', 'km 84.7']);
+    expect(rows[145]).toEqual(['Ahead 144', 'km 194.7']);
     // ...and only then the tail, in the same monotone order, filling the 4 slots left.
-    expect(rows[36]).toEqual(['Behind 00', 'km -49.3']);
-    expect(rows[39]).toEqual(['Behind 03', 'km -46.3']);
+    expect(rows[146]).toEqual(['Behind 00', 'km -49.3']);
+    expect(rows[149]).toEqual(['Behind 03', 'km -46.3']);
     expect(el.textContent).not.toContain('Behind 04');
-    expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 40 of 46');
+    expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 150 of 156');
     // Task 6's tag still speaks for the tail.
-    expect(el.querySelectorAll('[data-place-section="fav"]')[36].querySelector('.fav-day').textContent)
+    expect(el.querySelectorAll('[data-place-section="fav"]')[146].querySelector('.fav-day').textContent)
       .toBe('beyond plan');
   });
 

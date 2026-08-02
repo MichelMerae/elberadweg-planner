@@ -10,10 +10,11 @@
 // produce, and it produces it silently — every number still looks like a number.
 //
 // Every km-ordered list here runs in the rider's DIRECTION OF TRAVEL — the first row is
-// the first place they will reach — which matters twice over, because the 40-row cap
-// keeps the front of each list (see ROW_CAP). Food and sights arrive that way already
-// (poisInRange orders them); favorites are ordered here, being the one list with no
-// stretch to carry a direction (see inRideOrder).
+// the first place they will reach — which matters twice over, because the row cap keeps
+// the front of each list (see ROW_CAP). Food and sights arrive that way already
+// (poisInRange orders them, and thinAlongRoute thins them without disturbing that);
+// favorites are ordered here, being the one list with no stretch to carry a direction
+// (see inRideOrder).
 //
 // The overnight candidates are the deliberate exception: towns.js ranks them by how well
 // each suits the day's END — distance to it, weighted against the detour off route — and
@@ -33,11 +34,18 @@ import { esc, round1, townKey, poiKey, favGlyphFor } from './ui-util.js';
 // star switches off with the suite still green.
 import { favKey } from './favorites.js';
 
-// Presentation-only stopgap: a dense stretch can hold 450+ food POIs, and a panel
-// that scrolls 50,000 px is unusable. Ranking/grouping is a separate project —
-// until then, show the first 40 along the stretch and say how many there are.
+// A BACKSTOP, not the real cap. What bounds the food and sights lists now is the spatial
+// thinning in pois.js (thinAlongRoute): at most five places per 5 km ridden, spread
+// across categories, which turns day 1 out of Hamburg's 771 food POIs into 63 rows spread
+// over the whole 80 km. This number only bites on a list nothing thinned — an unusually
+// long day, or the favorites, which are global and have no stretch to thin along.
 //
-// A PREFIX of each list, which is what makes those 40 the first 40 the rider will
+// It was 40, and at 40 it undid the thinning: a thinned day already runs the length of
+// the ride, so cutting it back to 40 rows restored exactly the bug thinning fixes — every
+// row in the first few km and none in the last 75. Whatever this number is, it has to sit
+// clear of what a thinned day produces.
+//
+// A PREFIX of each list, which is what makes those rows the first ones the rider will
 // reach: every list here already runs in the rider's direction of travel, so the cap
 // has only to take the front of it. It used to take the front of an absolute-km
 // ascending list, which downstream is the far end of the day — a rider looking for
@@ -46,10 +54,11 @@ import { favKey } from './favorites.js';
 // The order, not nearest-by-detour, and map.js's POI_MAP_CAP must agree on both the
 // number and the criterion: the map draws that same set, and marker-hover highlights a
 // row by key, so a marker whose row was never rendered highlights nothing. They agree
-// by construction rather than by coincidence — main.js hands both this panel and the
-// map the one array poisInRange returned, and each takes its first 40. (map.js imports
-// nothing but Leaflet, which is why the constant is duplicated rather than shared.)
-const ROW_CAP = 40;
+// by construction rather than by coincidence — main.js thins ONCE, upstream of both, and
+// hands this panel and the map the one array, and each takes its first 150. THE TWO
+// NUMBERS MUST STAY EQUAL. (map.js imports nothing but Leaflet, which is why the constant
+// is duplicated rather than shared.)
+const ROW_CAP = 150;
 
 // Distance ridden from one absolute km to another, counted the rider's way: positive
 // along the trip whichever direction it runs. tripKm is linear, so the difference of
@@ -121,9 +130,9 @@ function rowActions(name, isBreak, isFav) {
 // whole reason this is not a plain sort. The front of a signed list is not the first
 // place the rider reaches: it is the place furthest behind them, which they will never
 // reach at all. `section`'s cap takes the FRONT of this list, so a plain sort spent the
-// 40 rows on places off the trip before it reached places on it — the same false
+// capped rows on places off the trip before it reached places on it — the same false
 // promise the caps themselves used to make, one layer in, and printed under the same
-// "showing the first 40" footer. Grouped, the cap fills itself with the trip first and
+// "showing the first N" footer. Grouped, the cap fills itself with the trip first and
 // only spends what is left over on the road behind, so the promise is true again.
 //
 // Reachable by design rather than exotic: the starred list is global and

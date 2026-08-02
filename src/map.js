@@ -169,24 +169,31 @@ const FAV_ICON = L.divIcon({
   iconAnchor: [8, 8],
 });
 
-// A dense city stretch can hold hundreds of food POIs, so the map shows the first
-// POI_MAP_CAP of a kind IN THE ORDER THEY ARRIVE — a prefix, and no order of its own.
+// A BACKSTOP, not the real cap. The list arriving here has already been thinned along the
+// route (pois.js's thinAlongRoute: at most five places per 5 km ridden), which is what
+// keeps a dense city stretch's hundreds of food POIs from burying the map — day 1 out of
+// Hamburg arrives as 63 food and 49 sights, spread over the whole 80 km. This number only
+// bites on a list nothing thinned, or an unusually long day.
+//
+// It was 40, and 40 undid the thinning: a prefix of a spread-out day is once again all
+// pins in the first few km. Whatever this number is, it has to sit clear of what a thinned
+// day produces.
 //
 // The criterion matters more than the number, and it has to be the same one
-// places.js's ROW_CAP uses (also 40, also a prefix of the same list). It used to keep
-// the 40 NEAREST by offsetKm instead, which on a dense stretch is a different set from
-// the panel's first 40: hovering a marker then highlighted nothing, because that
-// POI's row was never rendered. Taking a prefix makes the two sets identical by
-// construction, so every marker has a row to light up.
+// places.js's ROW_CAP uses (also 150, also a prefix of the same list) — THE TWO NUMBERS
+// MUST STAY EQUAL. It used to keep the 40 NEAREST by offsetKm instead, which on a dense
+// stretch is a different set from the panel's first 40: hovering a marker then
+// highlighted nothing, because that POI's row was never rendered. Taking a prefix makes
+// the two sets identical by construction, so every marker has a row to light up.
 //
 // Which is why re-sorting here would be a bug and not a tidy-up, however harmless a
 // sort looks: the list arrives in the RIDER's direction of travel (see poisInRange),
 // which on a downstream trip descends by route km. Imposing ascending km would pin the
-// 40 places the rider reaches LAST while the panel listed the 40 they reach first.
+// places the rider reaches LAST while the panel listed the ones they reach first.
 //
 // The constants are deliberately not shared: map.js imports nothing but Leaflet
 // (see poiMarkerKey below for the same trade). Change one, change the other.
-const POI_MAP_CAP = 40;
+const POI_MAP_CAP = 150;
 
 function cappedByKind(pois, kind) {
   return pois.filter((p) => p.kind === kind).slice(0, POI_MAP_CAP);
