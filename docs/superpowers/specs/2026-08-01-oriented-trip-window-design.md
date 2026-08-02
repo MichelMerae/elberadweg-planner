@@ -139,9 +139,13 @@ A plan with no days shows a setup step rather than "click the strip":
 > Start — *not set* · `Set start`
 > Finish — *not set* · `Set finish`
 
-Both default to the road's ends (Cuxhaven → Prague), so the step can be skipped entirely by anyone happy with the whole road. Once both are set the panel switches to the normal "add your first day" state and reports the trip's length and direction: *"Hamburg → Dresden · 649 km downstream"*.
+Both default to the road's ends (Cuxhaven → Prague), so the step can be skipped entirely by anyone happy with the whole road. Once both are set the panel switches to the normal "add your first day" state and reports the trip's length and direction: *"Hamburg → Dresden · 641.9 km upstream"*.
 
 Direction is named in words because the sign of a subtraction is not something a user should have to infer.
+
+(Example corrected during Task 16; the requirement above is unchanged. An earlier draft read *"649 km downstream"* and **both figures were wrong**. Settled against the data rather than the prose: `src/data/elevation.json` puts km 0 (Cuxhaven) at **5 m** and the road's far end (Prague) at **205 m**, so ascending km climbs *toward the source*. Cuxhaven is the mouth, and Hamburg → Dresden is therefore **upstream** — which is also what §1's model comment says and what the implementation does. The distance is 641.9 km: in the built corridor Hamburg sits at km 155.8 and Dresden at km 797.7.
+
+Worth keeping in view as a product fact, because it is why this sentence earns its place: the Elberadweg's own literature describes the route source-to-sea, so a rider heading for Dresden is going *against* the direction the guidebooks are written in. "Upstream" is a word most users will not have been prepared for by anything else they have read about this route. Naming the direction in words is doing real work here, not decoration.)
 
 ### 6b. A vertically resizable strip
 
