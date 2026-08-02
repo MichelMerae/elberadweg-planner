@@ -48,6 +48,23 @@ describe('deriveCrossings', () => {
     const out = deriveCrossings([anon], lineA, lineB, { maxSnapM: 250, towns });
     expect(out[0].name).toBe('Teststadt bridge');
   });
+  it('treats a numbers-only OSM name (a bare ref, e.g. a ferry line number) as unnamed', () => {
+    // Real OSM data: HADAG Hamburg ferry line "62", Darchau ferry ref "5170".
+    // Neither is a name a rider would recognise, so both should fall back to
+    // the town name exactly like a missing `name` tag would.
+    const numeric = ferryWay(30, '62');
+    const towns = [{ name: 'Teststadt', routeDistanceKm: 15.0 }];
+    const out = deriveCrossings([numeric], lineA, lineB, { maxSnapM: 250, towns });
+    expect(out[0].name).toBe('Teststadt ferry');
+    // The id must derive from the fallback name, not from the digits — a
+    // number-derived id would collide across every same-numbered ferry line.
+    expect(out[0].id).toBe(slugifyCrossingId('Teststadt ferry', out[0].kmCanonical));
+  });
+  it('keeps a name that has letters, even mixed with digits and punctuation', () => {
+    const named = bridgeWay(10, 'F6 Königstein–Halbestadt');
+    const out = deriveCrossings([named], lineA, lineB, { maxSnapM: 250 });
+    expect(out[0].name).toBe('F6 Königstein–Halbestadt');
+  });
 });
 
 describe('dedupeCrossings', () => {

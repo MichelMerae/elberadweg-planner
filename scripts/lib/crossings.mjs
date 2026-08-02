@@ -39,6 +39,24 @@ export function slugifyCrossingId(name, kmCanonical) {
   return `${flat || 'crossing'}-${Math.round(kmCanonical)}`;
 }
 
+/**
+ * Whether an OSM `name` tag is actually a name, not a bare ref that happens
+ * to sit in the `name` field. Two crossings found in real data carry
+ * numbers-only names: the HADAG Hamburg ferry is tagged `name=62` (its line
+ * number) and the Darchau ferry `name=5170` (an OSM ref). Rendered as-is a
+ * rider sees "Cross at 5170", so those must fall through to
+ * `nearestTownName` exactly like a missing tag would — while a name such as
+ * `F6 Königstein–Halbestadt`, which mixes a route code with real place
+ * names, must keep it.
+ *
+ * `\p{L}` (Unicode letter) rather than `[a-zA-Z]`, so a name that is *only*
+ * non-Latin letters (e.g. `Ústí`) still counts as named; only digits,
+ * punctuation and whitespace fail the test.
+ */
+function hasName(tagName) {
+  return typeof tagName === 'string' && /\p{L}/u.test(tagName);
+}
+
 function snap(lineFeature, lngLat) {
   const s = turf.nearestPointOnLine(lineFeature, turf.point(lngLat), { units: 'kilometers' });
   return { km: s.properties.location, distM: s.properties.dist * 1000, coord: s.geometry.coordinates };
@@ -80,7 +98,7 @@ export function deriveCrossings(ways, canonicalCoords, altCoords, { maxSnapM = 2
     const lengthKm = turf.length(turf.lineString(way.geometry.map((p) => [p.lon, p.lat])), { units: 'kilometers' });
     if (lengthKm > maxLengthKm) continue;
     const kind = way.tags?.route === 'ferry' || way.tags?.ferry ? 'ferry' : 'bridge';
-    const name = way.tags?.name ?? nearestTownName(towns, best.c.km, kind);
+    const name = hasName(way.tags?.name) ? way.tags.name : nearestTownName(towns, best.c.km, kind);
     const kmCanonical = Math.round(best.c.km * 100) / 100;
     out.push({
       id: slugifyCrossingId(name, kmCanonical),
