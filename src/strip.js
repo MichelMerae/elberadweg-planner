@@ -174,9 +174,7 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
   // px in the DOM was derived from the old axis width. A ResizeObserver in
   // main.js drives that path.
   function render(next = state) {
-    // Ditto the names below: a width change re-renders with no argument, and a strip
-    // that forgot its trip would have nothing to draw an axis from.
-    const trip = next.trip ?? state.trip;
+    const trip = next.trip;
     // No fallback. The axis maps the trip's window, so a road-shaped stand-in would be
     // a second, silent window with every km on screen counted from the wrong origin —
     // which is what the fallback this replaces actually did. day-panel and places
@@ -188,21 +186,18 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       days: next.days || [],
       focusedIndex: next.focusedIndex ?? null,
       breaks: next.breaks || [],
-      // Fall back to what state already holds, not to a default: render() is
-      // called with NO argument on a width change (main.js drives that from a
-      // ResizeObserver), and rebuilding from a bare state would drop the names —
-      // the strip would silently start calling Prague "finish" after any resize.
-      originName: next.originName ?? state.originName,
-      destinationName: next.destinationName ?? state.destinationName,
-      // Same argument-less-render reasoning as the names above.
-      elevation: next.elevation ?? state.elevation,
-      // And again for the TRIP's own end names, which are a different fact from the two
-      // above: those name the ROAD's ends and feed the stubs, these name wherever the
-      // rider chose to begin and finish. Derived by main.js from the towns, never stored
-      // — a trip is a startKm, a destinationKm and nothing else — so a render that
-      // dropped them would leave the scale line calling Hamburg "start" until the next
-      // pick, which is precisely what a width-change render must not do.
-      endNames: next.endNames ?? state.endNames,
+      // No `?? state.x` on any field here, and none is missing. What carries the
+      // width-change render (main.js drives it from a ResizeObserver, with no
+      // argument) is the DEFAULT PARAMETER above: `next` IS `state` there, so a
+      // field-level fallback could never reach its right-hand side anyway. Every
+      // production render states every field. And a partial render is not an API this
+      // has: `render({ days })` would still reset `focusedIndex` to null and `breaks`
+      // to [], dropping the focus ring and every glyph — so a fallback on the four
+      // fields below would promise a safety it does not deliver.
+      originName: next.originName,
+      destinationName: next.destinationName,
+      elevation: next.elevation,
+      endNames: next.endNames,
       // null is MEANINGFUL here, so the fallback is `?? null` and not `?? state.picking`:
       // main.js cancels a pick by rendering with picking: null, and `null ?? state.picking`
       // would keep the control pressed for ever. An argument-less render still preserves

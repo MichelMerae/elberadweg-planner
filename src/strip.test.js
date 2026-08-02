@@ -1133,29 +1133,19 @@ describe('createStrip - endpoint names', () => {
   });
 
   // render() is called with no argument on a width change (main.js drives that from
-  // a ResizeObserver). Rebuilding from a bare state would drop the names and the
-  // strip would silently start calling Prague "finish" after any resize.
+  // a ResizeObserver), and the names have to survive it — a strip that rebuilt from a
+  // bare state would silently start calling Prague "finish" after any resize.
   //
-  // TWO re-renders, for the reason the endNames test spells out further down — and this
-  // is the test that reason was first learned on, retro-fitted. The argument-less render
-  // ALONE CANNOT FAIL: `render(next = state)` makes `next.originName` the very value
-  // `state.originName` already holds, so the assertions below pass with or without the
-  // `?? state.originName` half of the merge. Measured: deleting either name's fallback
-  // survived the whole suite while this test looked like it pinned them.
-  //
-  // The PARTIAL render is what pins them — new days, nothing said about either name — so
-  // `next.originName` really is undefined and the fallback really runs. Without it the
-  // scale line drops to "km 0 · start" and the summary to "to finish", which is exactly
-  // what a resize would do to a rider mid-plan.
-  it('keeps the names through a re-render that does not repeat them', () => {
+  // What carries them is render()'s DEFAULT PARAMETER, `render(next = state)`: `next`
+  // IS the state already held, names included. There is no `?? state.originName` in
+  // the merge and there is nothing for one to do — this is the case such a fallback
+  // would be reaching for, and the case it cannot serve, since `next.originName` is
+  // never undefined here. The partial render that used to sit below this one, pinning
+  // exactly that unreachable branch, went with the fallbacks.
+  it('keeps the names through an argument-less re-render', () => {
     const strip = mount();
     strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
     strip.render();
-
-    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · Cuxhaven');
-    expect(el.querySelector('.strip__summary').textContent).toContain('to Prague');
-
-    strip.render({ days: days(100, 200), totalKm: 400, focusedIndex: 0, breaks: [] });
 
     expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · Cuxhaven');
     expect(el.querySelector('.strip__summary').textContent).toContain('to Prague');
@@ -1181,17 +1171,12 @@ describe('createStrip - endpoint names', () => {
     expect(el.querySelector('.strip__range')).toBeNull();
   });
 
-  // The third fallback in the same state merge, pinned the same way and for the same
-  // reason. main.js loads the profile once, at startup, and never repeats it: every
-  // later render — a resize, a focus, a boundary move — says nothing about `elevation`,
-  // so `next.elevation ?? state.elevation` is the only thing keeping the profile on
-  // screen for the rest of the session.
-  //
-  // Again the argument-less render alone cannot fail it (`next.elevation` IS
-  // `state.elevation`), so the PARTIAL render carries the weight: without the fallback
-  // the profile and its range span vanish on the first re-render that omits them — the
-  // 'omits the range when there is no profile' state above, arrived at by accident.
-  it('keeps the elevation profile through a re-render that does not repeat it', () => {
+  // The range span rides the same width-change render the names above do, and on the
+  // same mechanism — the default parameter, not a fallback — but it is drawn from
+  // `elevation` rather than from either name, and it lives in the scale line rather
+  // than in the axis (where 'survives an argument-less re-render' watches the profile
+  // itself). Losing it to a resize would leave the exaggeration unlabelled.
+  it('keeps the range in the scale line through an argument-less re-render', () => {
     const strip = mount();
     strip.render({
       days: days(100),
@@ -1201,10 +1186,6 @@ describe('createStrip - endpoint names', () => {
       elevation: { spacingM: 250, minM: -1, maxM: 205, elevationsM: [0, 100, 205] },
     });
     strip.render();
-
-    expect(el.querySelector('.strip__range').textContent).toContain('-1–205 m');
-
-    strip.render({ days: days(100, 200), totalKm: 400, focusedIndex: 0, breaks: [] });
 
     expect(el.querySelector('.strip__range')).not.toBeNull();
     expect(el.querySelector('.strip__range').textContent).toContain('-1–205 m');
@@ -1930,25 +1911,17 @@ describe('createStrip - naming the trip’s own ends', () => {
   });
 
   // The resize path, exactly as the origin/destination names and the armed control have
-  // it: render() with no argument redraws the state already held.
-  //
-  // TWO re-renders, because the argument-less one alone cannot fail: `render(next =
-  // state)` makes `next.endNames` the very object `state.endNames` already is, so it
-  // passes with or without the `?? state.endNames` half of the merge — measured, as a
-  // surviving mutant. The second render is the one that pins it: new days, nothing said
-  // about the names. Without the fallback that render un-names both ends.
-  it('keeps the picked names through a re-render that does not repeat them', () => {
+  // it: render() with no argument redraws the state already held, picked names included.
+  // `render(next = state)` is what carries them — `next.endNames` IS the object the
+  // state already holds — and main.js re-derives them from the towns on every render it
+  // does state, so nothing here ever needs a `?? state.endNames`.
+  it('keeps the picked names through an argument-less re-render', () => {
     const strip = renderTrip(UP, tripDays(UP, 80), {
       ...named,
       endNames: { start: 'Hamburg', destination: 'Dresden' },
     });
 
     strip.render();
-
-    expect(scale()).toContain('km 0 · Hamburg');
-    expect(scale()).toContain('km 648.3 · Dresden');
-
-    strip.render({ days: tripDays(UP, 80, 80), trip: UP, focusedIndex: 0, breaks: [] });
 
     expect(scale()).toContain('km 0 · Hamburg');
     expect(scale()).toContain('km 648.3 · Dresden');
@@ -2017,8 +1990,9 @@ describe('createStrip - the trip’s ends as controls', () => {
   });
 
   // main.js cancels a pick by rendering with `picking: null`, so null is MEANINGFUL
-  // here. Under the `?? state.picking` fallback the other retained fields use, a
-  // cancel would leave the control pressed for ever and no other test would see it.
+  // here — which is why the merge reads `?? null` and not `?? state.picking`. Under
+  // the latter a cancel would leave the control pressed for ever, and no other test
+  // would see it.
   it('releases both controls when a later render cancels the pick', () => {
     const strip = renderTrip(UP, tripDays(UP, 80), { ...named, picking: 'start' });
 
