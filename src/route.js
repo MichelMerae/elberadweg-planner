@@ -160,3 +160,24 @@ export async function loadRoute() {
   const mod = await import('./data/route.json');
   return mod.default;
 }
+
+/**
+ * Loads the alt bank's line — the left-bank stretch between the outermost
+ * crossings — as GeoJSON. Same dynamic-import trick as loadRoute, and for the
+ * same reason: this module works before src/data/route.alt.json exists.
+ * @returns {Promise<Feature<LineString>>}
+ */
+export async function loadAltRoute() {
+  const mod = await import('./data/route.alt.json');
+  return mod.default;
+}
+
+/**
+ * Loads the crossing table (bridges and ferries where the rider can switch
+ * banks), sorted by kmCanonical.
+ * @returns {Promise<Array<object>>}
+ */
+export async function loadCrossings() {
+  const mod = await import('./data/crossings.json');
+  return mod.default;
+}

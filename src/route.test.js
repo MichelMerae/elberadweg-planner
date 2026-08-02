@@ -6,6 +6,8 @@ import {
   createRouteIndex,
   pointAtKm,
   stretchCoords,
+  loadAltRoute,
+  loadCrossings,
 } from './route.js';
 
 // Synthetic fixture: a line running due south along the Greenwich meridian
@@ -213,5 +215,20 @@ describe('snap', () => {
   it('snaps the start point to distance 0', () => {
     const { distanceKm } = snap(meridianLine, [0, 51.0]);
     expect(distanceKm).toBeCloseTo(0, 3);
+  });
+});
+
+describe('alt data loaders', () => {
+  it('loadAltRoute returns a LineString feature', async () => {
+    const alt = await loadAltRoute();
+    expect(alt.geometry.type).toBe('LineString');
+    expect(alt.geometry.coordinates.length).toBeGreaterThan(100);
+  });
+  it('loadCrossings returns the sorted table', async () => {
+    const crossings = await loadCrossings();
+    expect(crossings.length).toBeGreaterThan(10);
+    expect(crossings[0]).toMatchObject({ id: expect.any(String), kmCanonical: expect.any(Number), kmAlt: expect.any(Number) });
+    const kms = crossings.map((c) => c.kmCanonical);
+    expect([...kms].sort((a, b) => a - b)).toEqual(kms);
   });
 });
