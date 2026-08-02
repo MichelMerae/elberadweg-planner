@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { loadTowns, townsNear, townsInRange } from './towns.js';
+import { loadTowns, townsNear, nearestTown, townsInRange } from './towns.js';
 
 // Sorted ascending by routeDistanceKm, as the real towns.json will be.
 const TOWNS = [
@@ -98,6 +98,75 @@ describe('townsNear', () => {
     test('empty towns array returns empty', () => {
       expect(townsNear([], 10)).toEqual([]);
     });
+  });
+});
+
+// The fixture is unchanged for these: the tie case needs two towns at one km, which the
+// shared TOWNS deliberately has none of (three existing tests pin its exact ordering),
+// so that one case builds a two-town array of its own.
+describe('nearestTown', () => {
+  test('picks the closest ALONG the route, where townsNear picks the best weighted score', () => {
+    // The fixture's own disagreement case, asserted from BOTH sides so the disagreement
+    // is visible rather than asserted about: townsNear scores Craghill 4 + 1.5 = 5.5
+    // ahead of Brambury's 1 + 6 = 7, while distance along the route alone puts Brambury
+    // (1 km) ahead of Craghill (4 km). This is the assertion that kills a nearestTown
+    // implemented by reusing townsNear.
+    //
+    // withinKm 10, NOT the 3 km default the plan wrote: at 3 km the window is [47, 53]
+    // and Craghill (54) is outside it, so a townsNear-backed implementation would answer
+    // Brambury too and the assertion could not fail. Both towns have to be in the window
+    // for the ranking to be the thing under test.
+    expect(townsNear(TOWNS, 50, { windowKm: 10 })[0].name).toBe('Craghill');
+    expect(nearestTown(TOWNS, 50, { withinKm: 10 }).name).toBe('Brambury');
+    // The town itself, not a copy — main.js reads routeDistanceKm off the answer to
+    // build the snap offer.
+    expect(nearestTown(TOWNS, 50, { withinKm: 10 })).toBe(TOWNS.find((t) => t.name === 'Brambury'));
+  });
+
+  test('answers null outside withinKm and finds the town once withinKm reaches it', () => {
+    // Elmswick sits at 61, five km from 66; Dunmoor at 60 is six away and is what a
+    // weighted score would still prefer (offset 2 against Elmswick's 0 — but 6 + 3 = 9
+    // beats nothing here, and 5 + 0 = 5 wins either way, so the pair only pins the radius).
+    expect(nearestTown(TOWNS, 66, { withinKm: 3 })).toBeNull();
+    expect(nearestTown(TOWNS, 66, { withinKm: 6 }).name).toBe('Elmswick');
+  });
+
+  test('the default radius is 3 km, and its edge is inclusive', () => {
+    // Oakdale is at 28. Exactly 3 km away is in; 3.1 km away is out. A default of 2 or of
+    // 5 fails one of these two, and an exclusive edge fails the first.
+    expect(nearestTown(TOWNS, 31).name).toBe('Oakdale');
+    expect(nearestTown(TOWNS, 31.1)).toBeNull();
+  });
+
+  test('the naming tolerance answers on both sides of its edge', () => {
+    // 0.05 km is main.js's NAME_TOLERANCE_KM: the half-step of the 0.1 km grid, so
+    // "this end IS Oakdale" holds at 28.04 and stops holding at 28.06.
+    expect(nearestTown(TOWNS, 28.04, { withinKm: 0.05 }).name).toBe('Oakdale');
+    expect(nearestTown(TOWNS, 28.06, { withinKm: 0.05 })).toBeNull();
+  });
+
+  test('a tie along the route goes to the smaller offset, in either data order', () => {
+    const farther = { name: 'Farside', place: 'village', lat: 0, lng: 0, routeDistanceKm: 40, offsetKm: 2 };
+    const nearer = { name: 'Nearside', place: 'village', lat: 0, lng: 0, routeDistanceKm: 40, offsetKm: 0.5 };
+    // Both orders, because "keep the first" and "keep the last" are different bugs and
+    // either ordering on its own lets one of them through. What a single-order assertion
+    // would certify is a name chosen by the order the data build happened to emit.
+    expect(nearestTown([farther, nearer], 40).name).toBe('Nearside');
+    expect(nearestTown([nearer, farther], 40).name).toBe('Nearside');
+  });
+
+  test('a non-finite km is named by nothing', () => {
+    // Behaviour, not a guard: the binary search collapses to an empty window for each of
+    // these (every comparison against them is false), so nearestTown has no finite check
+    // to make one reachable. Pinned so a rewrite to a linear scan cannot quietly start
+    // answering "the first town in the file".
+    for (const km of [NaN, Infinity, -Infinity]) {
+      expect(nearestTown(TOWNS, km), `km ${km}`).toBeNull();
+    }
+  });
+
+  test('an empty towns array is named by nothing', () => {
+    expect(nearestTown([], 40)).toBeNull();
   });
 });
 

@@ -1785,8 +1785,10 @@ describe('createStrip - edge stubs', () => {
   });
 });
 
-// Until Tasks 11/12 store the town a rider picked, only an end that sits ON a road end
-// has a name — and which road end that is depends on the direction.
+// An end that sits ON a road end is named by the road, and which road end that is
+// depends on the direction. Any other end is named by `endNames`, which main.js derives
+// from the towns on every render (Task 12) — never stored, so the strip is only ever
+// told, never asked to remember.
 describe('createStrip - naming the trip’s own ends', () => {
   const named = { originName: 'Cuxhaven', destinationName: 'Prague' };
   const scale = () => el.querySelector('.strip__scale').textContent;
@@ -1832,6 +1834,78 @@ describe('createStrip - naming the trip’s own ends', () => {
 
     expect(el.querySelector('.strip__flag').textContent).toContain('finish');
     expect(el.querySelector('.strip__flag').textContent).not.toContain('Prague');
+  });
+
+  // ALL THREE sites that name an end have to read the picked name. Converting the scale
+  // line alone is the exact shape of the bug Task 8's ledger records — a summary still
+  // reading "0 km to Prague" beside a scale line that had already stopped saying it.
+  it('reads a picked name on the scale line, the summary and the flag', () => {
+    renderTrip(UP, tripDays(UP, 80, 80), {
+      ...named,
+      endNames: { start: 'Hamburg', destination: 'Dresden' },
+    });
+
+    expect(scale()).toContain('km 0 · Hamburg');
+    expect(scale()).toContain('km 648.3 · Dresden');
+    // 648.3 km of trip, 160 km of it planned.
+    expect(el.querySelector('.strip__summary').textContent).toContain('488.3 km to Dresden');
+    expect(el.querySelector('.strip__flag').textContent).toContain('⚑ Dresden');
+  });
+
+  // Half the pair named and half not, which is the ordinary case while a rider is still
+  // choosing: `null` is what main.js sends for an end no town is near enough to name.
+  it('leaves an end with no picked name reading as its role', () => {
+    renderTrip(UP, tripDays(UP, 80), {
+      ...named,
+      endNames: { start: 'Hamburg', destination: null },
+    });
+
+    expect(scale()).toContain('km 0 · Hamburg');
+    expect(scale()).toContain('km 648.3 · finish');
+    expect(el.querySelector('.strip__flag').textContent).toContain('⚑ finish');
+    // Interpolating the null itself is the failure this rules out — it would read
+    // "km 648.3 · null" and look like data.
+    expect(scale()).not.toContain('null');
+  });
+
+  // A road end keeps the ROAD's name even while the other end carries a town's, which is
+  // what stops a picked name outranking Cuxhaven. main.js answers the road's own name
+  // there anyway (same rounded gate as `roadContinues`), so the two never disagree — but
+  // an endNames object that simply says nothing about an end must not erase it either.
+  it('still names a road end from the road while the other end carries a town', () => {
+    const fromOrigin = createTrip({ startKm: 0, destinationKm: 797.6, totalKm: ROAD_KM });
+    renderTrip(fromOrigin, tripDays(fromOrigin, 80), {
+      ...named,
+      endNames: { destination: 'Dresden' },
+    });
+
+    expect(scale()).toContain('km 0 · Cuxhaven');
+    expect(scale()).toContain('km 797.6 · Dresden');
+  });
+
+  // The resize path, exactly as the origin/destination names and the armed control have
+  // it: render() with no argument redraws the state already held.
+  //
+  // TWO re-renders, because the argument-less one alone cannot fail: `render(next =
+  // state)` makes `next.endNames` the very object `state.endNames` already is, so it
+  // passes with or without the `?? state.endNames` half of the merge — measured, as a
+  // surviving mutant. The second render is the one that pins it: new days, nothing said
+  // about the names. Without the fallback that render un-names both ends.
+  it('keeps the picked names through a re-render that does not repeat them', () => {
+    const strip = renderTrip(UP, tripDays(UP, 80), {
+      ...named,
+      endNames: { start: 'Hamburg', destination: 'Dresden' },
+    });
+
+    strip.render();
+
+    expect(scale()).toContain('km 0 · Hamburg');
+    expect(scale()).toContain('km 648.3 · Dresden');
+
+    strip.render({ days: tripDays(UP, 80, 80), trip: UP, focusedIndex: 0, breaks: [] });
+
+    expect(scale()).toContain('km 0 · Hamburg');
+    expect(scale()).toContain('km 648.3 · Dresden');
   });
 });
 

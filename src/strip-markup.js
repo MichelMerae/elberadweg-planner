@@ -293,7 +293,7 @@ function handleMarkup(days, index, axis, activeIndex, trip) {
 // Hamburg → Dresden to Cuxhaven → Prague and will change again — so no place name
 // belongs in this module. These are what it says when mounted without names, which
 // the tests do and which must not read as "undefined"; they are also what a trip end
-// the rider chose reads as, since nothing here knows a name for it yet.
+// the rider chose reads as when no town sits near enough to name it.
 const ORIGIN_FALLBACK = 'start';
 const DESTINATION_FALLBACK = 'finish';
 
@@ -347,13 +347,29 @@ function roadContinues(past) {
 /**
  * What to call one end of the trip.
  *
- * An end sitting on an end of the ROAD keeps that road end's name. Any other end is
- * somewhere the rider picked, and nothing in this module knows its name, so it reads as
- * the neutral word for its role — "Cuxhaven" on a start 149 km past Cuxhaven would be a
- * plain lie. **Plan Tasks 11/12 replace these two fallbacks with the town the rider
- * picked**, which is the only thing that can name a window's own ends.
+ * Three answers, in this order:
+ *
+ * 1. `state.endNames[tripEnd]` — the name main.js resolved for this end, which is a town
+ *    the rider's end sits in, or the road's own name when the end is a road end. It wins
+ *    because it is the answer to exactly this question, computed where the town data
+ *    lives; nothing in this module can look a town up, and a name derived from the km
+ *    is never stored, so this arrives fresh on every render (see main.js's `nameAtKm`).
+ * 2. An end sitting on an end of the ROAD keeps that road end's name.
+ * 3. Anything else reads as the neutral word for its role — "Cuxhaven" on a start 149 km
+ *    past Cuxhaven would be a plain lie.
+ *
+ * Additive: with no `endNames` at all (which is how most of strip.test.js renders) every
+ * case behaves exactly as it did before, including the pinned `startKm: 0.04` pair.
+ *
+ * Branch 1 sitting ABOVE branch 2 costs nothing in the app, because the two never
+ * disagree there: main.js's `nameAtKm` answers the road's own name for a km on a road
+ * end, on the SAME rounded comparison `roadContinues` uses, and its comment says so.
+ * That shared gate — not the ordering here — is what stops a town 40 m from Cuxhaven
+ * renaming the road's origin.
  */
 function endName(state, tripEnd) {
+  const named = state.endNames?.[tripEnd];
+  if (named) return named;
   const past = roadPast(state, tripEnd);
   if (!roadContinues(past)) return past.name;
   return tripEnd === 'start' ? ORIGIN_FALLBACK : DESTINATION_FALLBACK;

@@ -1,6 +1,6 @@
 import './style.css';
 import { loadRoute, createRouteIndex, pointAtKm, stretchCoords, snap } from './route.js';
-import { loadTowns, townsNear } from './towns.js';
+import { loadTowns, townsNear, nearestTown } from './towns.js';
 import { loadPois, poisInRange } from './pois.js';
 import { createTrip, proposeEnd } from './trip.js';
 import { createItinerary, breakKey, fitDaysToLength } from './itinerary.js';
@@ -307,9 +307,9 @@ async function boot() {
   // import, so guard from the outside.
   //
   // The prompt needs this as much as the camera buttons do, and while a pick is armed it
-  // needs it MORE: an unshielded click on the prompt — on its text, or on the action
-  // button Task 12 puts there — is a route click, so the trip end would land at whatever
-  // km happens to lie under the prompt.
+  // needs it MORE: an unshielded click on the prompt — on its text, or on the `Use
+  // Hamburg` button the snap offer puts there — is a route click, so the trip end would
+  // land at whatever km happens to lie under the prompt rather than on the town.
   function shieldFromMap(el) {
     ['mousedown', 'touchstart', 'dblclick', 'click'].forEach((type) =>
       el.addEventListener(type, (e) => e.stopPropagation()),
@@ -437,30 +437,41 @@ async function boot() {
     return itinerary.totalPlannedKm() >= trip.lengthKm - ARRIVED_EPSILON_KM;
   }
 
+  // "Near enough to BE there": the half-step of the 0.1 km grid every stored km sits
+  // on, so a town names an end only when the two round to the same tenth. Move the end
+  // 3 km and the name goes, because that is the truth.
+  const NAME_TOLERANCE_KM = 0.05;
+  // Spec §6.3's snap radius. At whole-route zoom one pixel is ~0.7 km, so a click is
+  // worth ±2 km and a town this close is very likely the place the rider meant.
+  const SNAP_OFFER_KM = 3;
+
   // What to call one end of the trip: the RIDER's ends, not the road's — on a
   // downstream trip the start IS the road's destination.
   //
   // Derived from the km, never stored. Spec's own definition is "a startKm, a
   // destinationKm, and nothing else", and a stored name would be a second source for
-  // something the km already say. Task 12 adds the town half; until then an end that
-  // is not a road end has no name, and every consumer already has a word for that.
-  //
-  // The road-end test is rounded to 0.1 km because that is the gate strip-markup's
-  // `roadContinues` uses to decide whether an end is a road end (and so whether to
-  // draw a stub past it). Two questions — "what is this end called" and "is there
-  // road past it" — sharing one comparison. Change one, change the other, or the app
-  // will name one end two ways on one screen.
+  // something the km already say — so there is no persisted field behind any of this,
+  // no schema bump and no migration. A start that sits where a town sits is named by
+  // that town; move it and the name goes with the km.
   function nameForTripEnd(tripEnd) {
     return nameAtKm(tripEnd === 'start' ? trip.startKm : trip.destinationKm);
   }
 
   // The same question asked of an arbitrary km rather than of a trip end, which is what
   // a refusal message needs: the km it is talking about is one the rider just PROPOSED,
-  // and no end of the current trip sits there. Task 12 gives this the towns.
+  // and no end of the current trip sits there.
+  //
+  // The two road-end tests come FIRST and are rounded to 0.1 km, because that is the
+  // gate strip-markup's `roadContinues` uses to decide whether an end is a road end (and
+  // so whether to draw a stub past it). Two questions — "what is this end called" and
+  // "is there road past it" — sharing one comparison. Change one, change the other, or
+  // the app will name one end two ways on one screen. It is also what keeps a town near
+  // a road end from renaming the road: Praha sits 0.3 km short of km 1026.5 and Cuxhaven
+  // the town 3.5 km past km 0, and neither may stand in for the corridor's own endpoint.
   function nameAtKm(km) {
     if (round1(km) <= 0) return ORIGIN_NAME;
     if (round1(totalKm - km) <= 0) return DESTINATION_NAME;
-    return null;
+    return nearestTown(towns, km, { withinKm: NAME_TOLERANCE_KM })?.name ?? null;
   }
 
   // The two names in the shape tripHeadline and the day panel both take. Derived
@@ -469,11 +480,22 @@ async function boot() {
     return { startName: nameForTripEnd('start'), destinationName: nameForTripEnd('destination') };
   }
 
-  // How a MESSAGE names a km: the road end it sits on, and failing that not a km at all
-  // but the role it plays in the trip being proposed. Deliberately never an absolute km
-  // — it would be the only absolute km on screen, which spec §2 names as worse than
-  // all-absolute because nothing marks it as different. The unnamed case reads a little
-  // awkwardly ("ride your finish → the point you picked"), and that is the trade taken.
+  // The same two names in the shape the strip keys them by — its own
+  // 'start' | 'destination' tripEnd rather than tripHeadline's startName /
+  // destinationName. One derivation, two spellings: the strip's markup reads a name by
+  // the tripEnd it is already looping over, and translating there would put a second
+  // pair of these words in a module that must hold no place names at all.
+  function endNamesByTripEnd() {
+    return { start: nameForTripEnd('start'), destination: nameForTripEnd('destination') };
+  }
+
+  // How a MESSAGE names a km: the town or road end it sits on, and failing that not a km
+  // at all but the role it plays in the trip being proposed. Deliberately never an
+  // absolute km — it would be the only absolute km on screen, which spec §2 names as
+  // worse than all-absolute because nothing marks it as different. The unnamed case
+  // reads a little awkwardly ("ride your finish → the point you picked"), and that is
+  // the trade taken; a click within 50 m of a town avoids it, which a snapped pick
+  // always is and a raw one at whole-route zoom rarely is.
   function endLabel(km) {
     const named = nameAtKm(km);
     if (named) return named;
@@ -508,6 +530,11 @@ async function boot() {
       breaks: itinerary.getBreaks(),
       originName: ORIGIN_NAME,
       destinationName: DESTINATION_NAME,
+      // What the trip's OWN two ends are called — the towns they sit in, or the road's
+      // name where an end is a road end. Sent on every render because it is derived
+      // from the km on every render; the strip stores it only to survive an
+      // argument-less re-layout, exactly as it does the two road names.
+      endNames: endNamesByTripEnd(),
       elevation,
       // Which of the scale line's two end controls is drawn pressed. The strip RENDERS
       // the mode; it never owns it, which is why a cancel arrives here as picking: null
@@ -929,9 +956,19 @@ async function boot() {
   }
 
   // The one path from a picked km to a new window: the guards, the reflow, the save and
-  // the sentence saying what happened. Three callers — a map pick, the snap offer
-  // (Task 12) and Finish here (Task 13) — so a guard added here covers all three.
-  function applyPickedEnd(tripEnd, km) {
+  // the sentence saying what happened. Three callers — a map pick, the snap offer and
+  // Finish here (Task 13) — so a guard added here covers all three.
+  //
+  // `offerSnap` is how a caller says "this km is already the answer, do not offer to
+  // move it". The plan justified it as what stops the offer looping — a snap landing
+  // 0.4 km from ANOTHER town being answered with that one — and that is not what it
+  // does: every town in the dataset sits on the 0.1 km grid (checked: 0 of 887 off it),
+  // so a snap lands exactly ON its town, `nearestTown` answers that same town, and the
+  // `gap !== 0` guard below already suppresses the second offer. It stays because the
+  // knob is real for the OTHER callers: Task 13's `Finish here` hands over a day's end
+  // km, which is a boundary the rider chose rather than a town, and offering to shift it
+  // onto a town 0.4 km away would undo the thing they just asked for.
+  function applyPickedEnd(tripEnd, km, { offerSnap = true } = {}) {
     const decided = proposeEnd(trip, tripEnd, km, {
       dayCount: itinerary.getDays().length,
       minLengthKm: MIN_DAY_KM,
@@ -947,7 +984,7 @@ async function boot() {
     const dropped = setTripWindow(decided.trip);
     persistPlan();
     renderAll();
-    reportPick(tripEnd, km, dropped);
+    reportPick(tripEnd, km, dropped, { offerSnap });
   }
 
   // The same three steps loadPlanIntoModel takes, with the days coming from memory
@@ -978,10 +1015,36 @@ async function boot() {
     return fitted.dropped;
   }
 
-  function reportPick(tripEnd, km, dropped) {
+  function reportPick(tripEnd, km, dropped, { offerSnap = true } = {}) {
     const dropText = dropped
       ? ` · ${dropped} ${dropped === 1 ? 'day' : 'days'} no longer ${dropped === 1 ? 'fits' : 'fit'} and ${dropped === 1 ? 'was' : 'were'} dropped`
       : '';
+    const role = tripEnd === 'start' ? 'start' : 'finish';
+    // Spec §6.3: at whole-route zoom one pixel is ~0.7 km, so a click is worth ±2 km.
+    // Name the town within SNAP_OFFER_KM and let one press take it.
+    const town = offerSnap ? nearestTown(towns, km, { withinKm: SNAP_OFFER_KM }) : null;
+    // In RIDER km, deliberately, and NOT the spec's absolute `(km 149.3)`. On a trip
+    // starting at Hamburg the strip reads `km 0 · Hamburg`, so that figure would be the
+    // only absolute km on screen — spec §2 names that as worse than all-absolute,
+    // "because nothing marks it as different". The offset from the pick says the same
+    // thing in the rider's own units, and it is the number that actually helps.
+    const gap = town ? round1(trip.tripKm(town.routeDistanceKm) - trip.tripKm(km)) : 0;
+    if (town && gap !== 0) {
+      pickBanner.show(
+        `${tripHeadline(trip, endNames())}${dropText} · ${town.name} is ${Math.abs(gap)} km ` +
+          `${gap < 0 ? 'behind' : 'past'} your ${role} — use it instead?`,
+        {
+          // The offer takes the same path as any other pick, so a snap that would flip
+          // or shorten the trip is refused by the same guards with the same words.
+          action: {
+            label: `Use ${town.name}`,
+            onPress: () =>
+              applyPickedEnd(tripEnd, round1(town.routeDistanceKm), { offerSnap: false }),
+          },
+        },
+      );
+      return;
+    }
     // The trip itself is the confirmation, in the same sentence the setup step uses: a
     // rider who has just moved an end wants to know what the trip IS now, and "km 0" —
     // which is what a start always becomes — would tell them nothing.
@@ -1001,11 +1064,12 @@ async function boot() {
       return;
     }
     if (decided.reason === 'would-reverse') {
-      // Spec §6's sentence, with the direction NAMED rather than merely refused. Task 12
-      // gives endLabel the town half, and until it does this sentence reads awkwardly on
-      // purpose — which is worth spelling out, because the plan claimed the opposite
-      // ("a whole-road trip is already named by both road ends, so the common case reads
-      // right from here") and that is not reachable:
+      // Spec §6's sentence, with the direction NAMED rather than merely refused. Since
+      // Task 12 endLabel has the towns too, so the everyday shape of this reads as
+      // "…ride Hamburg → Cuxhaven instead". It still falls back to a role for a km with
+      // nothing within 50 m of it, and that is not the case the plan expected — the plan
+      // claimed the opposite ("a whole-road trip is already named by both road ends, so
+      // the common case reads right from here") and that is not reachable:
       //
       //   A proposal whose BOTH ends are road ends is never a reversal. Take the
       //   unchanged end U and the picked km P. If U = 0 the proposal's direction is
@@ -1029,13 +1093,23 @@ async function boot() {
     console.warn('planner-app: ignored a pick with no finite km', decided);
   }
 
-  // Escape cancels a pick. Owned at the document because when a pick is armed the
-  // pointer is over the MAP, and nothing there holds focus to hang a handler on. The two
-  // editors that own Esc for themselves — the day panel's break-note editor and its
-  // custom-stop prompt — both stopPropagation, so this cannot steal theirs.
+  // Escape cancels a pick, and failing that declines whatever the prompt is still
+  // holding. Owned at the document because when a pick is armed the pointer is over the
+  // MAP, and nothing there holds focus to hang a handler on. The two editors that own
+  // Esc for themselves — the day panel's break-note editor and its custom-stop prompt —
+  // both stopPropagation, so this cannot steal theirs.
   document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || !picking) return;
-    handlePickEnd(picking); // the toggle IS the cancel; one path, one place
+    if (e.key !== 'Escape') return;
+    if (picking) {
+      handlePickEnd(picking); // the toggle IS the cancel; one path, one place
+      return;
+    }
+    // No mode armed, but the prompt may be parked with the snap offer from the last
+    // pick — "Hamburg is 2.8 km past your start — use it instead?". An offer with no way
+    // to say no would sit over the map until some later pick replaced it, and it is the
+    // one thing in this line a keyboard can act on. The banner has no × by design (a
+    // dismiss that left the mode armed would be a lie), so this is the way out.
+    pickBanner.hide();
   });
 
   // --- Plan callbacks ----------------------------------------------------
@@ -1075,6 +1149,12 @@ async function boot() {
   // The WINDOW deliberately survives: "reset" empties the plan you made for a trip, it
   // does not undo the trip. Which is why this is not a loadPlanIntoModel path — the
   // model keeps the trip it has, and persistPlan writes that same window back.
+  //
+  // That is also the escape hatch the reversal refusal points at ("Reset the trip to
+  // ride Hamburg → Cuxhaven instead"): proposeEnd refuses a flip only because days
+  // measured along the old direction would be stranded, and after a reset there are
+  // none — so the same pick, repeated, is then allowed. Nothing here had to change for
+  // that to be true, which is why it is verified in the browser rather than in code.
   function handleResetTrip() {
     // Nothing to empty: return before persisting. A write here would bump
     // updatedAt for no change, and updatedAt is what deletePlan picks the
