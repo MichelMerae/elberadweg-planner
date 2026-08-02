@@ -1,6 +1,6 @@
 # Oriented Trip Window Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make a trip an oriented window on the road — a `startKm` and a `destinationKm`, either order — so a rider can start near home and ride Dresden → Hamburg, with distances read from their own start and the day's climb shown on the strip.
 
@@ -58,7 +58,7 @@ Do not merge before phase 4. Phase 5 may be pulled forward if the profile needs 
 - Create: `src/trip.js`
 - Test: `src/trip.test.js`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 import { describe, it, expect } from 'vitest';
@@ -146,12 +146,12 @@ describe('createTrip', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [x] **Step 2: Run to verify it fails**
 
 Run: `npx vitest run src/trip.test.js`
 Expected: FAIL — `Failed to resolve import "./trip.js"`.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```js
 // src/trip.js
@@ -214,12 +214,12 @@ export function wouldReverse(trip, { startKm = trip.startKm, destinationKm = tri
 }
 ```
 
-- [ ] **Step 4: Run to verify it passes**
+- [x] **Step 4: Run to verify it passes**
 
 Run: `npx vitest run src/trip.test.js`
 Expected: PASS, 13 tests.
 
-- [ ] **Step 5: Test `wouldReverse` too**
+- [x] **Step 5: Test `wouldReverse` too**
 
 ```js
 import { wouldReverse } from './trip.js';
@@ -243,7 +243,7 @@ describe('wouldReverse', () => {
 
 Run: `npx vitest run src/trip.test.js` → PASS, 16 tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/trip.js src/trip.test.js
@@ -260,7 +260,7 @@ git commit -m "feat(trip): the oriented window and its arithmetic"
 
 `createItinerary({ totalKm })` becomes `createItinerary({ trip })`.
 
-- [ ] **Step 1: Read every existing test before changing anything**
+- [x] **Step 1: Read every existing test before changing anything**
 
 `src/itinerary.test.js` has `const TOTAL_KM = 380` at the top and ~120 cases built on an ascending km-0 origin. **Read them.** The change you are making is exactly the kind that makes tests pass for the wrong reason: if a test asserts `days[0].startKm === 0` and the new default trip starts at 0, it passes while testing nothing about direction.
 
@@ -273,7 +273,7 @@ const TOTAL_KM = 380;
 const WHOLE = createTrip({ startKm: 0, destinationKm: TOTAL_KM });
 ```
 
-- [ ] **Step 2: Write the failing NEW tests — direction is what needs proving**
+- [x] **Step 2: Write the failing NEW tests — direction is what needs proving**
 
 ```js
 describe('createItinerary - oriented trips', () => {
@@ -321,12 +321,12 @@ describe('createItinerary - oriented trips', () => {
 
 Note the last one: `breaksInRange(300, 220)` receives a start greater than its end. Whatever it does today, it must handle that — normalise inside, and say so in its comment.
 
-- [ ] **Step 3: Run to verify the new tests fail**
+- [x] **Step 3: Run to verify the new tests fail**
 
 Run: `npx vitest run src/itinerary.test.js`
 Expected: FAIL on the oriented cases.
 
-- [ ] **Step 4: Implement**
+- [x] **Step 4: Implement**
 
 Replace `totalKm` with `trip` throughout:
 
@@ -366,12 +366,12 @@ and `breaksInRange` normalises:
   }
 ```
 
-- [ ] **Step 5: Run the whole file**
+- [x] **Step 5: Run the whole file**
 
 Run: `npx vitest run src/itinerary.test.js`
 Expected: PASS. If an old test needed its numbers changed rather than its construction, stop and check you have not changed its intent.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/itinerary.js src/itinerary.test.js
@@ -386,11 +386,11 @@ git commit -m "feat(itinerary): chain days along an oriented trip"
 - Modify: `src/boundaries.js`
 - Test: `src/boundaries.test.js`
 
-- [ ] **Step 1: Read `boundaries.test.js` in full first**
+- [x] **Step 1: Read `boundaries.test.js` in full first**
 
 ~130 cases, all ascending from km 0. Same hazard as Task 2, worse: this file owns `MIN_DAY_KM` enforcement, and a sign error here lets a day become negative-length without any test noticing.
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 ```js
 describe('boundaries - downstream trips', () => {
@@ -430,7 +430,7 @@ describe('boundaries - downstream trips', () => {
 });
 ```
 
-- [ ] **Step 3: Run to verify they fail**, then implement.
+- [x] **Step 3: Run to verify they fail**, then implement.
 
 Every comparison in `rawBounds`, `boundaryWindow`, `boundaryBounds` and `clampBoundaryKm` moves from raw km ordering to trip-relative distance. The cleanest form is to convert to rider km at the top, do the existing ascending arithmetic there, and convert back:
 
@@ -456,7 +456,7 @@ export function boundaryWindow(days, index, { trip, minDayKm = MIN_DAY_KM } = {}
 
 `riderWindow` is the existing body, renamed, with `totalKm` → `lengthKm`. **Note the min/max swap:** in absolute km on a downstream trip, `absoluteKm(window.min)` is the LARGER number. Whether callers need `min <= max` in absolute terms is the thing to check — `handleMarkup`'s `aria-valuemin`/`aria-valuemax` do, so sort there, not here.
 
-- [ ] **Step 4: Run, then commit**
+- [x] **Step 4: Run, then commit**
 
 ```bash
 git add src/boundaries.js src/boundaries.test.js
@@ -471,7 +471,7 @@ git commit -m "feat(boundaries): do boundary maths in rider km, both directions"
 - Modify: `src/storage.js`
 - Test: `src/storage.test.js`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 describe('storage v4 - trip window', () => {
@@ -522,7 +522,7 @@ describe('storage v4 - trip window', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 `SCHEMA_VERSION = 4`, `PREVIOUS_SCHEMA_VERSION` accepts 3 **and** 2. `createPlanStore` takes `totalKm` so it can default the window. `normalizePlan` gains:
 
@@ -537,7 +537,7 @@ describe('storage v4 - trip window', () => {
 
 **Do not touch the `routeId` archive logic.** A window change is not a corridor change, and v3 → v4 must not archive anything.
 
-- [ ] **Step 3: Run, then commit**
+- [x] **Step 3: Run, then commit**
 
 ```bash
 git add src/storage.js src/storage.test.js
@@ -552,7 +552,7 @@ git commit -m "feat(storage): schema v4 carries each plan's trip window"
 
 **Files:** `src/main.js`
 
-- [ ] **Step 1: Build the trip from the active plan**
+- [x] **Step 1: Build the trip from the active plan**
 
 ```js
   // The trip is derived from the active plan, so switching plans switches windows.
@@ -565,12 +565,12 @@ git commit -m "feat(storage): schema v4 carries each plan's trip window"
 
 `createItinerary({ trip })`, and every `boundaryWindow`/`clampBoundaryKm` call passes `{ trip }` instead of `{ totalKm }`. `hydrateActivePlan` rebuilds `trip` from the plan it loads. `saveActivePlan` persists `trip.startKm` / `trip.destinationKm`.
 
-- [ ] **Step 2: Run the app, confirm nothing changed**
+- [x] **Step 2: Run the app, confirm nothing changed**
 
 Run: `npm run dev`, open it, add days.
 Expected: identical to `997c525` — the window is the whole road, so every number matches. **This is the checkpoint for phase 1.** If anything differs, phase 1 has a bug and phase 2 will bury it.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/main.js
@@ -583,7 +583,7 @@ git commit -m "feat: derive the trip from the active plan"
 
 **Files:** `src/ui-util.js`, `src/strip-markup.js`, `src/day-panel.js`, `src/places.js`, `src/map.js`, plus their tests.
 
-- [ ] **Step 1: Enumerate the sites before editing any**
+- [x] **Step 1: Enumerate the sites before editing any**
 
 ```bash
 git grep -n "startKm\|endKm\|routeDistanceKm\|totalKm" -- src/*.js | grep -v test | grep -vE "^src/(trip|boundaries|itinerary|storage|elevation|strip-geometry)\.js"
@@ -591,7 +591,7 @@ git grep -n "startKm\|endKm\|routeDistanceKm\|totalKm" -- src/*.js | grep -v tes
 
 Every hit inside a template literal or a `textContent` assignment is a display site. Write the list into this plan's ledger before touching code — the failure mode is a *missed* site, and a list you wrote down is checkable where memory is not.
 
-- [ ] **Step 2: Test-drive each module's translation**
+- [x] **Step 2: Test-drive each module's translation**
 
 For `strip-markup.js`:
 
@@ -610,15 +610,15 @@ it('labels a block with km from the rider start, not absolute route km', () => {
 
 and equivalents in `day-panel.test.js` (`km 0 → 80`, not `km 149.3 → 229.3`), `places.test.js` (a town's row km), `map.test.js` (a day pin's tooltip).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Each of those modules takes `trip` in its render arguments and calls `trip.tripKm(...)` wherever a km reaches markup. `ui-util.js` gains nothing — `trip.js` already owns the conversion, and a second copy in `ui-util` is how the two drift apart.
 
-- [ ] **Step 4: Sweep**
+- [x] **Step 4: Sweep**
 
 Re-run the grep from step 1. Every remaining raw `startKm`/`endKm` in markup-producing code must be either converted or deliberately absolute with a comment saying why.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/ && git commit -m "feat: show distances from the rider's own start"
@@ -632,7 +632,7 @@ git add src/ && git commit -m "feat: show distances from the rider's own start"
 
 **Files:** `src/strip-geometry.js`, `src/strip-geometry.test.js`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```js
 describe('kmToX - oriented windows', () => {
@@ -663,7 +663,7 @@ describe('kmToX - oriented windows', () => {
 });
 ```
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 ```js
 /** Route km -> x on the axis, clamped to the trip window. */
@@ -682,24 +682,24 @@ export function kmToX(km, { startKm = 0, endKm, width } = {}) {
 
 **`hitTestHandle` needs no change** — it works in px.
 
-- [ ] **Step 3: Run, commit.**
+- [x] **Step 3: Run, commit.**
 
 ### Task 8: The strip renders a window, with stubs
 
 **Files:** `src/strip.js`, `src/strip-markup.js`, `src/style.css`, tests
 
-- [ ] Tests: the summary counts down to the destination using trip length; the scale line names the trip's own ends; a stub appears at an end only when the road continues past it, with the remaining distance in its title; no stub when an end is the road's end.
-- [ ] Implement: `axisOpts()` returns `{ startKm, endKm, width, height, elevationPoints }`; `elevationPointsFor` passes the window (and its memo key gains both ends); `scaleMarkup` uses the trip's ends; a `stubMarkup(side, km, name)` renders the caps.
-- [ ] `elevation.js`: relax `profilePoints`'s `endKm <= startKm` guard to allow a descending window, with a test proving a downstream profile is the mirror of the upstream one.
-- [ ] Commit.
+- [x] Tests: the summary counts down to the destination using trip length; the scale line names the trip's own ends; a stub appears at an end only when the road continues past it, with the remaining distance in its title; no stub when an end is the road's end.
+- [x] Implement: `axisOpts()` returns `{ startKm, endKm, width, height, elevationPoints }`; `elevationPointsFor` passes the window (and its memo key gains both ends); `scaleMarkup` uses the trip's ends; a `stubMarkup(side, km, name)` renders the caps.
+- [x] `elevation.js`: relax `profilePoints`'s `endKm <= startKm` guard to allow a descending window, with a test proving a downstream profile is the mirror of the upstream one.
+- [x] Commit.
 
 ### Task 9: Per-day climb on the block, direction-aware
 
 **Files:** `src/elevation.js`, `src/strip-geometry.js`, `src/strip-markup.js`, tests
 
-- [ ] Tests: `ascentBetween` swaps ascent and descent when the span is given in descending order (the same stretch is 487 m up one way and 487 m down the other); the `full` tier renders `↑ 340 m` on the second line; the climb is in the block `title` at every tier; a block below the new `full` threshold drops the climb before it drops the town.
-- [ ] Implement: `ascentBetween(profile, fromKm, toKm)` stops normalising with `min/max` and instead reports relative to the direction it was asked in. `TIER_FULL_PX` 88 → **112**, measured in Chromium at the real 11px Archivo with `1 80 km` / `🛏 Hitzacker · ↑ 340 m` — do the measurement, do not trust the number.
-- [ ] Commit.
+- [x] Tests: `ascentBetween` swaps ascent and descent when the span is given in descending order (the same stretch is 487 m up one way and 487 m down the other); the `full` tier renders `↑ 340 m` on the second line; the climb is in the block `title` at every tier; a block below the new `full` threshold drops the climb before it drops the town.
+- [x] Implement: `ascentBetween(profile, fromKm, toKm)` stops normalising with `min/max` and instead reports relative to the direction it was asked in. `TIER_FULL_PX` 88 → **112**, measured in Chromium at the real 11px Archivo with `1 80 km` / `🛏 Hitzacker · ↑ 340 m` — do the measurement, do not trust the number.
+- [x] Commit.
 
 ---
 
@@ -737,7 +737,7 @@ because Task 11 makes the start user-movable and a pin nailed to
 builds — and on a downstream whole-road trip it already is, sitting at the rider's
 DESTINATION with the origin's name on it.
 
-- [ ] **Step 1: Write the failing picking tests** (`src/map.test.js`)
+- [x] **Step 1: Write the failing picking tests** (`src/map.test.js`)
 
 ```js
 describe('createMap - picking mode', () => {
@@ -821,7 +821,7 @@ test kills `classList.add` without the matching remove. Note the shape of all fi
 each asserts what did **not** happen as well as what did, because a mutant that fires
 both callbacks passes every "was called" assertion on its own.
 
-- [ ] **Step 2: Implement picking mode** (`src/map.js`)
+- [x] **Step 2: Implement picking mode** (`src/map.js`)
 
 ```js
   // Which end of the trip the next route click resolves, or null.
@@ -857,7 +857,7 @@ be absent; the branch is what matters):
 `setPickingMode` joins the returned control surface, and `onPickPoint` joins
 `createMap`'s options and its JSDoc.
 
-- [ ] **Step 3: The crosshair, and the cascade trap under it** (`src/style.css`)
+- [x] **Step 3: The crosshair, and the cascade trap under it** (`src/style.css`)
 
 ```css
 /* Armed for a pick (spec §6): the cursor is the only thing on the map that says the
@@ -881,7 +881,7 @@ be absent; the branch is what matters):
 }
 ```
 
-- [ ] **Step 4: Write the failing start-pin tests** — the three existing ones move to
+- [x] **Step 4: Write the failing start-pin tests** — the three existing ones move to
       the setter, plus three new
 
 `createMap - the start pin` currently builds its pin at construction from
@@ -946,7 +946,7 @@ marker ever built (the file's init hook never forgets one), which is why that la
 filters to the ones still on a map rather than counting the array — an assertion on
 `createdMarkers.length` alone would pass under the mutant it exists to catch.
 
-- [ ] **Step 5: Implement the start pin as a setter** (`src/map.js`)
+- [x] **Step 5: Implement the start pin as a setter** (`src/map.js`)
 
 Delete the construction-time block at `map.js:398-413` (`const startCoord = …` and its
 `L.marker(...).addTo(map)`), drop `originName` from the destructured options and the
@@ -981,7 +981,7 @@ JSDoc, and add a layer group beside the other four:
   }
 ```
 
-- [ ] **Step 6: Wire both into `main.js`**
+- [x] **Step 6: Wire both into `main.js`**
 
 `createMap`'s call loses `originName: ORIGIN_NAME` and gains nothing else yet —
 **`onPickPoint` has no handler until Task 11, and the mode has no way to be armed, so
@@ -1027,7 +1027,7 @@ assigned this to Task 12; the helper it needs arrives here, and leaving a known-
 line on the branch for one commit is worse than the overlap. Task 12 gives the same
 helper towns, which is the half that needs the 3 km lookup.
 
-- [ ] **Step 7: Run, verify in the browser, commit**
+- [x] **Step 7: Run, verify in the browser, commit**
 
 Run: `npx vitest run --exclude '**/.cache/**'` — map 26 → ~34.
 
@@ -1070,7 +1070,7 @@ safe, then the controls that make one, then the wiring that applies it.
 
 #### 11a — the model
 
-- [ ] **Step 1: Write the failing `proposeEnd` tests** (`src/trip.test.js`)
+- [x] **Step 1: Write the failing `proposeEnd` tests** (`src/trip.test.js`)
 
 The guard ORDER is the point of this function, so it is what the tests are built round.
 
@@ -1157,7 +1157,7 @@ reversal guard. The `not.toThrow()` kills removing the finite check (`wouldRever
 throws by design). The good-pick tests are what give the refusal tests discriminating
 power — without them a mutant that refused everything would pass all five refusals.
 
-- [ ] **Step 2: Implement `proposeEnd`** (`src/trip.js`, beside `wouldReverse`)
+- [x] **Step 2: Implement `proposeEnd`** (`src/trip.js`, beside `wouldReverse`)
 
 ```js
 /**
@@ -1213,7 +1213,7 @@ export function proposeEnd(trip, tripEnd, km, { dayCount = 0, minLengthKm } = {}
 }
 ```
 
-- [ ] **Step 3: Write the failing `fitDaysToLength` tests** (`src/itinerary.test.js`)
+- [x] **Step 3: Write the failing `fitDaysToLength` tests** (`src/itinerary.test.js`)
 
 ```js
 import { createItinerary, breakKey, fitDaysToLength } from './itinerary.js';
@@ -1269,7 +1269,7 @@ kills the missing `round1` on the remaining room. The town test kills dropping
 `townChoice` while clamping — the day panel already has a sentence for a town that no
 longer sits on the boundary, and losing the choice silently is the worse of the two.
 
-- [ ] **Step 4: Implement `fitDaysToLength`** (`src/itinerary.js`, module level beside
+- [x] **Step 4: Implement `fitDaysToLength`** (`src/itinerary.js`, module level beside
       `breakKey`)
 
 ```js
@@ -1306,7 +1306,7 @@ export function fitDaysToLength(entries, lengthKm) {
 }
 ```
 
-- [ ] **Step 5: Run and commit 11a**
+- [x] **Step 5: Run and commit 11a**
 
 Run: `npx vitest run --exclude '**/.cache/**' src/trip.test.js src/itinerary.test.js`
 — trip 16 → ~27, itinerary 124 → ~130.
@@ -1318,7 +1318,7 @@ git commit -m "feat(trip): answer a proposed trip end with the trip it makes or 
 
 #### 11b — the two controls
 
-- [ ] **Step 6: The trip headline, in words** (`src/ui-util.js`)
+- [x] **Step 6: The trip headline, in words** (`src/ui-util.js`)
 
 ```js
 // Which way along the road the km run. The corridor is a river and its km ascend
@@ -1365,7 +1365,7 @@ export function tripHeadline(trip, { startName, destinationName } = {}) {
 > prepared a user for — the setup step naming it in words is doing real work, not
 > decoration.
 
-- [ ] **Step 7: The picking prompt** (`index.html`, `src/ui.js`, `src/ui.test.js`,
+- [x] **Step 7: The picking prompt** (`index.html`, `src/ui.js`, `src/ui.test.js`,
       `src/style.css`)
 
 `index.html`, inside `#map` alongside `#map-controls` — the prompt belongs where the
@@ -1462,7 +1462,7 @@ Tests (`src/ui.test.js`), each naming its mutant:
 }
 ```
 
-- [ ] **Step 8: The scale line's ends become controls** (`src/strip-markup.js`,
+- [x] **Step 8: The scale line's ends become controls** (`src/strip-markup.js`,
       `src/strip.js`, `src/style.css`, `src/strip.test.js`)
 
 Spec §6: the controls live on the endpoint labels the strip already shows, because
@@ -1560,7 +1560,7 @@ editable, `:focus-visible` matching the app's other controls, and
 `[aria-pressed="true"]` in `--river` with a solid underline so the armed end is obvious
 from across the room.
 
-- [ ] **Step 9: The empty plan becomes trip setup** (`src/day-panel.js`,
+- [x] **Step 9: The empty plan becomes trip setup** (`src/day-panel.js`,
       `src/style.css`, `src/day-panel.test.js`)
 
 ```js
@@ -1646,7 +1646,7 @@ Test obligations (`src/day-panel.test.js`):
   becomes the setup step's own text. Record it in the ledger as a deliberate
   expectation change, with the reason (spec §6a replaces that state).
 
-- [ ] **Step 10: Commit 11b**
+- [x] **Step 10: Commit 11b**
 
 ```bash
 git add src/ui-util.js src/ui.js src/ui.test.js src/strip.js src/strip-markup.js \
@@ -1656,7 +1656,7 @@ git commit -m "feat(strip): the trip's own ends become the controls that set the
 
 #### 11c — wiring: a pick becomes a window
 
-- [ ] **Step 11: `main.js`**
+- [x] **Step 11: `main.js`**
 
 ```js
   // Which end the next route click resolves, or null. The app owns it: the two controls'
@@ -1809,7 +1809,7 @@ Escape:
   });
 ```
 
-- [ ] **Step 12: Run the whole suite, verify in the browser, commit 11c**
+- [x] **Step 12: Run the whole suite, verify in the browser, commit 11c**
 
 Run: `npx vitest run --exclude '**/.cache/**'` and `npx vite build`.
 
@@ -1872,7 +1872,7 @@ git commit -m "feat: pick a start and a finish on the map"
 What Task 11 left neutral, this task names. Everything here rests on one decision, so it
 comes first.
 
-- [ ] **Step 1: One lookup, two tolerances** (`src/towns.js`, `src/towns.test.js`)
+- [x] **Step 1: One lookup, two tolerances** (`src/towns.js`, `src/towns.test.js`)
 
 **A picked name is DERIVED from the km, never stored.** Spec's own definition of a trip
 is "a `startKm`, a `destinationKm`, and nothing else"; a stored name would be a second
@@ -1928,7 +1928,7 @@ Tests (`src/towns.test.js`, over the file's existing `TOWNS` fixture):
 - a non-finite km answers null rather than scanning — kills the missing guard, which
   would make `lowerBound(towns, NaN)` decide the answer.
 
-- [ ] **Step 2: A picked name reaches the strip** (`src/strip-markup.js`,
+- [x] **Step 2: A picked name reaches the strip** (`src/strip-markup.js`,
       `src/strip.test.js`)
 
 ```js
@@ -1962,7 +1962,7 @@ Test obligations (`src/strip.test.js`):
 - the whole-road cases are unchanged — kills a picked name that outranks the road's own
   name at a road end.
 
-- [ ] **Step 3: The names, and the offer** (`src/main.js`)
+- [x] **Step 3: The names, and the offer** (`src/main.js`)
 
 `nameForTripEnd` gains the town half, and a general form for an arbitrary km:
 
@@ -2027,7 +2027,7 @@ is exactly what the refused-flip message points at — and after a reset the pla
 days, so the flip the rider wanted is then free. **Confirm that end to end in the
 browser**; it is the escape hatch the refusal promises, and nothing tests the promise.
 
-- [ ] **Step 4: Run, verify in the browser, commit**
+- [x] **Step 4: Run, verify in the browser, commit**
 
 Run: `npx vitest run --exclude '**/.cache/**'` — towns 15 → ~21, strip +4.
 
@@ -2075,7 +2075,7 @@ The "after planning some days, select this stop as destination" from the origina
 brainstorm (spec §6). Small, because Tasks 11 and 12 built everything under it: this is
 one button and one call into `applyPickedEnd`.
 
-- [ ] **Step 1: Write the failing tests** (`src/day-panel.test.js`)
+- [x] **Step 1: Write the failing tests** (`src/day-panel.test.js`)
 
 ```js
 describe('createDayPanel - Finish here', () => {
@@ -2132,7 +2132,7 @@ comparison: `day.endKm === trip.destinationKm` happens to work, but
 `day.endKm >= trip.destinationKm` — the shape someone writes without thinking — is true
 for **every** downstream day, disabling the button across the whole plan.
 
-- [ ] **Step 2: Implement** (`src/day-panel.js`)
+- [x] **Step 2: Implement** (`src/day-panel.js`)
 
 In `.day-panel__actions`, before `Split day`:
 
@@ -2152,7 +2152,7 @@ In `.day-panel__actions`, before `Split day`:
 plus `if (e.target.closest('[data-action="finish-here"]')) return callbacks.onFinishHere?.(index);`
 in the click listener, below the `current.day` guard with the other day actions.
 
-- [ ] **Step 3: Wire it** (`src/main.js`)
+- [x] **Step 3: Wire it** (`src/main.js`)
 
 ```js
   // Spec §6: after planning a few days, make one of them the destination. The day's own
@@ -2176,7 +2176,7 @@ town sits past its boundary keeps that town**, because `fitDaysToLength` keeps t
 straddling day's choice and this day is not even clamped. The day panel's existing snap
 note explains any mismatch.
 
-- [ ] **Step 4: Run, verify in the browser, commit**
+- [x] **Step 4: Run, verify in the browser, commit**
 
 Run: `npx vitest run --exclude '**/.cache/**'` — day-panel +5.
 
@@ -2261,26 +2261,26 @@ git commit -m "feat(day-panel): finish the trip at this day's end"
 
 **Files:** Create `src/strip-resize.js`, `src/strip-resize.test.js`
 
-- [ ] Tests: a drag on the handle changes the height; the height clamps at 46 px and at 45% of the viewport; the value persists to `localStorage` under `elberadweg-strip-height`; a double-click resets to 46; a stored height outside the bounds is repaired on load; `pointercancel` mid-drag leaves a sane height.
-- [ ] Implement as its own module taking `{ el, storage, onResize, measureViewport }`, mirroring `strip.js`'s pointer-capture discipline — capture on a stable element, not the handle, for the same reason documented there.
+- [x] Tests: a drag on the handle changes the height; the height clamps at 46 px and at 45% of the viewport; the value persists to `localStorage` under `elberadweg-strip-height`; a double-click resets to 46; a stored height outside the bounds is repaired on load; `pointercancel` mid-drag leaves a sane height.
+- [x] Implement as its own module taking `{ el, storage, onResize, measureViewport }`, mirroring `strip.js`'s pointer-capture discipline — capture on a stable element, not the handle, for the same reason documented there.
 
 ### Task 15: Wire it up
 
-- [ ] `main.js` mounts it, and its `onResize` re-renders the strip. The `ResizeObserver` currently watching width must watch height too, or a resize will move the handle without redrawing the profile.
-- [ ] Verify in the browser at 46 px, mid-range and maximum: the profile rescales, the day labels stay put, the map shrinks, and a reload restores the height.
-- [ ] Commit.
+- [x] `main.js` mounts it, and its `onResize` re-renders the strip. The `ResizeObserver` currently watching width must watch height too, or a resize will move the handle without redrawing the profile.
+- [x] Verify in the browser at 46 px, mid-range and maximum: the profile rescales, the day labels stay put, the map shrinks, and a reload restores the height.
+- [x] Commit.
 
 ---
 
 ## Task 16: Review, verify, merge
 
-- [ ] `npm test` — run from inside the worktree; expect >650 tests passing (592 baseline + this feature's new tests; the plan's original ">1150" figure was based on a polluted count).
-- [ ] `npm run build`.
-- [ ] Grep sweep: no raw absolute km in display code; no `totalKm` left in `itinerary`/`boundaries`/`strip-geometry` signatures.
-- [ ] Browser: Hamburg → Dresden, then Dresden → Hamburg, and confirm the climb figures swap.
-- [ ] Two-stage review — spec conformance, then quality.
-- [ ] Merge to `master` with `--no-ff`, push.
-- [ ] Append the outcome to the spec.
+- [x] `npm test` — run from inside the worktree; expect >650 tests passing (592 baseline + this feature's new tests; the plan's original ">1150" figure was based on a polluted count).
+- [x] `npm run build`.
+- [x] Grep sweep: no raw absolute km in display code; no `totalKm` left in `itinerary`/`boundaries`/`strip-geometry` signatures.
+- [x] Browser: Hamburg → Dresden, then Dresden → Hamburg, and confirm the climb figures swap.
+- [x] Two-stage review — spec conformance, then quality.
+- [x] Merge to `master` with `--no-ff`, push.
+- [x] Append the outcome to the spec.
 
 ---
 
@@ -2459,3 +2459,45 @@ git commit -m "feat(day-panel): finish the trip at this day's end"
     - **the same window downstream, 797.6 → 149.3:** now `Fav km 700` km 97.6 Day 2 · `Fav km 500` km 297.6 · `Fav km 300` km 497.6, with `Fav km 900` km -102.4 last — still the exact mirror of the forward run, which is the property that matters.
     - **whole road, 0 → 1026.5 — the identity checkpoint:** unchanged, `Fav km 100` … `Fav km 900` ascending. On a whole-road forward trip nothing can be behind the start, so the partition cannot fire.
   - Both 6b browser bullets have been annotated in place rather than rewritten, since their favorites lines were true measurements of the code at `d98cff0` and are now superseded — the stale-prose-after-a-change class, caught on this task's own earlier entry.
+
+- **Task 15 done** (`7c78e1d`; suite 842 committed). Wiring the resize handle in, and **the browser overturned Task 14's stated expectation.**
+  - `createStripResize` mounts from a `wireStripSize()` declared beside the strip but **called after the first `renderAll`**, because the ordering is load-bearing: `onResize` fires from the *constructor* with the height it loaded, and `strip.js`'s argument-less `render()` throws until a render with arguments has given it a trip. The observer's initial callback is asynchronous and so has never been able to fire first — a guarantee this would rather not depend on, hence the explicit ordering.
+  - The axis height travels as `--strip-axis-height` on the container, so `main.js` never reaches into `strip.js`'s DOM and the elevation profile rescales through the `measureHeight` seam that already existed.
+  - **`setPointerCapture` retargets `pointerup` AND both compatibility click events to the capture element, so an element that captures can never hear its own `dblclick`.** Measured in Chromium. Task 14 predicted `preventDefault` would be the risk here; it is not — a cancelled `pointerdown` still produces both click events, at the capture target. The reset is now detected from the PRESSES (400 ms, under both Chromium's and Firefox's own interval), which also works on a touch screen where a double-tap may produce no `dblclick` at all. The `dblclick` listener stays as the no-capture path; both are idempotent.
+  - **The `ResizeObserver` keys on WIDTH alone, against spec §6b's "must watch both".** It is notified of both, but the strip's box grows in height on every `pointermove` of a resize drag — a path that has already re-rendered — so reacting to height would double the cost of the gesture to redraw an identical axis. The 45% ceiling instead re-applies from a **window** resize listener, the only place that can see it: the body is a 100vh grid whose map row is `minmax(0, 1fr)`, so a shorter window is absorbed by the map and the strip's own box never changes. Spec deviation, deliberate, and the plan's own Task 15 step says the opposite — this entry is the reconciliation.
+  - Keys stand down while a pointer is in flight: `startDrag` focuses the handle, so `End` mid-drag would race the next move with nothing on screen saying which won.
+
+- **Task 10 done** (`24dd3bf`; 862 → **867**, 20 files). The map learns to be armed, and the start pin stops being a fact about the road.
+  - 11 mutations, 11 caught. The exclusivity IS the feature: an armed click goes to `onPickPoint` **instead of** `onRouteClick`, because a route click already means "add a custom stop" and an armed click that also did that would drop a 📌 on the plan every time a rider chose where to begin.
+  - **Browser instrument worth reusing:** the pin's position was recovered as a real lng/lat by unprojecting its rect centre through a tile's own `z/x/y` (two tiles cross-checked, agreeing exactly), because a screen-px comparison could not answer — the camera differs per config. If the pin were still nailed to `coordinates[0]`, all four configs would have read `8.681946, 53.891391`. They read 0.0 / 93.0 / 465.4 / 576.8 km of displacement instead.
+  - **Plan error:** its third browser bullet predicted `797.6 → 149.3` would show "Start — Prague". km 797.6 is **Dresden**; the config that actually produces that is the whole road ridden downstream, `1026.5 → 0`. Added.
+  - **`#map.map--picking .leaflet-marker-pane { pointer-events: none }` never worked** — found later, by Task 11c. `pointer-events` inherits, but leaflet.css sets `pointer-events: auto` on `.leaflet-marker-icon.leaflet-interactive`, and **an explicit value on the descendant beats an inherited one regardless of ancestor specificity.** A POI dot over the route stayed hit-testable and ate the armed click. Fixed in `4c0f12b` by naming the icons in the selector. Two browser items failed on this before it was found.
+
+- **Task 11 done in four commits** (`d43c4cb` 11a, `8836fb4` 11b, `63954b2` 11b step 9, `4c0f12b` 11c; 867 → **900**, 21 files).
+  - **11a — the model.** `proposeEnd` and `fitDaysToLength`, both pure and both unit-tested, because `main.js` has no test file and every guard left in a click handler would have been unverifiable. 22 mutations, all caught. **The plan's own mutation prediction for the signed-length comparison was wrong:** downstream, `795 − 797.6 = −2.6 < 5` still returns `too-short` — the right answer for the wrong reason. What actually kills it is the *good downstream pick* test (`200 − 797.6 = −597.6 < 5` → a perfectly good 597.6 km trip refused), which the plan did not ask for and an earlier agent had added anyway. **Without that test the mutation would have survived** — the good-pick cases are what give the refusal cases their discriminating power, not garnish.
+  - **11b — the two controls.** `tripHeadline`, `createPickBanner`, and the scale line's end controls. **The plan's CSS shipped two real defects, both found only in the browser:** the prompt at `left: 10px` sat **on top of Leaflet's zoom control** (overlap 34 × 39.5 px; `elementFromPoint` at the zoom control's centre returned the banner), making `+`/`−` unclickable for as long as a pick was armed — `#map-controls` gets away with that inset only because Leaflet leaves the top-*right* corner empty. And the translucent tint measured **≈1.0:1 contrast** over an OSM land tile. Both fixed and re-measured (10 px gap; 10.19:1).
+  - **A test that passed while its listener threw.** Deleting a null guard made the scale-line handler throw, and **jsdom swallows an exception thrown inside an event handler** — `.click()` returned normally, so `expect(onPickEnd).not.toHaveBeenCalled()` still passed and only vitest's "Unhandled Errors" banner went red. Disclosed rather than patched, and closed with a `window.addEventListener('error')` instrument. **Any assertion that a click does *nothing* needs this**, or it cannot tell "correctly ignored" from "threw".
+  - **Three more changed expectations than the plan's "three and nothing else" sanctioned** — the scale-line assertions, re-pointed from substring adjacency at `[data-action="set-finish"]`. Strictly stronger (the end is identified by its action rather than by where it happens to sit in a string), and they follow from the plan's own specification that the arrived flag becomes `⚑ reached` *and* a control renders. Accepted by the controller; recorded because the convention says to stop at a fourth.
+  - **Step 9 was omitted from the implementer's file list by controller error.** The agent flagged it rather than reaching outside its scope, and it landed separately (`63954b2`). Correct call — and the same discipline appears twice more below.
+  - **11c — the wiring, and the payoff.** Three real defects fixed here: Task 10's `pointer-events` rule (above); `refusePick` leaving the control **lit above a disarmed map**, so the next route click quietly drafted a custom stop — the plan disarms unconditionally but only rendered on the success path; and a pick confirmation **surviving a plan switch**, sitting over a plan whose summary read `0 / 1026.5 km planned`. An *armed* prompt deliberately still survives, because the mode belongs to the app rather than to the plan.
+  - **A refusal naming both road ends is unreachable.** The plan's comment assumed a whole-road trip "reads right from here"; in fact a proposal with **both** ends on road ends is provably never a reversal — all four cases of move-start/move-destination × 0/`totalKm` come out same-direction, or zero-length and refused as too-short first. At most the *picked* end can be named. Comment replaced with the proof.
+  - **Elevation memo verified per end, at the pixel** (`.strip__elevation-line` first→last `y`), never by ascent totals: whole road `45.1 → 13.8`; **start moved only** `29.3 → 13.8` (last identical — both windows finish at Prague); **finish moved only** `45.1 → 45.1` (first identical). This is the standing convention's own example of a broken instrument, done right.
+
+- **Task 12 done** (`b3fe264` + `27b9149`; 900 → **911**, 21 files). The ends get the names of the towns they sit in.
+  - **A picked name is DERIVED from the km, never stored.** No field, no schema bump, no migration. A start that sits where a town sits is named by it; move it 3 km and the name goes, because that is the truth.
+  - **The agent stopped at its file boundary and left the suite RED rather than make four tests green over a dead app.** `strip.js`'s `render()` rebuilt state field by field, so `endNames` was dropped before the markup saw it — the feature was unobservable in tests *and* dead in the browser. It asked twice, reported NEEDS_CONTEXT with the one-line fix and the evidence, and the controller landed it (`27b9149`). The right call: testing `strip-markup` directly would have bought four green tests and a broken app.
+  - **Two of the plan's own assertions could not fail.** Its headline `nearestTown` case asserts `Brambury` at the default 3 km — but that window is `[47, 53]` and the town it is supposed to disagree with is at 54, outside it, so an implementation that just reused `townsNear` answers Brambury too. Rewritten at `withinKm: 10`, where both towns are in the window and the disagreement is real. And the `Number.isFinite(km)` guard the plan asks for is **unreachable**: every comparison against NaN/±Infinity is false, so both bounds walk to the same index and the window is already empty — a branch no test can kill. Omitted, with the three non-finite cases pinned as behaviour instead.
+  - **Real dataset km, which the plan's browser bullets had stale:** Hamburg is at **155.8** and Dresden at **797.7**, not 149.3/797.6 — so that window is **641.9 km**, not 648.3. All 887 towns sit on the 0.1 km grid.
+  - **A pre-existing gap found and disclosed:** dropping `originName: next.originName ?? state.originName` survived the whole suite, because `render(next = state)` makes `next.originName` the very same object — the test that looks like it pins the fallback pins nothing. The agent had hit the identical defect in its own first draft and fixed it with a second, PARTIAL render. See the Task 16 entry: this thread ends with all five fallbacks deleted.
+
+- **Task 13 done** (`1566167`; 911 → **917**, 21 files). `Finish here` on a day card, routed through `applyPickedEnd` so it inherits every guard for free.
+  - **`offerSnap: false`, measured rather than argued** — and against the plan's own snippet, which defaults it to `true`. A map click is a *measurement* (~0.7 km/px at whole-route zoom), so naming the town beside it corrects an error that is really there. A day boundary is not a measurement: it is the km the plan computed from a length the rider typed, dragged or already snapped, and it is the exact thing the button was pressed to keep. With the flag flipped on: day 3 ending at km 240 with **Sumte** as its overnight offered *"Alt Garge is 0.2 km behind your finish"*, one press moved the finish to 239.8, `fitDaysToLength` re-ran and **clamped day 3 from 80 to 79.8**, and the trip ended up named after a town the rider was not sleeping in. The same flip is also the calibration for the absence: with the flag off there is no offer *because of the flag*, not because no town is near.
+  - **The plan's five specified tests left the button's title — the only km `Finish here` displays — entirely unpinned**, so an absolute-km title would have shipped. That is the one bug this whole feature exists to guard against. A sixth test kills both title mutants.
+  - **One mutation deliberately not killed:** `atFinish = day.endKm === trip.destinationKm` passes all 85. The plan predicts this, and it is a genuinely correct alternative implementation — so the real behaviour was pinned rather than a fixture manufactured to fake a difference.
+  - **`Finish here` left an armed pick armed.** The agent measured it and declined to invent behaviour, which was right. Controller ruling: **disarm** — pressing `Finish here` *accomplishes* what the armed pick was for, by another route, so the mode has been satisfied rather than interrupted; leaving it armed reproduces exactly the class of bug 11c had just fixed. Landed in `6d761ac`, which also disarms on the *refusal* path, because the prompt is a single slot and `applyPickedEnd` always speaks into it — by the time `handleFinishHere` returns, the line explaining the mode is gone whatever happened, so there is no way to keep the mode honestly.
+
+- **Task 16.** Final review at `14b6438` (918 tests, 21 files, clean build): **no defect in shipped behaviour.** The reviewer mutated **all 20 `tripKm` display sites to absolute km one at a time and all 20 were caught**, most by two or more tests — the invariant this whole feature rests on holds under adversarial mutation, with exactly two deliberate labelled exceptions (the setup step, which prints "km N *of the road*" and says so, and identity keys that never render). `totalKm` is gone from every `itinerary`/`boundaries`/`strip-geometry` signature.
+  - **The five `?? state.x` fallbacks in `strip.js` deleted.** Three findings converged: their comments claim to protect the argument-less width-change render, which is exactly the case they do NOT serve (`next` *is* `state`, so the `??` never takes its right branch — what serves the resize path is the default parameter); no production caller does a partial render at all; and decisively, **the partial-render contract they imply does not exist** — `render({days})` preserves those five fields but resets `focusedIndex` to `null` and `breaks` to `[]`, so a caller doing what the tests exercise would silently lose every break glyph. Four tests existed only to keep the dead code alive. `picking: next.picking ?? null` is different and stays: `null` is meaningful there, and `?? state.picking` would keep a control pressed for ever.
+  - **Spec corrected in two places** (§4's "487 m one way, 487 m the other" and §6a's "Hamburg → Dresden · 649 km downstream"), both against measured data rather than prose. See the spec's own inline correction notes.
+  - **Open follow-ups, none blocking:** pin `storage.js`'s single-ruined-end window repair (a stored `{startKm: 149.3, destinationKm: null}` must load as Hamburg→Prague, and nothing says so today); a duplicated four-line comment paragraph in `places.js`; a decision on `breaksInRange`, which has no app caller now that `strip-markup.js` kept its own `breaksIn`; stale future-tense prose in `stubMarkup`; 14 plan-task references in shipped source that name nothing after merge; three small test holes in unreachable branches. **Highest value: lift `nameAtKm` and `endLabel` out of `main.js` into a testable pure module** — `nameAtKm` carries an explicit cross-module invariant (its rounded road-end gate must stay identical to `roadContinues`'s) that nothing enforces, and relaxing `round1(km) <= 0` to `km <= 0` would name a km-0.04 start "Cuxhaven" while the strip drew a *"road continues 0.1 km to Cuxhaven"* cap past that same end and called it "start" — a visible contradiction with a green suite.
+  - **The method, in one line: every real bug on this branch was found by mutating code and watching a test fail to notice.** Fifteen assertions that could not fail were found this way, several of them written by the plan itself, and at least four shipped-behaviour bugs (the boundaries stopgap dropping a whole plan on reload, `arrived`'s accidental `Math.abs`, the row cap keeping the LAST 40, the favourites cap spending its slots on places behind the rider) would otherwise have merged green.
