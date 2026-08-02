@@ -3,10 +3,12 @@ import { favKey } from './favorites.js';
 const PLANS_KEY = 'elberadweg-plans';
 const LEGACY_KEY = 'elberadweg-itinerary';
 const FAVORITES_KEY = 'elberadweg-favorites';
-const SCHEMA_VERSION = 3;
-// Schema 2 blobs are still readable; they simply record no routeId, which the
-// corridor check in load() treats as "a different corridor".
-const PREVIOUS_SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 4;
+// Older blobs are still readable as they stand, and are rewritten as v4 on the
+// first load. Schema 3 records no trip window, which normalizePlan reads as the
+// whole road; schema 2 records no routeId either, which the corridor check in
+// load() treats as "a different corridor".
+const READABLE_SCHEMA_VERSIONS = new Set([SCHEMA_VERSION, 3, 2]);
 const LEGACY_SCHEMA_VERSION = 1;
 const FAVORITES_SCHEMA_VERSION = 1;
 // Suffix for archives of a blob that records no corridor at all.
@@ -41,7 +43,10 @@ function normalizeDays(days) {
 
 // Enforces the plan record shape on data read back from storage so the rest of
 // the app can rely on days/breaks being arrays. Unknown fields are dropped.
-function normalizePlan(plan) {
+// `wholeRoad` is the window to fall back to, end by end - the store's own
+// wholeRoad(), so that a repaired plan and a freshly built one cannot disagree
+// about what "no window" means.
+function normalizePlan(plan, wholeRoad) {
   return {
     id: plan.id,
     name: plan.name,
@@ -50,17 +55,26 @@ function normalizePlan(plan) {
     routeVersion: plan.routeVersion,
     days: normalizeDays(plan.days),
     breaks: Array.isArray(plan.breaks) ? plan.breaks : [],
+    // Absolute route km. A plan that predates the window spans the whole road,
+    // which is exactly what it did before the field existed. Either order is
+    // legal - destinationKm below startKm is a downstream ride, not a mistake to
+    // sort out - and neither end is clamped here, because pulling a window onto
+    // the road is createTrip's job and two owners of that rule would drift. Each
+    // end is repaired on its own: km 0 is a real destination, so a plan with a
+    // good start and a ruined end keeps the start.
+    startKm: Number.isFinite(plan.startKm) ? plan.startKm : wholeRoad.startKm,
+    destinationKm: Number.isFinite(plan.destinationKm) ? plan.destinationKm : wholeRoad.destinationKm,
   };
 }
 
 /**
  * Creates the multi-plan storage layer for the Elberadweg planner. Owns the
- * `elberadweg-plans` blob (schema 3, schema 2 still readable) and the one-time
- * migration from the v1 `elberadweg-itinerary` payload. All reads/writes are
- * guarded: a corrupted or wrong-schema blob starts a fresh store (one empty
- * "My plan") rather than throwing, and a failing setItem (quota/denied) is
- * swallowed so the in-memory plan and the render that follows a mutation are
- * never broken.
+ * `elberadweg-plans` blob (schema 4; schemas 3 and 2 still readable) and the
+ * one-time migration from the v1 `elberadweg-itinerary` payload. All
+ * reads/writes are guarded: a corrupted or wrong-schema blob starts a fresh
+ * store (one empty "My plan") rather than throwing, and a failing setItem
+ * (quota/denied) is swallowed so the in-memory plan and the render that follows
+ * a mutation are never broken.
  *
  * Every mutating method persists immediately. Methods that take an id return
  * null (a no-op) for an unknown id.
@@ -78,6 +92,12 @@ function normalizePlan(plan) {
  *   from a different origin. A mere rebuild of the same corridor keeps its
  *   routeId and is read normally (`routeVersion` is what changes there). Omit
  *   to disable the check entirely and keep the module usable standalone.
+ * @param {number} opts.totalKm - the road's length. **Required and finite**: it
+ *   is the destination a plan that records no window gets, so there is nothing
+ *   sensible to fall back to. Under a 0 fallback every such plan would come back
+ *   as km 0 to km 0 - a legal, zero-length trip that `createTrip` builds without
+ *   complaint, and that strands every day in the plan at the start line. The
+ *   store either knows the road's length or refuses to guess it.
  * @returns {{
  *   load: () => {plans: Array<{id: string, name: string, createdAt: string, updatedAt: string}>, activePlanId: string},
  *   getActivePlan: () => object|null,
@@ -86,10 +106,18 @@ function normalizePlan(plan) {
  *   duplicatePlan: (id: string, name?: string) => object|null,
  *   deletePlan: (id: string) => object|null,
  *   renamePlan: (id: string, name: string) => object|null,
- *   saveActivePlan: (payload: {days: any[], breaks: any[]}) => object|null,
+ *   saveActivePlan: (payload: {days: any[], breaks: any[], startKm?: number, destinationKm?: number}) => object|null,
  * }}
  */
-export function createPlanStore({ storage, routeVersion, routeId } = {}) {
+export function createPlanStore({ storage, routeVersion, routeId, totalKm } = {}) {
+  // Thrown at construction rather than papered over per plan: a store that does
+  // not know the road's length cannot say where a window-less plan ends, and
+  // every plan it hands out would carry the guess. Nothing downstream would
+  // report it either - a 0-to-0 window is a trip createTrip accepts.
+  if (!Number.isFinite(totalKm)) {
+    throw new Error(`createPlanStore needs a finite totalKm, got: ${totalKm}`);
+  }
+
   /** @type {{activePlanId: string, plans: object[]}|null} */
   let state = null;
 
@@ -97,9 +125,27 @@ export function createPlanStore({ storage, routeVersion, routeId } = {}) {
     return new Date().toISOString();
   }
 
+  // The window a plan gets when it names none: the whole road, the trip every
+  // plan had before the field existed. Defined once for the three places that
+  // need it - a fresh plan, a migrated v1 payload, and a stored plan whose window
+  // is missing or unusable - so they cannot drift apart.
+  function wholeRoad() {
+    return { startKm: 0, destinationKm: totalKm };
+  }
+
+  // A new plan rides the whole road until its rider narrows the window.
   function emptyPlan(name) {
     const now = nowIso();
-    return { id: newId(), name, createdAt: now, updatedAt: now, routeVersion, days: [], breaks: [] };
+    return {
+      id: newId(),
+      name,
+      createdAt: now,
+      updatedAt: now,
+      routeVersion,
+      days: [],
+      breaks: [],
+      ...wholeRoad(),
+    };
   }
 
   function freshState() {
@@ -187,6 +233,8 @@ export function createPlanStore({ storage, routeVersion, routeId } = {}) {
       routeVersion: legacy.routeVersion,
       days: legacy.days.map(normalizeDay),
       breaks: [],
+      // A v1 payload predates the window by two schemas.
+      ...wholeRoad(),
     };
 
     if (favoritesEmpty()) {
@@ -214,11 +262,10 @@ export function createPlanStore({ storage, routeVersion, routeId } = {}) {
     return { activePlanId: plan.id, plans: [plan] };
   }
 
-  // Parses the stored plans blob (schema 3, or schema 2 which predates
-  // routeId); returns `{routeId, state}` - the corridor the plans were measured
-  // against, null when the blob records none, next to the normalized state - or
-  // null on any problem (missing key, invalid JSON, unknown schema, empty plans
-  // list).
+  // Parses the stored plans blob (schema 4, or an older one still readable);
+  // returns `{routeId, state}` - the corridor the plans were measured against,
+  // null when the blob records none, next to the normalized state - or null on
+  // any problem (missing key, invalid JSON, unknown schema, empty plans list).
   function readPlans() {
     try {
       const raw = storage.getItem(PLANS_KEY);
@@ -226,13 +273,14 @@ export function createPlanStore({ storage, routeVersion, routeId } = {}) {
       const parsed = JSON.parse(raw);
       if (
         !parsed ||
-        (parsed.schemaVersion !== SCHEMA_VERSION && parsed.schemaVersion !== PREVIOUS_SCHEMA_VERSION) ||
+        !READABLE_SCHEMA_VERSIONS.has(parsed.schemaVersion) ||
         !Array.isArray(parsed.plans) ||
         parsed.plans.length === 0
       ) {
         return null;
       }
-      const plans = parsed.plans.map(normalizePlan);
+      const fallbackWindow = wholeRoad();
+      const plans = parsed.plans.map((plan) => normalizePlan(plan, fallbackWindow));
       let activePlanId = parsed.activePlanId;
       if (!plans.some((plan) => plan.id === activePlanId)) {
         activePlanId = mostRecentlyUpdated(plans).id;
@@ -342,6 +390,9 @@ export function createPlanStore({ storage, routeVersion, routeId } = {}) {
       routeVersion: source.routeVersion,
       days: clone(source.days),
       breaks: clone(source.breaks),
+      // A copy of a plan is a copy of its trip, ends and order alike.
+      startKm: source.startKm,
+      destinationKm: source.destinationKm,
     };
     state.plans.push(copy);
     state.activePlanId = copy.id;
@@ -377,11 +428,21 @@ export function createPlanStore({ storage, routeVersion, routeId } = {}) {
     return clone(plan);
   }
 
-  function saveActivePlan({ days, breaks } = {}) {
+  function saveActivePlan({ days, breaks, startKm, destinationKm } = {}) {
     const plan = findPlan(state?.activePlanId);
     if (!plan) return null;
     plan.days = normalizeDays(days);
     plan.breaks = Array.isArray(breaks) ? clone(breaks) : [];
+    // The window survives a save that does not name one - deliberately unlike
+    // days and breaks, which a save does replace wholesale. Every plan in state
+    // already carries a window the rider chose, and a caller with only days in
+    // mind would otherwise wipe it invisibly: found after a reload, with nothing
+    // left to restore it from. A window left stale is the better failure of the
+    // two, because it is on screen and can be picked again. A non-finite end is
+    // treated the same way, as a caller bug worth ignoring rather than answering
+    // by resetting the trip.
+    if (Number.isFinite(startKm)) plan.startKm = startKm;
+    if (Number.isFinite(destinationKm)) plan.destinationKm = destinationKm;
     plan.updatedAt = nowIso();
     plan.routeVersion = routeVersion;
     persist();

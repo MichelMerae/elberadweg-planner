@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createStrip } from './strip.js';
-import { MIN_DAY_KM, clampBoundaryKm } from './boundaries.js';
+import { MIN_DAY_KM } from './boundaries.js';
+import { createTrip } from './trip.js';
+// The model itself, for the oriented cases at the end: a keyboard nudge is only
+// observable once something applies the move and re-renders (the announcement is read
+// back from the state the re-render left), and one test pins the strip's own break
+// bucketing AGAINST the model's rule on a shared fixture.
+import { createItinerary } from './itinerary.js';
 import { round1 } from './ui-util.js';
 
 const TOTAL_KM = 650;
@@ -19,6 +25,16 @@ function days(...ends) {
 let el;
 let callbacks;
 
+// strip.js REQUIRES a trip — the axis maps the trip's window, so there is no
+// road-shaped fallback inside it any more (see `createStrip - a trip is required`).
+// Most of this file is about behaviour that has nothing to do with windows, and those
+// tests mean "the whole road, ridden forwards" — what the strip drew before trips
+// existed, and an identity for every conversion, so their numbers are unchanged.
+//
+// So the wrapper below builds that trip once, from the road length the render already
+// names, instead of the 44 render sites each spelling it out. `totalKm` is consumed
+// here and never reaches strip.js, which knows a road length only through its trip.
+// A render that names its own `trip` (the oriented cases, and mountLive) wins.
 function mount(width = WIDTH) {
   el = document.createElement('div');
   document.body.appendChild(el);
@@ -26,8 +42,20 @@ function mount(width = WIDTH) {
     onFocusDay: vi.fn(),
     onMoveBoundary: vi.fn(),
     onAddDay: vi.fn(),
+    onPickEnd: vi.fn(),
   };
-  return createStrip({ el, callbacks, measureWidth: () => width });
+  const strip = createStrip({ el, callbacks, measureWidth: () => width });
+  return {
+    render(next) {
+      if (!next) return strip.render();
+      const {
+        totalKm = TOTAL_KM,
+        trip = createTrip({ startKm: 0, destinationKm: totalKm, totalKm }),
+        ...rest
+      } = next;
+      return strip.render({ trip, ...rest });
+    },
+  };
 }
 
 beforeEach(() => {
@@ -44,10 +72,19 @@ beforeEach(() => {
 // drag that cannot work in a browser — the failure Task 7's review measured in
 // Chromium. Every pointer and keyboard test below goes through here.
 //
-// The move callback also mirrors itinerary.moveBoundary's REFUSAL: a pair of
-// days spanning under 2 x MIN_DAY_KM has no legal boundary between them, so the
-// model returns the day unchanged. The strip must never assume the km it sent
-// was accepted.
+// The move callback applies each move through a REAL itinerary rather than a clamp
+// spelled out here. It used to re-implement moveBoundary's refusal rule — a pair of
+// days spanning under 2 x MIN_DAY_KM has no legal boundary between them, so the model
+// returns the day unchanged — and a copy of that rule in the harness is a copy that
+// can drift from the model the app actually drives. The strip must never assume the km
+// it sent was accepted, which is the property either version exercises; only one of
+// them can go stale.
+//
+// The harness owns the TRIP explicitly rather than leaning on mount()'s default, since
+// the itinerary it drives has to be chained along the same window the strip draws.
+//
+// `ends` are cumulative day ends, as the rest of this file writes plans; the model
+// stores lengths, so they are differenced on the way in.
 function mountLive(ends, { totalKm = TOTAL_KM, width = WIDTH, focusedIndex = 0, breaks = [] } = {}) {
   const strip = mount(width);
   const axis = el.querySelector('[data-strip-axis]');
@@ -55,16 +92,22 @@ function mountLive(ends, { totalKm = TOTAL_KM, width = WIDTH, focusedIndex = 0, 
   // zeros unless we say otherwise.
   axis.getBoundingClientRect = () => ({ left: 0, top: 0, right: width, bottom: 46, width, height: 46 });
 
-  const plan = [...ends];
+  const trip = createTrip({ startKm: 0, destinationKm: totalKm, totalKm });
+  const itinerary = createItinerary({ trip });
+  itinerary.hydrate({
+    days: days(...ends).map((day) => ({ targetKm: day.targetKm })),
+    // Breaks stay a pass-through below: some fixtures here are glyph-shaped rather
+    // than plan-shaped (no lat/lng), and the model would drop them as malformed.
+    breaks: [],
+  });
   let focused = focusedIndex;
   const moves = [];
-  const render = () => strip.render({ days: days(...plan), totalKm, focusedIndex: focused, breaks });
+  const render = () =>
+    strip.render({ days: itinerary.getDays(), totalKm, trip, focusedIndex: focused, breaks });
 
   callbacks.onMoveBoundary.mockImplementation((index, endKm, opts = {}) => {
     moves.push({ index, endKm, commit: !!opts.commit });
-    const target = clampBoundaryKm(days(...plan), index, endKm, { totalKm });
-    const nextEnd = index + 1 < plan.length ? plan[index + 1] : null;
-    if (nextEnd === null || round1(nextEnd - target) >= MIN_DAY_KM) plan[index] = target;
+    itinerary.moveBoundary(index, endKm);
     render();
   });
   callbacks.onFocusDay.mockImplementation((index) => {
@@ -73,7 +116,15 @@ function mountLive(ends, { totalKm = TOTAL_KM, width = WIDTH, focusedIndex = 0, 
   });
 
   render();
-  return { strip, axis, moves, plan: () => [...plan], handle: (i) => axis.querySelector(`[data-boundary-index="${i}"]`), block: (i) => axis.querySelector(`[data-day-index="${i}"]`) };
+  return {
+    strip,
+    axis,
+    moves,
+    itinerary,
+    plan: () => itinerary.getDays().map((day) => round1(day.endKm)),
+    handle: (i) => axis.querySelector(`[data-boundary-index="${i}"]`),
+    block: (i) => axis.querySelector(`[data-day-index="${i}"]`),
+  };
 }
 
 // jsdom implements the PointerEvent constructor but NOT setPointerCapture, so a
@@ -109,6 +160,33 @@ function activate(target, key = 'Enter') {
   const event = new window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, key });
   target.dispatchEvent(event);
   if (!event.defaultPrevented && target.matches('button')) target.click();
+}
+
+// --- Oriented-trip fixtures ------------------------------------------------
+//
+// The real corridor's length, and the window Michel actually rides: Hamburg-ish
+// km 149.3 to Dresden-ish km 797.6, then the same window ridden the other way. Both sit
+// strictly INSIDE the road at both ends, which is what makes the edge stubs observable.
+const ROAD_KM = 1026.5;
+const UP = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: ROAD_KM });
+const DOWN = createTrip({ startKm: 797.6, destinationKm: 149.3, totalKm: ROAD_KM });
+
+// Days as itinerary.js chains them: lengths ridden from the trip's own start, in the
+// trip's direction — so a downstream day's endKm is BELOW its startKm.
+function tripDays(trip, ...lengths) {
+  let prev = trip.startKm;
+  return lengths.map((lengthKm, index) => {
+    const endKm = trip.absoluteKm(trip.tripKm(prev) + lengthKm);
+    const day = { index, startKm: prev, endKm, targetKm: lengthKm, townChoice: null };
+    prev = endKm;
+    return day;
+  });
+}
+
+function renderTrip(trip, dayList, extra = {}) {
+  const strip = mount();
+  strip.render({ days: dayList, totalKm: ROAD_KM, focusedIndex: 0, breaks: [], trip, ...extra });
+  return strip;
 }
 
 describe('createStrip - keyboard boundary nudges', () => {
@@ -716,9 +794,9 @@ describe('createStrip - blocks', () => {
     expect(el.querySelector('.strip__block .strip__glyph')).toBeNull();
   });
 
-  // The bug: glyphs used to render only at the 'full' label tier, whose threshold
-  // is 88 px — about 39 km at desktop width. A 20 km day with a café showed
-  // nothing at all, and the tooltip did not mention it either.
+  // The bug: glyphs used to render only at the widest label tier of the day, whose
+  // threshold was then 88 px — about 39 km at desktop width. A 20 km day with a café
+  // showed nothing at all, and the tooltip did not mention it either.
   it('shows a break on a day too narrow to carry a label', () => {
     const strip = mount();
     strip.render({
@@ -728,8 +806,8 @@ describe('createStrip - blocks', () => {
       breaks: [{ name: 'Café', kind: 'food', routeDistanceKm: 10 }],
     });
 
-    // 20 km is 40 px here: the day number fits, its km does not, and the 'full'
-    // tier that used to gate glyphs starts at 88 px.
+    // 20 km is 40 px here: the day number fits, its km does not, and the two-line
+    // tier that used to gate glyphs starts at 88 px ('town' now, 'full' then).
     const narrow = el.querySelectorAll('.strip__block')[0];
     expect(narrow.querySelector('.strip__block-km')).toBeNull();
     expect(el.querySelector('.strip__glyph').style.left).toBe('20px');
@@ -824,6 +902,11 @@ describe('createStrip - focus and add', () => {
   // At right: 0 on the axis the finish marker landed on top of the last block and
   // underneath the last handle. The scale line already names the destination, so
   // it says "reached" there instead and collides with nothing.
+  // CHANGED EXPECTATION (Task 11b): the km used to be inside this span. The scale
+  // line's far end is a CONTROL now (`km 650 · finish`, a button that arms a pick),
+  // and the flag is its neighbour rather than the thing carrying the figure —
+  // turning the flag itself into a button would put a control inside a status. So
+  // the same fact is asserted one element over.
   it('puts the finish marker in the scale line, not on the axis', () => {
     const strip = mount();
     strip.render({ days: days(TOTAL_KM), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
@@ -831,7 +914,8 @@ describe('createStrip - focus and add', () => {
     const finish = el.querySelector('.strip__finish');
     expect(finish.parentElement.classList.contains('strip__scale')).toBe(true);
     expect(el.querySelector('[data-strip-axis] .strip__finish')).toBeNull();
-    expect(finish.textContent).toContain('650');
+    expect(finish.textContent).toContain('reached');
+    expect(el.querySelector('[data-action="set-finish"]').textContent).toContain('650');
   });
 
   it('keeps the plain scale line while the trip is unfinished', () => {
@@ -912,6 +996,93 @@ describe('createStrip - elevation profile', () => {
   });
 });
 
+// --- The day's climb on its own block (spec §5) -----------------------------
+//
+// The figure the profile cannot give: how much a day CLIMBS. The profile shows where a
+// day gets hard, which is a different question, so the number joins the block's second
+// label line beside the overnight town — and its title at every tier, since a narrow
+// day has no label to put it on.
+describe('createStrip - the day’s climb on its block', () => {
+  // 10 m of climb per km of road, sampled every km, so a stretch's climb is just its
+  // length × 10: every sample clears the 5 m hysteresis threshold, and no test below
+  // has to reason about the accumulation to know what it should read.
+  const SLOPE = {
+    routeId: 'slope',
+    spacingM: 1000,
+    count: 1027,
+    elevationsM: Array.from({ length: 1027 }, (_, i) => i * 10),
+  };
+
+  it('puts the day’s climb on the second label line, beside the overnight town', () => {
+    const list = tripDays(UP, 80);
+    list[0].townChoice = { name: 'Hitzacker' };
+    renderTrip(UP, list, { elevation: SLOPE });
+
+    // km 149.3 → 229.3 covers samples 150..229: 790 m of climbing.
+    const second = el.querySelector('.strip__block .strip__block-second');
+    expect(second.querySelector('.strip__block-town').textContent).toContain('Hitzacker');
+    expect(second.querySelector('.strip__block-climb').textContent).toContain('↑ 790 m');
+  });
+
+  // The headline demonstration, on the strip: ONE stretch of road, ridden both ways.
+  // The downstream trip's last day covers exactly the upstream trip's first day.
+  it('reports the same stretch as climb one way and descent the other', () => {
+    renderTrip(UP, tripDays(UP, 80), { elevation: SLOPE });
+    const upBlock = el.querySelector('.strip__block');
+    expect(upBlock.querySelector('.strip__block-climb').textContent).toContain('↑ 790 m');
+    expect(upBlock.getAttribute('title')).toContain('↑ 790 m ↓ 0 m');
+
+    // 568.3 km to km 229.3, then the last 80 km back down to the rider's finish at 149.3.
+    renderTrip(DOWN, tripDays(DOWN, 568.3, 80), { elevation: SLOPE });
+    const downBlock = el.querySelectorAll('.strip__block')[1];
+    expect(downBlock.querySelector('.strip__block-climb').textContent).toContain('↑ 0 m');
+    expect(downBlock.getAttribute('title')).toContain('↑ 0 m ↓ 790 m');
+  });
+
+  it('names the climb in the title of a block too narrow for any label', () => {
+    // 5 km is 10 px on this axis: labelTier('none'), so the block has no label at all
+    // and the tooltip is the only place the climb can be reported.
+    renderTrip(UP, tripDays(UP, 5, 100), { elevation: SLOPE });
+
+    const narrow = el.querySelector('.strip__block');
+    expect(narrow.querySelector('.strip__block-label')).toBeNull();
+    expect(narrow.getAttribute('title')).toContain('↑ 40 m');
+  });
+
+  // The degradation order spec §5 asks for: the climb goes first, then the town. A day
+  // between the two thresholds keeps the name of where it sleeps and gives up the climb.
+  it('drops the climb before the town as a block narrows', () => {
+    const list = tripDays(UP, 50, 100);
+    list[0].townChoice = { name: 'Hitzacker' };
+    list[1].townChoice = { name: 'Dömitz' };
+    renderTrip(UP, list, { elevation: SLOPE });
+
+    const [narrow, wide] = el.querySelectorAll('.strip__block');
+    // 100.3 px: room for the town, not for the climb beside it.
+    expect(narrow.querySelector('.strip__block-town')).not.toBeNull();
+    expect(narrow.querySelector('.strip__block-climb')).toBeNull();
+    // 200.5 px: both.
+    expect(wide.querySelector('.strip__block-town')).not.toBeNull();
+    expect(wide.querySelector('.strip__block-climb')).not.toBeNull();
+    // And the one that dropped it still reports it on hover.
+    expect(narrow.getAttribute('title')).toContain('↑ 490 m');
+  });
+
+  // `loadElevation()` returns null when the elevation build has never been run, and the
+  // app is meant to boot and work without a profile. Every block must still draw.
+  it('draws blocks with no climb anywhere when there is no elevation data', () => {
+    const list = tripDays(UP, 80);
+    list[0].townChoice = { name: 'Hitzacker' };
+    renderTrip(UP, list);
+
+    const block = el.querySelector('.strip__block');
+    expect(block).not.toBeNull();
+    expect(block.querySelector('.strip__block-climb')).toBeNull();
+    expect(block.querySelector('.strip__block-town').textContent).toContain('Hitzacker');
+    expect(block.getAttribute('title')).not.toContain('↑');
+  });
+});
+
 // The corridor outgrew Hamburg -> Dresden, so the endpoints are data now. The
 // strip must never hold a place name of its own: it is mounted standalone in these
 // tests and would otherwise render a destination the route does not have.
@@ -941,11 +1112,16 @@ describe('createStrip - endpoint names', () => {
     expect(el.querySelector('.strip__flag').textContent).toContain('Prague');
   });
 
+  // CHANGED EXPECTATION (Task 11b): the name and the word are in two elements now —
+  // the finish CONTROL carries `km 400 · Prague`, the flag beside it says reached.
+  // Queried by the control's own action rather than by position, so this still pins
+  // that the end named as reached is the trip's destination.
   it('says the destination is reached once the plan arrives', () => {
     const strip = mount();
     strip.render({ days: days(400), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
 
-    expect(el.querySelector('.strip__finish').textContent).toContain('Prague reached');
+    expect(el.querySelector('[data-action="set-finish"]').textContent).toBe('km 400 · Prague');
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
   });
 
   it('falls back to neutral words when no names are given', () => {
@@ -957,8 +1133,15 @@ describe('createStrip - endpoint names', () => {
   });
 
   // render() is called with no argument on a width change (main.js drives that from
-  // a ResizeObserver). Rebuilding from a bare state would drop the names and the
-  // strip would silently start calling Prague "finish" after any resize.
+  // a ResizeObserver), and the names have to survive it — a strip that rebuilt from a
+  // bare state would silently start calling Prague "finish" after any resize.
+  //
+  // What carries them is render()'s DEFAULT PARAMETER, `render(next = state)`: `next`
+  // IS the state already held, names included. There is no `?? state.originName` in
+  // the merge and there is nothing for one to do — this is the case such a fallback
+  // would be reaching for, and the case it cannot serve, since `next.originName` is
+  // never undefined here. The partial render that used to sit below this one, pinning
+  // exactly that unreachable branch, went with the fallbacks.
   it('keeps the names through an argument-less re-render', () => {
     const strip = mount();
     strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [], ...named });
@@ -986,6 +1169,26 @@ describe('createStrip - endpoint names', () => {
     strip.render({ days: days(100), totalKm: 400, focusedIndex: 0, breaks: [] });
 
     expect(el.querySelector('.strip__range')).toBeNull();
+  });
+
+  // The range span rides the same width-change render the names above do, and on the
+  // same mechanism — the default parameter, not a fallback — but it is drawn from
+  // `elevation` rather than from either name, and it lives in the scale line rather
+  // than in the axis (where 'survives an argument-less re-render' watches the profile
+  // itself). Losing it to a resize would leave the exaggeration unlabelled.
+  it('keeps the range in the scale line through an argument-less re-render', () => {
+    const strip = mount();
+    strip.render({
+      days: days(100),
+      totalKm: 400,
+      focusedIndex: 0,
+      breaks: [],
+      elevation: { spacingM: 250, minM: -1, maxM: 205, elevationsM: [0, 100, 205] },
+    });
+    strip.render();
+
+    expect(el.querySelector('.strip__range')).not.toBeNull();
+    expect(el.querySelector('.strip__range').textContent).toContain('-1–205 m');
   });
 
   it('escapes a name rather than injecting it as markup', () => {
@@ -1104,13 +1307,907 @@ describe('createStrip - re-layout on a width change', () => {
     el = document.createElement('div');
     document.body.appendChild(el);
     const strip = createStrip({ el, callbacks: {}, measureWidth: () => axisWidth });
+    const trip = createTrip({ startKm: 0, destinationKm: TOTAL_KM, totalKm: TOTAL_KM });
 
-    strip.render({ days: days(325), totalKm: TOTAL_KM, focusedIndex: 0, breaks: [] });
+    strip.render({ days: days(325), trip, focusedIndex: 0, breaks: [] });
     expect(el.querySelector('.strip__block').style.width).toBe('650px'); // half of 1300
 
     axisWidth = 700;
     strip.render();
 
     expect(el.querySelector('.strip__block').style.width).toBe('350px'); // half of 700
+  });
+});
+
+// --- Oriented trips --------------------------------------------------------
+//
+// Every km on screen is counted from the rider's own start; the km in the days, the
+// breaks and the callbacks stay absolute. The AXIS maps the window too now, so a
+// downstream day has real width and can carry its own label — which is what the
+// `-80 km` assertion below is for.
+describe('createStrip - oriented trips', () => {
+  it('labels a block with km from the rider’s start, not absolute route km', () => {
+    renderTrip(UP, tripDays(UP, 80));
+
+    const block = el.querySelector('.strip__block');
+    expect(block.textContent).toContain('80 km');
+    expect(block.getAttribute('title')).toContain('km 0 → 80');
+    // Nothing the PLAN draws may carry an absolute route km — blocks, handles, the
+    // remainder and its flag, the glyph titles. The edge stubs are the one exclusion,
+    // and NOT because their "149.3" is a coincidence: `roadPast` measures road running
+    // back to the road's origin as the trip's own startKm, so a forward trip's start cap
+    // always reads exactly that number. It is a DISTANCE of road there, not a position
+    // on it, which is the one place on the strip where an absolute figure belongs.
+    const planHtml = [...el.querySelectorAll('[data-strip-axis] > *:not(.strip__stub)')]
+      .map((node) => node.outerHTML)
+      .join('');
+    expect(planHtml).not.toContain('229.3');
+    expect(planHtml).not.toContain('149.3');
+  });
+
+  it('reports a downstream day as a positive distance ridden', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80));
+
+    // 717.6 − 797.6 is −80, so an absolute difference labels this day "-80 km".
+    const title = el.querySelector('.strip__block').getAttribute('title');
+    expect(title).toContain('80 km');
+    expect(title).not.toContain('-80');
+    expect(title).toContain('km 0 → 80');
+  });
+
+  // The obligation Task 6 recorded and could not discharge: its rider-km conversion in
+  // blockLabelMarkup was UNOBSERVABLE downstream, because the whole-road axis gave a
+  // descending day a negative width, which clamps to 0 px and yields labelTier('none').
+  // Only the title could be asserted. Now the axis maps the window, the block has real
+  // width, and the label itself is checkable.
+  it('puts the positive distance on a downstream block’s own label, not just its title', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80, 100));
+
+    const [first, second] = el.querySelectorAll('.strip__block');
+    expect(first.querySelector('.strip__block-km').textContent).toBe('80 km');
+    expect(second.querySelector('.strip__block-km').textContent).toBe('100 km');
+    expect(el.querySelector('[data-strip-axis]').textContent).not.toContain('-80');
+    // And it has width to carry it — the whole reason the assertion is possible.
+    expect(parseFloat(first.style.width)).toBeGreaterThan(88);
+  });
+
+  it('draws a downstream plan left to right in the order it is ridden', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80, 100));
+
+    const lefts = [...el.querySelectorAll('.strip__block')].map((b) => parseFloat(b.style.left));
+    expect(lefts[0]).toBe(0);
+    expect(lefts[1]).toBeGreaterThan(lefts[0]);
+  });
+
+  it('fills the axis with the window, so the first day starts at its left edge', () => {
+    renderTrip(UP, tripDays(UP, 80));
+
+    // 80 of 648.3 km on a 1300 px axis. Measured against the ROAD it was 101 px, and
+    // the first block started 189 px in — the axis drew 149 km nobody rides.
+    const block = el.querySelector('.strip__block');
+    expect(parseFloat(block.style.left)).toBe(0);
+    expect(parseFloat(block.style.width)).toBeCloseTo(round1((80 / 648.3) * WIDTH), 1);
+  });
+
+  // The arrived split Task 6 opened, closed. The summary and the scale line already
+  // counted the TRIP while stripLayout still counted the ROAD, so a finished offset
+  // trip read "0 km to finish" beside 290 px of dashed remainder with a "+ add a day"
+  // button in it, and the scale line never said "reached".
+  it('reaches the destination of a window narrower than the road', () => {
+    renderTrip(UP, tripDays(UP, 648.3));
+
+    const summary = el.querySelector('.strip__summary').textContent;
+    expect(summary).toContain('648.3 / 648.3 km planned');
+    expect(summary).toContain('0 km to');
+    expect(el.querySelector('.strip__remainder')).toBeNull();
+    expect(el.querySelector('[data-action="add-day"]')).toBeNull();
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
+  });
+
+  it('reaches a downstream destination on the same tolerance', () => {
+    renderTrip(DOWN, tripDays(DOWN, 648.3));
+
+    expect(el.querySelector('.strip__remainder')).toBeNull();
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
+  });
+
+  // The arrival TOLERANCE has to reach the summary too, or the strip contradicts itself
+  // again inside a 0.1–0.5 km band: the axis collapses its remainder while the line
+  // above it still counts down. Reachable by dragging the last boundary near an off-grid
+  // finish — no picking UI needed — which is why this window's end is 797.9 rather than
+  // the 797.6 a day can actually land on.
+  it('says 0 km left once the axis says the destination is reached', () => {
+    const band = createTrip({ startKm: 149.3, destinationKm: 797.9, totalKm: ROAD_KM });
+    renderTrip(band, tripDays(band, 648.3));
+
+    // 0.3 km short: inside the tolerance, so every part of the strip calls it arrived.
+    expect(el.querySelector('.strip__summary').textContent).toContain('0 km to finish');
+    expect(el.querySelector('.strip__summary').textContent).not.toContain('0.3 km to');
+    expect(el.querySelector('.strip__remainder')).toBeNull();
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
+    // And the pair beside the countdown stays EXACT — it is two measurements, while only
+    // the arrival claim rounds, so this is the one place the 0.3 km the tolerance forgives
+    // is still visible. Rounding the pair to make it subtract to `0 km` would falsify how
+    // far the plan actually reaches, which is why the invariant is pinned and not only
+    // documented at summaryMarkup: the "fix" is a one-line change that looks like tidying.
+    expect(el.querySelector('.strip__summary').textContent).toContain('648.3 / 648.6 km planned');
+  });
+
+  // The other edge of the band, so the tolerance cannot quietly swallow real distance:
+  // 0.6 km left is still 0.6 km left, and still has a remainder to add a day into.
+  it('still counts down a remainder wider than the tolerance', () => {
+    const short = createTrip({ startKm: 149.3, destinationKm: 798.2, totalKm: ROAD_KM });
+    renderTrip(short, tripDays(short, 648.3));
+
+    expect(el.querySelector('.strip__summary').textContent).toContain('0.6 km to finish');
+    expect(el.querySelector('.strip__remainder')).not.toBeNull();
+    expect(el.querySelector('.strip__finish')).toBeNull();
+  });
+
+  it('still offers the remainder while the window is unfilled', () => {
+    renderTrip(UP, tripDays(UP, 80));
+
+    const remainder = el.querySelector('.strip__remainder');
+    expect(remainder).not.toBeNull();
+    expect(el.querySelector('.strip__finish')).toBeNull();
+    // The unridden 568.3 km of the WINDOW, not of the road.
+    expect(parseFloat(remainder.style.width)).toBeCloseTo(round1((568.3 / 648.3) * WIDTH), 1);
+  });
+
+  // The same, downstream, which is the direction that needs `arrived` to compare a
+  // distance rather than a signed difference: 149.3 − 717.6 is under the tolerance, so
+  // a signed test called this 80 km plan finished on its first day and took away both
+  // the remainder and the only way to add a second.
+  it('still offers a downstream trip its remainder and its add button', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80));
+
+    expect(el.querySelector('.strip__remainder')).not.toBeNull();
+    expect(el.querySelector('[data-action="add-day"]')).not.toBeNull();
+    expect(el.querySelector('.strip__finish')).toBeNull();
+  });
+
+  // kmToX clamps to the window, so a break on road the rider is not riding would pile
+  // up on the nearer end of the axis and read as a stop on their own start line.
+  it('draws no glyph for a break outside the window', () => {
+    renderTrip(UP, tripDays(UP, 80), {
+      breaks: [
+        { name: 'Behind', kind: 'food', routeDistanceKm: 50 },
+        { name: 'Beyond', kind: 'food', routeDistanceKm: 900 },
+        { name: 'Inside', kind: 'food', routeDistanceKm: 200 },
+      ],
+    });
+
+    const glyphs = [...el.querySelectorAll('.strip__glyph')].map((n) => n.getAttribute('title'));
+    expect(glyphs).toEqual(['Inside']);
+  });
+
+  it('draws a glyph on a downstream axis in ride order', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80, 100), {
+      breaks: [
+        { name: 'Later', kind: 'food', routeDistanceKm: 700 }, // 97.6 km ridden
+        { name: 'Sooner', kind: 'food', routeDistanceKm: 750 }, // 47.6 km ridden
+      ],
+    });
+
+    const at = (title) =>
+      parseFloat([...el.querySelectorAll('.strip__glyph')].find((n) => n.title === title).style.left);
+    expect(at('Sooner')).toBeLessThan(at('Later'));
+    expect(at('Sooner')).toBeCloseTo(round1((47.6 / 648.3) * WIDTH), 1);
+  });
+
+  it('announces a downstream handle’s whole range in rider km', () => {
+    // What replaces handleMarkup's numeric sort: boundaryBounds answers in TRIP order
+    // (downstream its `min` is the numerically LARGER absolute km), and converting the
+    // pair to rider km puts it in ascending order by construction.
+    //
+    // The VALUES are the assertion, not their order. Asserting only min <= now <= max
+    // cannot fail: the widening that keeps valuenow inside its range collapses an
+    // unconverted pair around the value, so bounds left in absolute km still come out
+    // ordered — a rider at km 80 with a range of 80 to 622.6, which is ordered and
+    // meaningless. (Verified by mutation: leaving lo/hi absolute passes every other
+    // test in this file.)
+    renderTrip(DOWN, tripDays(DOWN, 80, 100));
+
+    const [first, last] = el.querySelectorAll('.strip__handle');
+    const reported = (handle) =>
+      ['aria-valuenow', 'aria-valuemin', 'aria-valuemax'].map((name) => handle.getAttribute(name));
+    // Day 1 ends 80 km in; it may sit from MIN_DAY_KM to 5 km short of day 2's end.
+    expect(reported(first)).toEqual(['80', '5', '175']);
+    expect(first.getAttribute('aria-label')).toContain('km 80');
+    // The last boundary may run to the trip's own end, and no further.
+    expect(reported(last)).toEqual(['180', '85', '648.3']);
+  });
+
+  it('counts the summary down to the rider’s own destination', () => {
+    renderTrip(UP, tripDays(UP, 80, 100));
+
+    const summary = el.querySelector('.strip__summary').textContent;
+    expect(summary).toContain('180 / 648.3 km planned');
+    expect(summary).toContain('468.3 km to finish');
+    expect(summary).toContain('⌀ 90 km/day');
+  });
+
+  it('ends the scale line at the trip’s length, not the road’s', () => {
+    renderTrip(UP, tripDays(UP, 80));
+
+    const scale = el.querySelector('.strip__scale').textContent;
+    expect(scale).toContain('km 0 ·');
+    expect(scale).toContain('km 648.3 ·');
+    expect(scale).not.toContain('1026.5');
+  });
+
+  it('names a break on the rider’s start line, and nothing behind it', () => {
+    // The km-0 widening this replaces keyed on the ROAD's origin, so on a trip starting
+    // at km 149.3 a stop dropped on the start line was named on no day at all — the
+    // same start-line exception itinerary.dayOwnsKm makes for day 1, and nowhere else.
+    //
+    // The far side of that edge matters just as much: day 1 owns its start LINE, not
+    // the road behind it. A favorite starred behind the rider's start can be made a
+    // break from the Favorites list, which is not windowed to the trip, so this is
+    // reachable rather than theoretical. itinerary.dayOwnsKm pins its own half
+    // (`dayOwnsKm(0, 301) === false` on a downstream trip); this is the strip's.
+    renderTrip(UP, tripDays(UP, 80), {
+      breaks: [
+        { name: 'Kiosk', kind: 'food', routeDistanceKm: 149.3 }, // on the start line
+        { name: 'Behind', kind: 'food', routeDistanceKm: 146.1 }, // 3.2 km before it
+      ],
+    });
+
+    const title = el.querySelector('.strip__block').getAttribute('title');
+    expect(title).toContain('☕ Kiosk');
+    expect(title).not.toContain('Behind');
+  });
+
+  it('names each downstream day’s own breaks', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80, 100), {
+      breaks: [
+        { name: 'Café', kind: 'food', routeDistanceKm: 750 }, // 47.6 km ridden: day 1
+        { name: 'Schloss', kind: 'sight', routeDistanceKm: 700 }, // 97.6 km ridden: day 2
+      ],
+    });
+
+    const titles = [...el.querySelectorAll('.strip__block')].map((b) => b.getAttribute('title'));
+    expect(titles[0]).toContain('☕ Café');
+    expect(titles[0]).not.toContain('Schloss');
+    expect(titles[1]).toContain('📷 Schloss');
+  });
+});
+
+// The strip driven the way main.js drives it, on a trip: the move callback applies the
+// boundary to a real itinerary and re-renders. A keyboard nudge needs that round trip —
+// the live-region announcement is read back from the state the re-render left behind,
+// so a strip mounted with a bare vi.fn() certifies an announcement nobody can hear.
+describe('createStrip - oriented trips, keyboard', () => {
+  function mountLiveTrip(trip, ...lengths) {
+    const itinerary = createItinerary({ trip });
+    itinerary.hydrate({ days: lengths.map((targetKm) => ({ targetKm })), breaks: [] });
+    const strip = mount();
+    const axis = el.querySelector('[data-strip-axis]');
+    axis.getBoundingClientRect = () => ({ left: 0, top: 0, right: WIDTH, bottom: 46, width: WIDTH, height: 46 });
+    const render = () =>
+      strip.render({
+        days: itinerary.getDays(),
+        totalKm: ROAD_KM,
+        trip,
+        focusedIndex: 0,
+        breaks: itinerary.getBreaks(),
+      });
+    callbacks.onMoveBoundary.mockImplementation((index, endKm) => {
+      itinerary.moveBoundary(index, endKm);
+      render();
+    });
+    render();
+    return {
+      itinerary,
+      live: () => el.querySelector('.strip__live').textContent,
+      handle: (i) => axis.querySelector(`[data-boundary-index="${i}"]`),
+    };
+  }
+
+  it('announces a nudge in the same km the slider reports', () => {
+    const { handle, live } = mountLiveTrip(UP, 80, 100);
+
+    press(handle(0), 'ArrowRight');
+
+    // The announcement and aria-valuenow describe one boundary; speaking the absolute
+    // km said "km 230.3" while the slider it belongs to read 81.
+    expect(live()).toBe('Day 1 end, km 81');
+    expect(handle(0).getAttribute('aria-valuenow')).toBe('81');
+    expect(live()).not.toContain('230.3');
+  });
+
+  it('steps forward along the trip on a downstream trip', () => {
+    const { handle, live, itinerary } = mountLiveTrip(DOWN, 80, 100);
+
+    press(handle(0), 'ArrowRight');
+
+    // Stepped in absolute km this ran BACKWARDS: 717.6 + 1 is rider km 79, so the
+    // slider counted down under a key the user reads as forward.
+    expect(handle(0).getAttribute('aria-valuenow')).toBe('81');
+    expect(live()).toBe('Day 1 end, km 81');
+    // The km handed to the callback stays absolute, and downstream that DECREASES.
+    expect(callbacks.onMoveBoundary).toHaveBeenCalledWith(0, 716.6, { commit: true });
+    expect(itinerary.getDays()[0].endKm).toBeCloseTo(716.6, 6);
+  });
+
+  it('steps back towards the rider’s start on ArrowLeft, downstream too', () => {
+    const { handle, live } = mountLiveTrip(DOWN, 80, 100);
+
+    press(handle(0), 'ArrowLeft', { shiftKey: true });
+
+    expect(handle(0).getAttribute('aria-valuenow')).toBe('75');
+    expect(live()).toBe('Day 1 end, km 75');
+  });
+
+  // The strip buckets a block's break names itself (strip-markup's breaksIn) rather
+  // than asking the model, which is only safe while the two rules agree. This is the
+  // case the half-open rule exists for, checked on ONE fixture from both sides.
+  it('gives a break on a shared boundary to the day that ends on it, as the model does', () => {
+    const trip = DOWN;
+    const itinerary = createItinerary({ trip });
+    itinerary.hydrate({ days: [{ targetKm: 80 }, { targetKm: 100 }], breaks: [] });
+    const shared = itinerary.getDays()[0].endKm; // the boundary both days touch
+    itinerary.addBreak({ kind: 'food', name: 'Shared', routeDistanceKm: shared, lat: 51, lng: 13 });
+    const strip = mount();
+    strip.render({
+      days: itinerary.getDays(),
+      totalKm: ROAD_KM,
+      trip,
+      focusedIndex: 0,
+      breaks: itinerary.getBreaks(),
+    });
+
+    const titles = [...el.querySelectorAll('.strip__block')].map((b) => b.getAttribute('title'));
+    expect(titles[0]).toContain('☕ Shared');
+    expect(titles[1]).not.toContain('Shared');
+    // ...and the model says the same thing about the same km, which is what justifies
+    // strip-markup keeping a span-keyed copy of the rule at all.
+    expect(itinerary.dayOwnsKm(0, shared)).toBe(true);
+    expect(itinerary.dayOwnsKm(1, shared)).toBe(false);
+    expect(itinerary.breaksForDay(0).map((b) => b.name)).toEqual(['Shared']);
+    expect(itinerary.breaksForDay(1)).toEqual([]);
+  });
+});
+
+// Spec §3. The axis maps the trip, so road the rider is not riding has no x inside it —
+// and without something drawn beside the axis, a trip that finishes at Dresden looks
+// like a road that finishes at Dresden.
+describe('createStrip - edge stubs', () => {
+  const named = { originName: 'Cuxhaven', destinationName: 'Prague' };
+  const titles = () => [...el.querySelectorAll('.strip__stub')].map((n) => n.getAttribute('title'));
+
+  it('caps both ends of a window that sits inside the road', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    expect(titles()).toEqual([
+      'road continues 149.3 km to Cuxhaven',
+      'road continues 228.9 km to Prague',
+    ]);
+  });
+
+  // Which ROAD end lies past a trip end follows the DIRECTION, not the trip end's own
+  // role: a downstream trip starts at the Prague side, so the road behind its start
+  // runs to Prague and the road past its finish runs to Cuxhaven.
+  it('names the road end each cap actually runs to, downstream', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80), named);
+
+    expect(titles()).toEqual([
+      'road continues 228.9 km to Prague',
+      'road continues 149.3 km to Cuxhaven',
+    ]);
+  });
+
+  it('draws no cap where a trip end IS the road’s end', () => {
+    const whole = createTrip({ startKm: 0, destinationKm: ROAD_KM, totalKm: ROAD_KM });
+    renderTrip(whole, tripDays(whole, 80), named);
+
+    expect(titles()).toEqual([]);
+  });
+
+  it('caps only the end the road continues past', () => {
+    const fromOrigin = createTrip({ startKm: 0, destinationKm: 797.6, totalKm: ROAD_KM });
+    renderTrip(fromOrigin, tripDays(fromOrigin, 80), named);
+
+    expect(titles()).toEqual(['road continues 228.9 km to Prague']);
+    expect(el.querySelector('.strip__stub--start')).toBeNull();
+    expect(el.querySelector('.strip__stub--destination')).not.toBeNull();
+  });
+
+  it('caps the start of a downstream trip that runs to the road’s origin', () => {
+    const toOrigin = createTrip({ startKm: 797.6, destinationKm: 0, totalKm: ROAD_KM });
+    renderTrip(toOrigin, tripDays(toOrigin, 80), named);
+
+    expect(titles()).toEqual(['road continues 228.9 km to Prague']);
+    expect(el.querySelector('.strip__stub--destination')).toBeNull();
+  });
+
+  // The two sides need different things to answer. Road running back to the road's
+  // ORIGIN is just the trip's own startKm — measurable with no road length at all —
+  // while road running on past the far end needs one. So a totalKm-less trip caps the
+  // side it can measure and stays silent about the side it cannot, rather than
+  // suppressing both and then letting the scale line call a start 149 km past Cuxhaven
+  // "Cuxhaven".
+  it('caps the end it can measure without a road length, and only that end', () => {
+    const noRoad = createTrip({ startKm: 149.3, destinationKm: 797.6 });
+    renderTrip(noRoad, tripDays(UP, 80), named);
+
+    expect(titles()).toEqual(['road continues 149.3 km to Cuxhaven']);
+    expect(el.querySelector('.strip__stub--destination')).toBeNull();
+    // ...and the start is therefore NOT called Cuxhaven, which is the point.
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · start');
+  });
+
+  // `roadContinues` rounds before it decides, and this is the edge that proves it: the
+  // cap and the end's own NAME come from that one predicate, so both flip together.
+  // Unrounded, a 0.04 km offset would draw a cap reading "road continues 0 km".
+  it('ignores an offset too small to name, keeping the road’s own name', () => {
+    const hair = createTrip({ startKm: 0.04, destinationKm: 797.6, totalKm: ROAD_KM });
+    renderTrip(hair, tripDays(hair, 80), named);
+
+    expect(el.querySelector('.strip__stub--start')).toBeNull();
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · Cuxhaven');
+  });
+
+  it('caps the smallest offset it can name, and drops the road’s name with it', () => {
+    const grid = createTrip({ startKm: 0.05, destinationKm: 797.6, totalKm: ROAD_KM });
+    renderTrip(grid, tripDays(grid, 80), named);
+
+    expect(titles()[0]).toBe('road continues 0.1 km to Cuxhaven');
+    expect(el.querySelector('.strip__scale').textContent).toContain('km 0 · start');
+    expect(el.querySelector('.strip__scale').textContent).not.toContain('Cuxhaven');
+  });
+
+  // Not a control. Extending the trip is what the scale line's Set start / Set finish
+  // will do (plan Task 11); a draggable cap would be a second, silent way to do it.
+  it('is an inert span beside the axis, not a button on it', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    const stub = el.querySelector('.strip__stub');
+    expect(stub.tagName).toBe('SPAN');
+    expect(stub.parentElement.dataset.stripAxis).toBeDefined();
+    expect(stub.textContent).toBe('');
+    // aria-hidden: an empty span's title is announced by nothing, and the road past a
+    // trip end is not something a keyboard user can act on. Plan Tasks 11/12 put the
+    // ends into real controls, which is where this belongs as text.
+    expect(stub.getAttribute('aria-hidden')).toBe('true');
+    expect(stub.getAttribute('data-boundary-index')).toBeNull();
+  });
+
+  it('rounds a cap’s distance the way every other km on the strip is rounded', () => {
+    const offGrid = createTrip({ startKm: 12.34, destinationKm: 500, totalKm: ROAD_KM });
+    renderTrip(offGrid, tripDays(offGrid, 80), named);
+
+    expect(titles()[0]).toBe('road continues 12.3 km to Cuxhaven');
+  });
+
+  // The payload has to BREAK OUT of the attribute to prove anything. An `<img …>` inside
+  // `title="…"` is never parsed into an element, so querying for an img is null with or
+  // without escaping — the first version of this test could not fail. A stray quote can
+  // end the attribute and start a new one, which is what esc() actually prevents.
+  it('escapes a road end name rather than letting it open a new attribute', () => {
+    renderTrip(UP, tripDays(UP, 80), { originName: '" onmouseover="alert(1)' });
+
+    const stub = el.querySelector('.strip__stub--start');
+    expect(stub.getAttribute('onmouseover')).toBeNull();
+    expect(stub.getAttribute('title')).toBe('road continues 149.3 km to " onmouseover="alert(1)');
+  });
+
+  // A cap sits 2 px outside the axis, and the boundary hit-test works in px from the
+  // axis's left edge — so a press on one is within HANDLE_TOLERANCE_PX of any boundary
+  // standing on that edge. A finished plan always leaves its last boundary standing on
+  // the right edge, and hand-edited storage can put the first one near the left.
+  it('does not let a press on a cap grab the boundary beside it', () => {
+    // A 4 km first day puts boundary 0 at x 8 on this window; the start cap's inner
+    // edge is x −2, which is 10 px away and so inside the tolerance.
+    renderTrip(UP, tripDays(UP, 4, 100));
+    const axis = el.querySelector('[data-strip-axis]');
+    axis.getBoundingClientRect = () => ({ left: 0, top: 0, right: WIDTH, bottom: 46, width: WIDTH, height: 46 });
+    expect(parseFloat(axis.querySelector('[data-boundary-index="0"]').style.left)).toBeLessThan(12);
+
+    fire(el.querySelector('.strip__stub--start'), 'pointerdown', { x: -2 });
+    fire(axis, 'pointermove', { x: 200 });
+
+    expect(callbacks.onMoveBoundary).not.toHaveBeenCalled();
+    expect(axis.querySelector('.strip__handle--dragging')).toBeNull();
+  });
+});
+
+// An end that sits ON a road end is named by the road, and which road end that is
+// depends on the direction. Any other end is named by `endNames`, which main.js derives
+// from the towns on every render (Task 12) — never stored, so the strip is only ever
+// told, never asked to remember.
+describe('createStrip - naming the trip’s own ends', () => {
+  const named = { originName: 'Cuxhaven', destinationName: 'Prague' };
+  const scale = () => el.querySelector('.strip__scale').textContent;
+
+  it('gives an offset end the neutral word rather than the road’s name', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    expect(scale()).toContain('km 0 · start');
+    expect(scale()).toContain('km 648.3 · finish');
+    // "Cuxhaven" on a start 149 km past Cuxhaven is a plain lie, and so is "Prague" on
+    // a finish 229 km short of it.
+    expect(scale()).not.toContain('Cuxhaven');
+    expect(scale()).not.toContain('Prague');
+    expect(el.querySelector('.strip__summary').textContent).toContain('568.3 km to finish');
+  });
+
+  it('swaps the two names on a whole-road trip ridden downstream', () => {
+    const down = createTrip({ startKm: ROAD_KM, destinationKm: 0, totalKm: ROAD_KM });
+    renderTrip(down, tripDays(down, 80), named);
+
+    expect(scale()).toContain('km 0 · Prague');
+    expect(scale()).toContain('km 1026.5 · Cuxhaven');
+    expect(el.querySelector('.strip__summary').textContent).toContain('to Cuxhaven');
+    expect(el.querySelector('.strip__flag').textContent).toContain('Cuxhaven');
+  });
+
+  // CHANGED EXPECTATION (Task 11b), same split as above: the finish control names the
+  // end, the flag beside it says reached. The direction claim is unchanged — a
+  // whole-road trip ridden downstream finishes at Cuxhaven — and it is now pinned on
+  // the element that owns that end rather than on a substring.
+  it('says the trip’s own destination is reached, by the name it goes by', () => {
+    const down = createTrip({ startKm: ROAD_KM, destinationKm: 0, totalKm: ROAD_KM });
+    renderTrip(down, tripDays(down, ROAD_KM), named);
+
+    expect(el.querySelector('[data-action="set-finish"]').textContent).toBe(
+      'km 1026.5 · Cuxhaven',
+    );
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
+  });
+
+  it('flags the trip’s destination on the remainder, not the road’s', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    expect(el.querySelector('.strip__flag').textContent).toContain('finish');
+    expect(el.querySelector('.strip__flag').textContent).not.toContain('Prague');
+  });
+
+  // ALL THREE sites that name an end have to read the picked name. Converting the scale
+  // line alone is the exact shape of the bug Task 8's ledger records — a summary still
+  // reading "0 km to Prague" beside a scale line that had already stopped saying it.
+  it('reads a picked name on the scale line, the summary and the flag', () => {
+    renderTrip(UP, tripDays(UP, 80, 80), {
+      ...named,
+      endNames: { start: 'Hamburg', destination: 'Dresden' },
+    });
+
+    expect(scale()).toContain('km 0 · Hamburg');
+    expect(scale()).toContain('km 648.3 · Dresden');
+    // 648.3 km of trip, 160 km of it planned.
+    expect(el.querySelector('.strip__summary').textContent).toContain('488.3 km to Dresden');
+    expect(el.querySelector('.strip__flag').textContent).toContain('⚑ Dresden');
+  });
+
+  // Half the pair named and half not, which is the ordinary case while a rider is still
+  // choosing: `null` is what main.js sends for an end no town is near enough to name.
+  it('leaves an end with no picked name reading as its role', () => {
+    renderTrip(UP, tripDays(UP, 80), {
+      ...named,
+      endNames: { start: 'Hamburg', destination: null },
+    });
+
+    expect(scale()).toContain('km 0 · Hamburg');
+    expect(scale()).toContain('km 648.3 · finish');
+    expect(el.querySelector('.strip__flag').textContent).toContain('⚑ finish');
+    // Interpolating the null itself is the failure this rules out — it would read
+    // "km 648.3 · null" and look like data.
+    expect(scale()).not.toContain('null');
+  });
+
+  // A road end keeps the ROAD's name even while the other end carries a town's, which is
+  // what stops a picked name outranking Cuxhaven. main.js answers the road's own name
+  // there anyway (same rounded gate as `roadContinues`), so the two never disagree — but
+  // an endNames object that simply says nothing about an end must not erase it either.
+  it('still names a road end from the road while the other end carries a town', () => {
+    const fromOrigin = createTrip({ startKm: 0, destinationKm: 797.6, totalKm: ROAD_KM });
+    renderTrip(fromOrigin, tripDays(fromOrigin, 80), {
+      ...named,
+      endNames: { destination: 'Dresden' },
+    });
+
+    expect(scale()).toContain('km 0 · Cuxhaven');
+    expect(scale()).toContain('km 797.6 · Dresden');
+  });
+
+  // The resize path, exactly as the origin/destination names and the armed control have
+  // it: render() with no argument redraws the state already held, picked names included.
+  // `render(next = state)` is what carries them — `next.endNames` IS the object the
+  // state already holds — and main.js re-derives them from the towns on every render it
+  // does state, so nothing here ever needs a `?? state.endNames`.
+  it('keeps the picked names through an argument-less re-render', () => {
+    const strip = renderTrip(UP, tripDays(UP, 80), {
+      ...named,
+      endNames: { start: 'Hamburg', destination: 'Dresden' },
+    });
+
+    strip.render();
+
+    expect(scale()).toContain('km 0 · Hamburg');
+    expect(scale()).toContain('km 648.3 · Dresden');
+  });
+});
+
+// Spec §6: the controls live on the endpoint labels the scale line already shows,
+// because editing a value where it is displayed needs no new vocabulary. The visible
+// TEXT is therefore unchanged — every assertion above that reads `km 0 · Cuxhaven` off
+// the scale line still passes, which is the evidence this change is additive.
+//
+// What is new is what those labels ARE: buttons that arm a pick for one end, pressed
+// while armed, and carrying as TEXT the figure the edge stub beside them offers only to
+// a pointer (the debt Task 8 recorded and assigned here).
+describe('createStrip - the trip’s ends as controls', () => {
+  const named = { originName: 'Cuxhaven', destinationName: 'Prague' };
+  const control = (role) => el.querySelector(`[data-action="set-${role}"]`);
+  const label = (role) => control(role).getAttribute('aria-label');
+
+  it('emits the end each control owns', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    control('start').click();
+    control('finish').click();
+
+    // Both calls, in order: one control reporting both ends is the failure, and
+    // `toHaveBeenCalledWith` passes as long as ANY call matches.
+    expect(callbacks.onPickEnd.mock.calls).toEqual([['start'], ['destination']]);
+  });
+
+  // The scale line is not a drag surface, so it gets a plain click listener and none of
+  // the axis's suppressClick machinery — which also means nothing else guards it.
+  //
+  // The error listener is load-bearing, not belt-and-braces: jsdom swallows an
+  // exception thrown inside an event handler, so `.click()` returns normally and a
+  // dropped `if (!control) return` leaves `not.toHaveBeenCalled()` passing. Measured by
+  // mutation — without this the whole test survives that mutant. (Same instrument as
+  // `survives the day list shrinking under a live drag`, for the same reason.)
+  it('arms nothing when the click lands on the line but on neither control', () => {
+    const errors = [];
+    const onError = (e) => errors.push(e.message || String(e.error));
+    window.addEventListener('error', onError);
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    el.querySelector('.strip__scale').click();
+    window.removeEventListener('error', onError);
+
+    expect(errors).toEqual([]);
+    expect(callbacks.onPickEnd).not.toHaveBeenCalled();
+  });
+
+  it('presses the start control, and only it, while the start is armed', () => {
+    renderTrip(UP, tripDays(UP, 80), { ...named, picking: 'start' });
+
+    expect(control('start').getAttribute('aria-pressed')).toBe('true');
+    expect(control('finish').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  // The mirror image, and not a duplicate: without it a hardcoded 'start', or a
+  // truthiness test that presses whichever control renders first, passes above.
+  it('presses the finish control, and only it, while the finish is armed', () => {
+    renderTrip(UP, tripDays(UP, 80), { ...named, picking: 'destination' });
+
+    expect(control('finish').getAttribute('aria-pressed')).toBe('true');
+    expect(control('start').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  // main.js cancels a pick by rendering with `picking: null`, so null is MEANINGFUL
+  // here — which is why the merge reads `?? null` and not `?? state.picking`. Under
+  // the latter a cancel would leave the control pressed for ever, and no other test
+  // would see it.
+  it('releases both controls when a later render cancels the pick', () => {
+    const strip = renderTrip(UP, tripDays(UP, 80), { ...named, picking: 'start' });
+
+    strip.render({
+      days: tripDays(UP, 80),
+      totalKm: ROAD_KM,
+      trip: UP,
+      focusedIndex: 0,
+      breaks: [],
+      ...named,
+      picking: null,
+    });
+
+    expect(control('start').getAttribute('aria-pressed')).toBe('false');
+    expect(control('finish').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  // The resize path: render() with no argument must redraw the state it already holds,
+  // pressed control and endpoint names included. Rebuilding from a bare state would
+  // silently disarm the control the rider is looking at — the same hole the
+  // origin/destination names already have a test for.
+  it('keeps the armed end and the names through an argument-less re-render', () => {
+    const strip = renderTrip(UP, tripDays(UP, 80), { ...named, picking: 'destination' });
+
+    strip.render();
+
+    expect(control('finish').getAttribute('aria-pressed')).toBe('true');
+    expect(control('start').getAttribute('aria-pressed')).toBe('false');
+    expect(label('start')).toContain('Cuxhaven');
+  });
+
+  // The edge stub past an end is aria-hidden and offers its figure to a pointer only.
+  // It belongs on this control as text: the road past an end is exactly what pressing
+  // it can claim. NAME and NUMBER together, in both directions — `roadPast` asked for
+  // the wrong end reads perfectly plausibly, and "contains a km" would pass under it.
+  it('carries the road past each end in the control’s own accessible name', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    expect(label('start')).toContain('149.3 km of road continues to Cuxhaven');
+    expect(label('finish')).toContain('228.9 km of road continues to Prague');
+  });
+
+  // Which road end lies past a trip end follows the DIRECTION, not the trip end's own
+  // role: ridden downstream the start faces Prague and the finish faces Cuxhaven, so
+  // the two clauses trade places against the same two figures.
+  it('faces the other road end on a downstream trip', () => {
+    renderTrip(DOWN, tripDays(DOWN, 80), named);
+
+    expect(label('start')).toContain('228.9 km of road continues to Prague');
+    expect(label('finish')).toContain('149.3 km of road continues to Cuxhaven');
+  });
+
+  it('carries no road clause when the trip already runs the whole road', () => {
+    const whole = createTrip({ startKm: 0, destinationKm: ROAD_KM, totalKm: ROAD_KM });
+    renderTrip(whole, tripDays(whole, 80), named);
+
+    // Appended unconditionally this would read "0 km of road continues to Cuxhaven".
+    expect(label('start')).not.toContain('of road continues');
+    expect(label('finish')).not.toContain('of road continues');
+    // ...and both ends still say which end they are and what they are called.
+    expect(label('start')).toBe('Trip start: km 0, Cuxhaven. Press to set it on the map.');
+    expect(label('finish')).toBe(
+      'Trip finish: km 1026.5, Prague. Press to set it on the map.',
+    );
+  });
+
+  it('shows the label the scale line always showed, and says what pressing it does', () => {
+    renderTrip(UP, tripDays(UP, 80), named);
+
+    expect(control('start').tagName).toBe('BUTTON');
+    expect(control('start').textContent).toBe('km 0 · start');
+    expect(control('finish').textContent).toBe('km 648.3 · finish');
+    expect(control('start').getAttribute('title')).toBe('Set where your trip starts');
+    expect(control('finish').getAttribute('title')).toBe('Set where your trip finishes');
+  });
+
+  // The name reaches ELEMENT CONTENT here, where an <img …> really does parse into an
+  // element — so this can fail in both directions: unescaped it injects, and escaped
+  // TWICE (the caller escaping before the control does) it reads `&lt;img` on screen
+  // and the raw-payload assertion fails.
+  it('escapes an end name rather than letting it become markup', () => {
+    const fromOrigin = createTrip({ startKm: 0, destinationKm: 797.6, totalKm: ROAD_KM });
+    renderTrip(fromOrigin, tripDays(fromOrigin, 80), {
+      originName: '<img src=x onerror="alert(1)">',
+    });
+
+    expect(control('start').querySelector('img')).toBeNull();
+    expect(control('start').textContent).toBe('km 0 · <img src=x onerror="alert(1)">');
+  });
+
+  // An arrived trip still has an end a rider may want to move. The flag is the flag's
+  // job; the control stands beside it.
+  it('still offers the finish control on an arrived trip, beside the flag', () => {
+    renderTrip(UP, tripDays(UP, 648.3), named);
+
+    expect(el.querySelector('.strip__finish').textContent).toContain('reached');
+    expect(control('finish').textContent).toBe('km 648.3 · finish');
+    control('finish').click();
+    expect(callbacks.onPickEnd).toHaveBeenCalledWith('destination');
+  });
+});
+
+// The profile has to describe the stretch the axis draws. Sampled over the road while
+// the axis mapped the window, every hill sat in the wrong place — the one failure mode
+// a memo keyed on the road's length alone would also have produced silently.
+describe('createStrip - elevation over the trip window', () => {
+  // A 1000 km road climbing 0 -> 1000 m in even 100 km steps, so a km reads as an
+  // elevation with no arithmetic: km 400 is 400 m.
+  const road = {
+    spacingM: 100000,
+    minM: 0,
+    maxM: 1000,
+    elevationsM: Array.from({ length: 11 }, (_, i) => i * 100),
+  };
+  // The axis is 46 px tall in jsdom (no layout, so strip.js's FALLBACK_HEIGHT), and the
+  // baseline is the ROAD's minimum — which is what keeps two windows comparable.
+  const y = (metres) => round1(46 - 46 * (metres / 1000));
+  const path = () => el.querySelector('.strip__elevation-line').getAttribute('d');
+
+  function renderWindow(startKm, destinationKm, strip = mount()) {
+    const trip = createTrip({ startKm, destinationKm, totalKm: 1000 });
+    strip.render({
+      days: [{ index: 0, startKm, endKm: startKm, targetKm: 0, townChoice: null }],
+      totalKm: 1000,
+      trip,
+      focusedIndex: 0,
+      breaks: [],
+      elevation: road,
+    });
+    return strip;
+  }
+
+  it('starts the profile at the window’s own first km, not at the road’s', () => {
+    renderWindow(400, 600);
+
+    expect(path()).toMatch(new RegExp(`^M0,${y(400)}L`));
+  });
+
+  it('ends it at the window’s last km', () => {
+    renderWindow(400, 600);
+
+    expect(path().endsWith(`L${WIDTH},${y(600)}`)).toBe(true);
+  });
+
+  it('mirrors the profile when the same stretch is ridden downstream', () => {
+    renderWindow(600, 400);
+
+    // The climb becomes a descent: it starts at 600 m and ends at 400 m.
+    expect(path()).toMatch(new RegExp(`^M0,${y(600)}L`));
+    expect(path().endsWith(`L${WIDTH},${y(400)}`)).toBe(true);
+  });
+
+  // The memo key gains both ends. Keyed on the road length alone — which is all it had
+  // — it served the first window's samples to every later window on the same road, so
+  // switching plans redrew the days and left the terrain behind.
+  it('re-samples when the window moves, rather than serving the previous one', () => {
+    const strip = renderWindow(400, 600);
+    const first = path();
+
+    renderWindow(0, 200, strip);
+
+    expect(path()).not.toBe(first);
+    expect(path()).toMatch(new RegExp(`^M0,${y(0)}L`));
+  });
+
+  // Moving BOTH ends only proves at least one of them is in the key — either half alone
+  // would satisfy it. The two tests below move one end each, which is not a contrived
+  // split: `Set start` and `Set finish` (plan Task 11) each move exactly one, so each of
+  // these is a real control's path.
+  it('re-samples when only the far end moves, as Set finish will', () => {
+    const strip = renderWindow(400, 600);
+    const first = path();
+
+    renderWindow(400, 900, strip);
+
+    expect(path()).not.toBe(first);
+    // Same first km, so the profile still starts at 400 m — the END is what changed.
+    expect(path()).toMatch(new RegExp(`^M0,${y(400)}L`));
+    expect(path().endsWith(`L${WIDTH},${y(900)}`)).toBe(true);
+  });
+
+  it('re-samples when only the near end moves, as Set start will', () => {
+    const strip = renderWindow(400, 600);
+    const first = path();
+
+    renderWindow(100, 600, strip);
+
+    expect(path()).not.toBe(first);
+    expect(path()).toMatch(new RegExp(`^M0,${y(100)}L`));
+    expect(path().endsWith(`L${WIDTH},${y(600)}`)).toBe(true);
+  });
+});
+
+// The strip REQUIRES a trip, in the same voice day-panel and places use. There is no
+// whole-road fallback left: the axis maps the trip's window, so a caller that forgot
+// the trip would get a silent second window (the road) with every km on screen counted
+// from the wrong origin — which is exactly what the fallback did.
+describe('createStrip - a trip is required', () => {
+  it('throws rather than falling back to the whole road', () => {
+    const bare = document.createElement('div');
+    document.body.appendChild(bare);
+    const strip = createStrip({ el: bare, callbacks: {}, measureWidth: () => WIDTH });
+
+    expect(() => strip.render({ days: days(80), focusedIndex: 0, breaks: [] })).toThrow(
+      /needs a trip/,
+    );
+  });
+
+  it('keeps the trip through an argument-less re-render, as a width change produces', () => {
+    const bare = document.createElement('div');
+    document.body.appendChild(bare);
+    const strip = createStrip({ el: bare, callbacks: {}, measureWidth: () => WIDTH });
+    strip.render({ days: tripDays(UP, 80), focusedIndex: 0, breaks: [], trip: UP });
+
+    expect(() => strip.render()).not.toThrow();
+    expect(bare.querySelector('.strip__block').textContent).toContain('80 km');
   });
 });

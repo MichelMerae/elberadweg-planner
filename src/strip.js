@@ -5,7 +5,7 @@
 // trade places.js makes for the favorites key builder.
 
 import { round1 } from './ui-util.js';
-import { boundaryWindow } from './boundaries.js';
+import { boundaryWindow, clampBoundaryKm } from './boundaries.js';
 import { stripLayout, xToKm, hitTestHandle } from './strip-geometry.js';
 import { summaryMarkup, axisMarkup, scaleMarkup } from './strip-markup.js';
 import { profilePoints } from './elevation.js';
@@ -38,13 +38,18 @@ const KEY_STEP_SHIFT_KM = 5;
  * @param {(index: number, endKm: number, opts: {commit: boolean}) => void} opts.callbacks.onMoveBoundary
  * @param {(endKm: number|null) => void} opts.callbacks.onAddDay - endKm from a
  *   remainder click, or null to append a default-length day.
+ * @param {(tripEnd: 'start'|'destination') => void} [opts.callbacks.onPickEnd] - one of
+ *   the scale line's two end controls was pressed. A TOGGLE: main.js decides whether
+ *   that arms a pick or cancels the one already armed, and re-renders with `picking`.
  * @param {() => number} [opts.measureWidth] - axis width in px; injectable for tests.
  * @param {() => number} [opts.measureHeight] - axis height in px; injectable for tests.
  */
 export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } = {}) {
   // originName/destinationName are undefined until main.js supplies them from
-  // route.meta.json; strip-markup.js substitutes neutral words meanwhile.
-  let state = { days: [], totalKm: 0, focusedIndex: null, breaks: [] };
+  // route.meta.json; strip-markup.js substitutes neutral words meanwhile. `trip` is
+  // undefined until the first render brings one, and render() refuses without it —
+  // there is no road-shaped fallback, because the axis maps the TRIP.
+  let state = { days: [], focusedIndex: null, breaks: [] };
 
   // Interaction state lives HERE and never in the DOM. render() rebuilds the
   // whole axis with innerHTML, and main.js re-renders on every drag preview, so
@@ -79,41 +84,65 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
   const axisWidth = measureWidth || (() => axisEl.getBoundingClientRect().width || FALLBACK_WIDTH);
   const axisHeight = measureHeight || (() => axisEl.getBoundingClientRect().height || FALLBACK_HEIGHT);
 
-  // The elevation profile depends only on the axis width, the route length and the
+  // The elevation profile depends only on the axis box, the WINDOW it spans and the
   // profile itself — never on the days. Without this memo every pointermove of a
   // boundary drag would re-interpolate ~700 samples to redraw an identical path.
   let elevationMemo = null;
 
-  function elevationPointsFor(width, height) {
+  // Sampled over the trip's own window, in trip order: the profile has to describe the
+  // stretch the axis draws, and profilePoints mirrors itself for a descending window so
+  // a downstream ride reads left to right like everything else here.
+  //
+  // The memo key carries BOTH ends. On the road's length alone it served the first
+  // window's samples to every later window on the same road — switching plans would
+  // redraw the days and leave the terrain behind.
+  function elevationPointsFor(width, height, { startKm, endKm }) {
     if (!state.elevation) return null;
     if (
       elevationMemo &&
       elevationMemo.width === width &&
       elevationMemo.height === height &&
-      elevationMemo.totalKm === state.totalKm &&
+      elevationMemo.startKm === startKm &&
+      elevationMemo.endKm === endKm &&
       elevationMemo.profile === state.elevation
     ) {
       return elevationMemo.points;
     }
     const points = profilePoints(state.elevation, {
-      startKm: 0,
-      endKm: state.totalKm,
+      startKm,
+      endKm,
       width,
       height,
       columns: Math.max(2, Math.round(width / ELEVATION_PX_PER_COLUMN)),
     });
-    elevationMemo = { width, height, totalKm: state.totalKm, profile: state.elevation, points };
+    elevationMemo = { width, height, startKm, endKm, profile: state.elevation, points };
     return points;
   }
 
+  // The window the axis maps, in the two names strip-geometry asks for. One place, so
+  // the render path and the pointer path can never disagree about which km an x is —
+  // a click mapped through a different window than the block under it was drawn in
+  // would move a boundary to somewhere the user did not point.
+  function windowFor(width) {
+    return { startKm: state.trip.startKm, endKm: state.trip.destinationKm, width };
+  }
+
+  // The axis: the TRIP's window drawn across the width, in trip order. Every px derived
+  // from it — blocks, handles, glyphs, the profile — is window geometry, and the km
+  // feeding it stay ABSOLUTE (kmToX takes the road's own numbers and maps them in).
+  //
+  // The trip rides along so the markup has one source for the window: the two ends
+  // strip-geometry needs and the value object every km on screen is converted through
+  // are built here, together, from the same trip.
   function axisOpts() {
     const width = axisWidth();
     const height = axisHeight();
+    const window = windowFor(width);
     return {
-      totalKm: state.totalKm,
-      width,
+      ...window,
+      trip: state.trip,
       height,
-      elevationPoints: elevationPointsFor(width, height),
+      elevationPoints: elevationPointsFor(width, height, window),
     };
   }
 
@@ -145,19 +174,36 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
   // px in the DOM was derived from the old axis width. A ResizeObserver in
   // main.js drives that path.
   function render(next = state) {
+    const trip = next.trip;
+    // No fallback. The axis maps the trip's window, so a road-shaped stand-in would be
+    // a second, silent window with every km on screen counted from the wrong origin —
+    // which is what the fallback this replaces actually did. day-panel and places
+    // refuse for the same reason, in the same voice.
+    if (!trip || typeof trip.tripKm !== 'function') {
+      throw new Error('strip render needs a trip (see createTrip in src/trip.js)');
+    }
     state = {
       days: next.days || [],
-      totalKm: next.totalKm || 0,
       focusedIndex: next.focusedIndex ?? null,
       breaks: next.breaks || [],
-      // Fall back to what state already holds, not to a default: render() is
-      // called with NO argument on a width change (main.js drives that from a
-      // ResizeObserver), and rebuilding from a bare state would drop the names —
-      // the strip would silently start calling Prague "finish" after any resize.
-      originName: next.originName ?? state.originName,
-      destinationName: next.destinationName ?? state.destinationName,
-      // Same argument-less-render reasoning as the names above.
-      elevation: next.elevation ?? state.elevation,
+      // No `?? state.x` on any field here, and none is missing. What carries the
+      // width-change render (main.js drives it from a ResizeObserver, with no
+      // argument) is the DEFAULT PARAMETER above: `next` IS `state` there, so a
+      // field-level fallback could never reach its right-hand side anyway. Every
+      // production render states every field. And a partial render is not an API this
+      // has: `render({ days })` would still reset `focusedIndex` to null and `breaks`
+      // to [], dropping the focus ring and every glyph — so a fallback on the four
+      // fields below would promise a safety it does not deliver.
+      originName: next.originName,
+      destinationName: next.destinationName,
+      elevation: next.elevation,
+      endNames: next.endNames,
+      // null is MEANINGFUL here, so the fallback is `?? null` and not `?? state.picking`:
+      // main.js cancels a pick by rendering with picking: null, and `null ?? state.picking`
+      // would keep the control pressed for ever. An argument-less render still preserves
+      // it, because `next` defaults to `state` — the same shape focusedIndex uses.
+      picking: next.picking ?? null,
+      trip,
     };
     const axis = axisOpts();
     const layout = stripLayout(state.days, axis);
@@ -185,13 +231,16 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
     return { left: rect.left, width: axisWidth() };
   }
 
+  // ABSOLUTE route km, which is the contract for every km this module emits — the
+  // window only decides which stretch of road the axis covers, never how a km is
+  // named. A pointer past either end reads as that end: kmToX clamps, so xToKm does.
   function kmAtClientX(clientX) {
     const axis = pointerAxis();
-    return round1(xToKm(clientX - axis.left, { totalKm: state.totalKm, width: axis.width }));
+    return round1(xToKm(clientX - axis.left, windowFor(axis.width)));
   }
 
   function layoutForPointer(axis) {
-    return stripLayout(state.days, { totalKm: state.totalKm, width: axis.width });
+    return stripLayout(state.days, windowFor(axis.width));
   }
 
   /**
@@ -205,9 +254,15 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
    * distinction (the model refuses the same moves for the same reason).
    */
   function proposeKm(index, km) {
-    const window = boundaryWindow(state.days, index, { totalKm: state.totalKm });
-    if (!window) return null;
-    return round1(Math.min(Math.max(km, window.min), window.max));
+    // A drag is bounded by the trip the plan was measured along, not by the road.
+    const trip = state.trip;
+    if (!boundaryWindow(state.days, index, { trip })) return null;
+    // Clamped by boundaries.js rather than here: its bounds come back in TRIP order,
+    // so a numeric Math.min/Math.max would pull the km towards the road's origin
+    // instead of the rider's once the strip draws a downstream window. Same value as
+    // the window's own bounds — a non-null window is never inverted — so this is one
+    // answer, asked for in the direction-safe way.
+    return round1(clampBoundaryKm(state.days, index, km, { trip }));
   }
 
   // `commit` travels in the same `{ commit }` shape it is emitted in, so the
@@ -265,6 +320,11 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
     // boundary's grab tolerance, and latching there would preventDefault the
     // press and swallow the button's click.
     if (e.target.closest?.('[data-action="add-day"]')) return;
+    // Same shape of problem at the axis's own edges: an edge stub sits 2px outside it,
+    // which is well inside HANDLE_TOLERANCE_PX of a boundary standing on that edge —
+    // and a finished plan always leaves its last boundary standing on the right one.
+    // The caps are not a drag surface; nothing outside the axis may move a boundary.
+    if (e.target.closest?.('.strip__stub')) return;
     const axis = pointerAxis();
     // Hit-test the GEOMETRY, not the DOM: nearest boundary within
     // HANDLE_TOLERANCE_PX wins. MIN_DAY_KM puts two handles ~11 px apart at
@@ -373,13 +433,23 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       const day = state.days[index];
       if (!day) return;
       const step = e.shiftKey ? KEY_STEP_SHIFT_KM : KEY_STEP_KM;
-      const km = proposeKm(index, round1(day.endKm + direction * step));
+      const trip = state.trip;
+      // Stepped in RIDER km: an arrow moves the boundary along the TRIP, so
+      // ArrowRight is always "further from the rider's start". Added to the absolute
+      // km instead it ran backwards downstream — a press the user reads as forward
+      // took the slider from 80 to 79. The km SENT stays absolute (the callback's
+      // contract), and downstream that number decreases.
+      const requested = trip.absoluteKm(trip.tripKm(day.endKm) + direction * step);
+      const km = proposeKm(index, round1(requested));
       if (km === null) return;
       callbacks.onMoveBoundary?.(index, km, { commit: true });
       // Announce where it ACTUALLY ended up, read back after the re-render, so a
-      // move the model refused is not reported as having happened.
+      // move the model refused is not reported as having happened. In rider km, like
+      // the aria-valuenow on the very handle this describes: the two are one boundary
+      // and speaking it two ways ("km 230.3" against a slider reading 81) is worse
+      // than either way alone.
       const settled = state.days[index]?.endKm;
-      if (settled !== undefined) announce(`Day ${index + 1} end, km ${round1(settled)}`);
+      if (settled !== undefined) announce(`Day ${index + 1} end, km ${round1(trip.tripKm(settled))}`);
       return;
     }
     // Task 7 gave blocks role="button" and tabindex="0" with no key handler, so
@@ -420,6 +490,16 @@ export function createStrip({ el, callbacks = {}, measureWidth, measureHeight } 
       // the route regardless of where the remainder starts.
       callbacks.onAddDay?.(kmAtClientX(e.clientX));
     }
+  });
+
+  // The scale line is not a drag surface, so it gets its own plain click listener and
+  // none of the axis's suppressClick machinery. Which end was pressed comes from the
+  // control's own action and never from its position on the line: the two are the same
+  // today only because the axis always runs start-then-destination.
+  scaleEl.addEventListener('click', (e) => {
+    const control = e.target.closest('[data-action^="set-"]');
+    if (!control) return;
+    callbacks.onPickEnd?.(control.dataset.action === 'set-start' ? 'start' : 'destination');
   });
 
   return { render };

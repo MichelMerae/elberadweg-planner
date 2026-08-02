@@ -52,11 +52,15 @@ function createUnwritableStorage(initial = {}) {
 
 const CURRENT_ROUTE_ID = 'cuxhaven-prague-ev7-v1';
 const OLD_ROUTE_ID = 'hamburg-dresden-elberadweg-v1';
+// The road's length, as main.js reads it off the route meta.
+const TOTAL_KM = 1026.5;
 
 // A stored plans blob whose 114 km day boundary was measured from a different
-// origin. Pass `routeId: null` for a schema 2 blob, which predates routeId
-// being recorded at all.
-function storedBlob({ schemaVersion = 3, routeId = OLD_ROUTE_ID } = {}) {
+// origin. Defaults to the current schema so the corridor tests exercise the read
+// path in use; pass an older `schemaVersion` to read one as it stands, with
+// `routeId: null` for a schema 2 blob, which predates routeId being recorded at
+// all. The stored plan carries no trip window unless `tripWindow` says otherwise.
+function storedBlob({ schemaVersion = 4, routeId = OLD_ROUTE_ID, tripWindow = null } = {}) {
   const blob = {
     schemaVersion,
     activePlanId: 'p-old',
@@ -69,6 +73,7 @@ function storedBlob({ schemaVersion = 3, routeId = OLD_ROUTE_ID } = {}) {
         routeVersion: 'r-old',
         days: [{ targetKm: 114, townChoice: { name: 'Lauenburg' } }],
         breaks: [],
+        ...(tripWindow ?? {}),
       },
     ],
   };
@@ -100,7 +105,7 @@ afterEach(() => {
 describe('createPlanStore - fresh start', () => {
   it('with no keys, load() yields one empty plan "My plan" that is active', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -111,7 +116,7 @@ describe('createPlanStore - fresh start', () => {
 
   it('the fresh active plan has empty days/breaks and the current routeVersion', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
 
     const active = store.getActivePlan();
@@ -122,18 +127,18 @@ describe('createPlanStore - fresh start', () => {
 
   it('persists the fresh plan under the plans key on load()', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
 
     const parsed = JSON.parse(storage.store[PLANS_KEY]);
-    expect(parsed.schemaVersion).toBe(3);
+    expect(parsed.schemaVersion).toBe(4);
     expect(parsed.plans).toHaveLength(1);
     expect(parsed.activePlanId).toBe(parsed.plans[0].id);
   });
 
   it('getActivePlan() returns null before load()', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     expect(store.getActivePlan()).toBeNull();
   });
 });
@@ -141,7 +146,7 @@ describe('createPlanStore - fresh start', () => {
 describe('createPlanStore - v1 legacy migration', () => {
   it('wraps the legacy days (minus poiPins) as one plan "My plan"', () => {
     const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(LEGACY_V1) });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -157,7 +162,7 @@ describe('createPlanStore - v1 legacy migration', () => {
 
   it('carries the legacy routeVersion onto the migrated plan', () => {
     const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(LEGACY_V1) });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
     store.load();
 
     expect(store.getActivePlan().routeVersion).toBe('v0');
@@ -165,7 +170,7 @@ describe('createPlanStore - v1 legacy migration', () => {
 
   it('writes collected pins to the favorites key as {schemaVersion:1, favorites:[...]}', () => {
     const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(LEGACY_V1) });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
     store.load();
 
     const favorites = JSON.parse(storage.store[FAVORITES_KEY]);
@@ -199,7 +204,7 @@ describe('createPlanStore - v1 legacy migration', () => {
       ],
     };
     const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(seed) });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
     store.load();
 
     const favorites = JSON.parse(storage.store[FAVORITES_KEY]).favorites;
@@ -218,7 +223,7 @@ describe('createPlanStore - v1 legacy migration', () => {
       days: [{ targetKm: 80, townChoice: null, poiPins: [null, validPin, 'garbage', 7] }],
     };
     const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(seed) });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
 
     let result;
     expect(() => {
@@ -235,7 +240,7 @@ describe('createPlanStore - v1 legacy migration', () => {
   it('leaves the legacy v1 key untouched (kept as backup)', () => {
     const rawLegacy = JSON.stringify(LEGACY_V1);
     const storage = createFakeStorage({ [LEGACY_KEY]: rawLegacy });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
     store.load();
 
     expect(storage.store[LEGACY_KEY]).toBe(rawLegacy);
@@ -244,10 +249,10 @@ describe('createPlanStore - v1 legacy migration', () => {
   it('does not re-migrate on a second load(): the plans key already exists', () => {
     const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(LEGACY_V1) });
 
-    const first = createPlanStore({ storage, routeVersion: 'r-new' });
+    const first = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
     first.load();
 
-    const second = createPlanStore({ storage, routeVersion: 'r-new' });
+    const second = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
     const result = second.load();
 
     // Still exactly one plan; migration did not run again and duplicate it.
@@ -261,7 +266,7 @@ describe('createPlanStore - v1 legacy migration', () => {
       [LEGACY_KEY]: JSON.stringify(LEGACY_V1),
       [FAVORITES_KEY]: existingFavorites,
     });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
     store.load();
 
     expect(storage.store[FAVORITES_KEY]).toBe(existingFavorites);
@@ -269,7 +274,7 @@ describe('createPlanStore - v1 legacy migration', () => {
 
   it('ignores an invalid legacy payload and starts fresh instead', () => {
     const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify({ schemaVersion: 99, days: [] }) });
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -285,7 +290,7 @@ describe('createPlanStore - v1 legacy migration', () => {
 describe('createPlanStore - createPlan', () => {
   it('auto-names the new plan "Plan 2" and activates it', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
 
     const created = store.createPlan();
@@ -298,7 +303,7 @@ describe('createPlanStore - createPlan', () => {
 
   it('uses an explicit name when provided', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
 
     const created = store.createPlan('8 days sporty');
@@ -307,7 +312,7 @@ describe('createPlanStore - createPlan', () => {
 
   it('appears in the plans list after creation', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
     store.createPlan();
 
@@ -319,7 +324,7 @@ describe('createPlanStore - createPlan', () => {
 describe('createPlanStore - renamePlan', () => {
   it('renames a plan and reflects it in getActivePlan()', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId } = store.load();
 
     store.renamePlan(activePlanId, 'Renamed');
@@ -330,7 +335,7 @@ describe('createPlanStore - renamePlan', () => {
 
   it('returns null and changes nothing for an unknown id', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
 
     expect(store.renamePlan('does-not-exist', 'X')).toBeNull();
@@ -341,7 +346,7 @@ describe('createPlanStore - renamePlan', () => {
 describe('createPlanStore - setActivePlan', () => {
   it('switches the active plan and persists it', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId: first } = store.load();
     const second = store.createPlan();
 
@@ -354,7 +359,7 @@ describe('createPlanStore - setActivePlan', () => {
 
   it('returns null for an unknown id and leaves the active plan alone', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId } = store.load();
 
     expect(store.setActivePlan('nope')).toBeNull();
@@ -365,7 +370,7 @@ describe('createPlanStore - setActivePlan', () => {
 describe('createPlanStore - duplicatePlan', () => {
   it('deep-copies the source; editing the copy leaves the original intact', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId: originalId } = store.load();
     store.saveActivePlan({ days: [{ targetKm: 80, townChoice: { name: 'Lauenburg' } }], breaks: [] });
 
@@ -382,7 +387,7 @@ describe('createPlanStore - duplicatePlan', () => {
 
   it('defaults the copy name to "<original> (copy)" and activates it', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId } = store.load(); // "My plan"
 
     const copy = store.duplicatePlan(activePlanId);
@@ -394,7 +399,7 @@ describe('createPlanStore - duplicatePlan', () => {
 
   it('honors an explicit copy name', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId } = store.load();
 
     const copy = store.duplicatePlan(activePlanId, 'Backup');
@@ -403,7 +408,7 @@ describe('createPlanStore - duplicatePlan', () => {
 
   it('returns null for an unknown id', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
     expect(store.duplicatePlan('missing')).toBeNull();
   });
@@ -412,7 +417,7 @@ describe('createPlanStore - duplicatePlan', () => {
 describe('createPlanStore - deletePlan', () => {
   it('deletes a non-active plan without changing the active one', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId: firstId } = store.load();
     const second = store.createPlan(); // second is now active
     store.setActivePlan(firstId); // make first active again
@@ -427,7 +432,7 @@ describe('createPlanStore - deletePlan', () => {
 
   it('returns null and changes nothing for an unknown id', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId } = store.load();
 
     expect(store.deletePlan('ghost')).toBeNull();
@@ -439,7 +444,7 @@ describe('createPlanStore - deletePlan', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T00:00:01Z'));
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId: p0 } = store.load(); // updated at :01
 
     vi.setSystemTime(new Date('2026-01-01T00:00:02Z'));
@@ -457,7 +462,7 @@ describe('createPlanStore - deletePlan', () => {
 
   it('deleting the LAST plan creates a fresh empty "My plan"', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId } = store.load();
 
     store.deletePlan(activePlanId);
@@ -478,7 +483,7 @@ describe('createPlanStore - saveActivePlan', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r-current' });
+    const store = createPlanStore({ storage, routeVersion: 'r-current', totalKm: TOTAL_KM });
     store.load();
     const before = store.getActivePlan().updatedAt;
 
@@ -494,7 +499,7 @@ describe('createPlanStore - saveActivePlan', () => {
 
   it('normalizes day records to {targetKm, townChoice}, dropping derived fields', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
 
     // Pass full public day records (as itinerary.getDays() would return).
@@ -510,11 +515,11 @@ describe('createPlanStore - saveActivePlan', () => {
 
   it('round-trips the saved payload through a fresh store on the same storage', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
     store.saveActivePlan({ days: [{ targetKm: 100, townChoice: { name: 'Wittenberge' } }], breaks: [] });
 
-    const reloaded = createPlanStore({ storage, routeVersion: 'r1' });
+    const reloaded = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     reloaded.load();
 
     expect(reloaded.getActivePlan().days).toEqual([{ targetKm: 100, townChoice: { name: 'Wittenberge' } }]);
@@ -522,7 +527,7 @@ describe('createPlanStore - saveActivePlan', () => {
 
   it('returns null before load()', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     expect(store.saveActivePlan({ days: [], breaks: [] })).toBeNull();
   });
 });
@@ -530,7 +535,7 @@ describe('createPlanStore - saveActivePlan', () => {
 describe('createPlanStore - id-taking methods before load()', () => {
   it('setActivePlan/renamePlan/duplicatePlan return null before load()', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
 
     expect(store.setActivePlan('any')).toBeNull();
     expect(store.renamePlan('any', 'X')).toBeNull();
@@ -541,7 +546,7 @@ describe('createPlanStore - id-taking methods before load()', () => {
 describe('createPlanStore - defensive copies', () => {
   it('mutating the record returned by getActivePlan() does not affect internal state', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
     store.saveActivePlan({ days: [{ targetKm: 80, townChoice: null }], breaks: [] });
 
@@ -558,7 +563,7 @@ describe('createPlanStore - defensive copies', () => {
 describe('createPlanStore - corruption and error handling', () => {
   it('treats a corrupted plans blob as a fresh store (one "My plan"), without throwing', () => {
     const storage = createFakeStorage({ [PLANS_KEY]: '{not valid json' });
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
 
     let result;
     expect(() => {
@@ -573,7 +578,7 @@ describe('createPlanStore - corruption and error handling', () => {
     const storage = createFakeStorage({
       [PLANS_KEY]: JSON.stringify({ schemaVersion: 99, activePlanId: 'x', plans: [{ id: 'x', name: 'Old' }] }),
     });
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
 
     const result = store.load();
     expect(result.plans).toHaveLength(1);
@@ -582,7 +587,7 @@ describe('createPlanStore - corruption and error handling', () => {
 
   it('does not crash when setItem throws (best-effort persistence)', () => {
     const storage = createThrowingStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
 
     let result;
     expect(() => {
@@ -600,7 +605,7 @@ describe('createPlanStore - corruption and error handling', () => {
       [PLANS_KEY]: '{not valid json',
       [LEGACY_KEY]: JSON.stringify(LEGACY_V1),
     });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
 
     store.load();
 
@@ -622,7 +627,7 @@ describe('createPlanStore - corruption and error handling', () => {
       ],
     };
     const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(stored) });
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -635,12 +640,12 @@ describe('createPlanStore - corruption and error handling', () => {
 describe('createPlanStore - activePlanId persistence', () => {
   it('persists the active plan id across a second load() on the same storage', () => {
     const storage = createFakeStorage();
-    const first = createPlanStore({ storage, routeVersion: 'r1' });
+    const first = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const { activePlanId: originalId } = first.load();
     first.createPlan(); // switches active away from the original
     first.setActivePlan(originalId); // switch back
 
-    const second = createPlanStore({ storage, routeVersion: 'r1' });
+    const second = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     const result = second.load();
 
     expect(result.activePlanId).toBe(originalId);
@@ -651,7 +656,7 @@ describe('createPlanStore - activePlanId persistence', () => {
 describe('createPlanStore - snapped fractional lengths', () => {
   it('round-trips a fractional targetKm through a save and reload', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'v1' });
+    const store = createPlanStore({ storage, routeVersion: 'v1', totalKm: TOTAL_KM });
     store.load();
     store.saveActivePlan({
       days: [
@@ -661,7 +666,7 @@ describe('createPlanStore - snapped fractional lengths', () => {
       breaks: [],
     });
 
-    const reloaded = createPlanStore({ storage, routeVersion: 'v1' });
+    const reloaded = createPlanStore({ storage, routeVersion: 'v1', totalKm: TOTAL_KM });
     reloaded.load();
     const days = reloaded.getActivePlan().days;
     expect(days[0].targetKm).toBe(76.2);
@@ -670,11 +675,11 @@ describe('createPlanStore - snapped fractional lengths', () => {
 
   it('writes the current schema version alongside the fractional lengths', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'v1' });
+    const store = createPlanStore({ storage, routeVersion: 'v1', totalKm: TOTAL_KM });
     store.load();
     store.saveActivePlan({ days: [{ targetKm: 76.2, townChoice: null }], breaks: [] });
 
-    expect(JSON.parse(storage.getItem(PLANS_KEY)).schemaVersion).toBe(3);
+    expect(JSON.parse(storage.getItem(PLANS_KEY)).schemaVersion).toBe(4);
   });
 });
 
@@ -682,7 +687,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
   it('reads the stored plans normally when the stored routeId matches', () => {
     const blob = storedBlob({ routeId: CURRENT_ROUTE_ID });
     const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -697,7 +702,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
     // answers that with its route-changed banner, not with an archive.
     const blob = storedBlob({ routeId: CURRENT_ROUTE_ID });
     const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob), [FAVORITES_KEY]: OLD_FAVORITES });
-    const store = createPlanStore({ storage, routeVersion: 'r-rebuilt', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-rebuilt', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -710,7 +715,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
   it('archives the plans blob under the stored routeId when the corridor changed', () => {
     const raw = JSON.stringify(storedBlob());
     const storage = createFakeStorage({ [PLANS_KEY]: raw });
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     store.load();
 
@@ -719,7 +724,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
 
   it('starts fresh after archiving: one empty "My plan" on the current corridor', () => {
     const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(storedBlob()) });
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -744,7 +749,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
       [PLANS_KEY]: JSON.stringify(storedBlob()),
       [FAVORITES_KEY]: OLD_FAVORITES,
     });
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     store.load();
 
@@ -755,7 +760,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
   it('archives a schema 2 blob (no routeId recorded) under the literal `v2` suffix', () => {
     const raw = JSON.stringify(storedBlob({ schemaVersion: 2, routeId: null }));
     const storage = createFakeStorage({ [PLANS_KEY]: raw, [FAVORITES_KEY]: OLD_FAVORITES });
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -771,7 +776,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
       [FAVORITES_KEY]: OLD_FAVORITES,
       [`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]: 'first backup',
     });
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     store.load();
 
@@ -789,7 +794,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
       [`${PLANS_KEY}-backup-${OLD_ROUTE_ID}`]: 'first backup',
       [`${PLANS_KEY}-backup-${OLD_ROUTE_ID}-2`]: 'second backup',
     });
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     store.load();
 
@@ -803,7 +808,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
       [PLANS_KEY]: JSON.stringify(storedBlob()),
       [LEGACY_KEY]: JSON.stringify(LEGACY_V1),
     });
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -819,7 +824,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
 
   it('stamps the configured routeId into the persisted blob', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
     store.load();
 
     expect(JSON.parse(storage.store[PLANS_KEY]).routeId).toBe(CURRENT_ROUTE_ID);
@@ -827,12 +832,12 @@ describe('createPlanStore - corridor change (routeId)', () => {
     store.saveActivePlan({ days: [{ targetKm: 90, townChoice: null }], breaks: [] });
     const persisted = JSON.parse(storage.store[PLANS_KEY]);
     expect(persisted.routeId).toBe(CURRENT_ROUTE_ID);
-    expect(persisted.schemaVersion).toBe(3);
+    expect(persisted.schemaVersion).toBe(4);
   });
 
   it('records no corridor when none is configured', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
     store.load();
 
     expect(JSON.parse(storage.store[PLANS_KEY]).routeId ?? null).toBeNull();
@@ -840,7 +845,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
 
   it('with no configured routeId, a foreign-corridor blob is still read (check disabled)', () => {
     const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(storedBlob()) });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -851,7 +856,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
 
   it('with no configured routeId, a schema 2 blob is read as-is', () => {
     const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(storedBlob({ schemaVersion: 2, routeId: null })) });
-    const store = createPlanStore({ storage, routeVersion: 'r-new' });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
 
     const result = store.load();
 
@@ -864,7 +869,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
       [PLANS_KEY]: JSON.stringify(storedBlob()),
       [FAVORITES_KEY]: OLD_FAVORITES,
     });
-    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     let result;
     expect(() => {
@@ -880,7 +885,7 @@ describe('createPlanStore - corridor change (routeId)', () => {
     const raw = JSON.stringify(storedBlob());
     const withoutRemove = createFakeStorage({ [PLANS_KEY]: raw });
     delete withoutRemove.removeItem;
-    const store = createPlanStore({ storage: withoutRemove, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const store = createPlanStore({ storage: withoutRemove, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
 
     let result;
     expect(() => {
@@ -895,10 +900,10 @@ describe('createPlanStore - corridor change (routeId)', () => {
     const raw = JSON.stringify(storedBlob());
     const storage = createFakeStorage({ [PLANS_KEY]: raw });
 
-    const first = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const first = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
     const firstId = first.load().activePlanId;
 
-    const second = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID });
+    const second = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
     const result = second.load();
 
     expect(result.activePlanId).toBe(firstId);
@@ -907,10 +912,209 @@ describe('createPlanStore - corridor change (routeId)', () => {
   });
 });
 
+describe('createPlanStore - totalKm is required', () => {
+  it('throws rather than inventing a road length', () => {
+    const storage = createFakeStorage();
+
+    // A 0 fallback would hand every window-less plan a destination at km 0, one
+    // its start already sits on: a zero-length trip that createTrip accepts
+    // happily and that leaves every day in the plan stranded at km 0.
+    expect(() => createPlanStore({ storage, routeVersion: 'r1' })).toThrow(/totalKm/);
+    expect(() => createPlanStore({ storage, routeVersion: 'r1', totalKm: NaN })).toThrow(/totalKm/);
+    expect(() => createPlanStore({ storage, routeVersion: 'r1', totalKm: '1026.5' })).toThrow(/totalKm/);
+    expect(() => createPlanStore({ storage, routeVersion: 'r1', totalKm: Infinity })).toThrow(/totalKm/);
+  });
+});
+
+describe('storage v4 - trip window', () => {
+  it('defaults a v3 plan to the whole road', () => {
+    const blob = storedBlob({ schemaVersion: 3, routeId: CURRENT_ROUTE_ID });
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
+    store.load();
+
+    const plan = store.getActivePlan();
+    expect(plan.startKm).toBe(0);
+    expect(plan.destinationKm).toBe(TOTAL_KM);
+  });
+
+  it('upgrades a v3 blob in place: nothing archived, plans intact', () => {
+    // A window is not a corridor. v3 -> v4 must read the plans, not move them aside.
+    const storage = createFakeStorage({
+      [PLANS_KEY]: JSON.stringify(storedBlob({ schemaVersion: 3, routeId: CURRENT_ROUTE_ID })),
+      [FAVORITES_KEY]: OLD_FAVORITES,
+    });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
+
+    const result = store.load();
+
+    expect(result.plans).toHaveLength(1);
+    expect(result.plans[0].name).toBe('Old corridor plan');
+    expect(store.getActivePlan().days).toEqual([{ targetKm: 114, townChoice: { name: 'Lauenburg' } }]);
+    expect(Object.keys(storage.store).filter((key) => key.includes('-backup-'))).toEqual([]);
+    expect(storage.store[FAVORITES_KEY]).toBe(OLD_FAVORITES);
+
+    // The live key is now v4, with the whole-road window written into it.
+    const persisted = JSON.parse(storage.store[PLANS_KEY]);
+    expect(persisted.schemaVersion).toBe(4);
+    expect(persisted.plans[0]).toMatchObject({ id: 'p-old', startKm: 0, destinationKm: TOTAL_KM });
+  });
+
+  it('round-trips a window through save and load', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], startKm: 797.6, destinationKm: 149.3 });
+
+    const reloaded = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    reloaded.load();
+
+    // A downstream window: the order is the rider's heading, so it must survive
+    // exactly as given - no sorting into low/high on the way through storage.
+    const active = reloaded.getActivePlan();
+    expect(active.startKm).toBe(797.6);
+    expect(active.destinationKm).toBe(149.3);
+    expect(JSON.parse(storage.store[PLANS_KEY]).plans[0]).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+  });
+
+  it('gives a fresh plan the whole road', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    store.load();
+
+    expect(store.getActivePlan()).toMatchObject({ startKm: 0, destinationKm: TOTAL_KM });
+
+    const created = store.createPlan('Second');
+    expect(created.startKm).toBe(0);
+    expect(created.destinationKm).toBe(TOTAL_KM);
+  });
+
+  it('carries the window through a duplicate', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    const { activePlanId } = store.load();
+    store.saveActivePlan({ days: [], breaks: [], startKm: 200, destinationKm: 400 });
+
+    const copy = store.duplicatePlan(activePlanId);
+
+    expect(copy.startKm).toBe(200);
+    expect(copy.destinationKm).toBe(400);
+  });
+
+  it('repairs a stored window that is not finite', () => {
+    const blob = storedBlob({ routeId: CURRENT_ROUTE_ID, tripWindow: { startKm: null, destinationKm: 'x' } });
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
+    store.load();
+
+    const plan = store.getActivePlan();
+    expect(plan.startKm).toBe(0);
+    expect(plan.destinationKm).toBe(TOTAL_KM);
+  });
+
+  it('leaves a stored window that runs off the road alone', () => {
+    // Pulling both ends onto the road is createTrip's job, and doing it here too
+    // would mean two places deciding what the road's edges are.
+    const blob = storedBlob({ routeId: CURRENT_ROUTE_ID, tripWindow: { startKm: -50, destinationKm: 9999 } });
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
+    store.load();
+
+    expect(store.getActivePlan()).toMatchObject({ startKm: -50, destinationKm: 9999 });
+  });
+
+  it('cannot have a stored window moved by a save that names none', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], startKm: 797.6, destinationKm: 149.3 });
+
+    // A caller thinking only about days must not be able to destroy the rider's
+    // window on its way past - a loss they would discover after a reload, with
+    // nothing left to restore it from.
+    const saved = store.saveActivePlan({ days: [{ targetKm: 80, townChoice: null }], breaks: [] });
+
+    expect(saved).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+    expect(store.getActivePlan()).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+    expect(JSON.parse(storage.store[PLANS_KEY]).plans[0]).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+  });
+
+  it('lets a window named in the payload win', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], startKm: 797.6, destinationKm: 149.3 });
+
+    const saved = store.saveActivePlan({ days: [], breaks: [], startKm: 200, destinationKm: 400 });
+
+    expect(saved).toMatchObject({ startKm: 200, destinationKm: 400 });
+    expect(JSON.parse(storage.store[PLANS_KEY]).plans[0]).toMatchObject({ startKm: 200, destinationKm: 400 });
+  });
+
+  it('ignores a non-finite end in the payload instead of widening the window', () => {
+    // Garbage from a caller is that caller's bug; answering it by resetting to the
+    // whole road would spend the rider's trip on someone else's mistake.
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], startKm: 797.6, destinationKm: 149.3 });
+
+    const saved = store.saveActivePlan({ days: [], breaks: [], startKm: NaN, destinationKm: 'x' });
+
+    expect(saved).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+  });
+
+  it('keeps a destination at km 0 - a ride down to Cuxhaven', () => {
+    const storage = createFakeStorage();
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    store.load();
+    store.saveActivePlan({ days: [], breaks: [], startKm: 500, destinationKm: 0 });
+
+    const reloaded = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
+    reloaded.load();
+
+    // km 0 is a real destination, not a missing one. A `??` or `||` on either the
+    // save or the read path would widen this ride to the far end of the road.
+    expect(reloaded.getActivePlan()).toMatchObject({ startKm: 500, destinationKm: 0 });
+  });
+
+  it('does not widen a stored narrow window when load() re-persists it', () => {
+    const blob = storedBlob({ routeId: CURRENT_ROUTE_ID, tripWindow: { startKm: 797.6, destinationKm: 149.3 } });
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(blob) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', routeId: CURRENT_ROUTE_ID, totalKm: TOTAL_KM });
+
+    store.load();
+
+    // load() re-persists whatever it read. What it writes back has to still be the
+    // rider's window rather than the whole-road default.
+    expect(JSON.parse(storage.store[PLANS_KEY]).plans[0]).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+    expect(store.getActivePlan()).toMatchObject({ startKm: 797.6, destinationKm: 149.3 });
+  });
+
+  it('gives a migrated v1 plan the whole road', () => {
+    const storage = createFakeStorage({ [LEGACY_KEY]: JSON.stringify(LEGACY_V1) });
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
+    store.load();
+
+    expect(store.getActivePlan()).toMatchObject({ routeVersion: 'v0', startKm: 0, destinationKm: TOTAL_KM });
+  });
+
+  it('gives a v2 plan the whole road', () => {
+    const storage = createFakeStorage({ [PLANS_KEY]: JSON.stringify(storedBlob({ schemaVersion: 2, routeId: null })) });
+    // No configured routeId, so the corridor check is off and the v2 blob is read.
+    const store = createPlanStore({ storage, routeVersion: 'r-new', totalKm: TOTAL_KM });
+
+    const result = store.load();
+
+    expect(result.plans[0].name).toBe('Old corridor plan');
+    expect(store.getActivePlan()).toMatchObject({ startKm: 0, destinationKm: TOTAL_KM });
+  });
+});
+
 describe('createPlanStore - break notes & custom stops', () => {
   it('round-trips note and custom-kind break fields through save and reload', () => {
     const storage = createFakeStorage();
-    const store = createPlanStore({ storage, routeVersion: 'r1' });
+    const store = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     store.load();
 
     const breaks = [
@@ -919,7 +1123,7 @@ describe('createPlanStore - break notes & custom stops', () => {
     ];
     store.saveActivePlan({ days: [{ targetKm: 80, townChoice: null }], breaks });
 
-    const reloaded = createPlanStore({ storage, routeVersion: 'r1' });
+    const reloaded = createPlanStore({ storage, routeVersion: 'r1', totalKm: TOTAL_KM });
     reloaded.load();
     expect(reloaded.getActivePlan().breaks).toEqual(breaks);
   });

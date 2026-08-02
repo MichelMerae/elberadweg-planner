@@ -2,6 +2,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createPlaces } from './places.js';
 import { favKey } from './favorites.js';
+import { createTrip } from './trip.js';
+
+// The whole road ridden forwards: tripKm is the identity on it, so every km below is
+// the number it always was. The oriented cases live in their own describe at the end.
+const WHOLE_ROAD = createTrip({ startKm: 0, destinationKm: 650 });
 
 let el;
 let callbacks;
@@ -35,6 +40,7 @@ const STRETCH = { dayNumber: 3, startKm: 160.44, endKm: 265, fromName: 'Lenzen' 
 // exercises. Sets are rebuilt per call so no test can leak state into the next.
 function renderArgs(overrides = {}) {
   return {
+    trip: WHOLE_ROAD,
     ...STRETCH,
     towns: [],
     food: [],
@@ -42,6 +48,9 @@ function renderArgs(overrides = {}) {
     favorites: [],
     breakKeys: new Set(),
     favoriteKeys: new Set(),
+    // Which day owns a km is itinerary.dayOwnsKm's answer, handed down by main.js. The
+    // default says "no day": tests about the tag name their own answers.
+    dayNumberForKm: () => null,
     ...overrides,
   };
 }
@@ -262,11 +271,18 @@ describe('createPlaces - key shapes', () => {
 });
 
 describe('createPlaces - the 40-row cap', () => {
-  it('renders 40 rows and says how many there are', () => {
+  // Which 40, not just how many. The footer promises "the first 40" and the list
+  // arrives in ride order, so they have to be the 40 the rider meets FIRST — and
+  // counting rows cannot tell the difference: a cap keeping the LAST 40 of the stretch
+  // rendered 40 rows under that same footer and passed this whole file.
+  it('renders the first 40 rows of the stretch and says how many there are', () => {
     const places = mount();
     places.render(renderArgs({ food: MANY }));
 
-    expect(el.querySelectorAll('[data-place-section="food"]')).toHaveLength(40);
+    const names = [...el.querySelectorAll('[data-place-section="food"] .poi__name')].map((n) => n.textContent);
+    expect(names).toHaveLength(40);
+    expect(names[0]).toBe('Place 0');
+    expect(names[39]).toBe('Place 39');
     expect(el.querySelector('.places__more').textContent).toContain('showing the first 40 of 451');
   });
 
@@ -358,7 +374,7 @@ describe('createPlaces - favorites', () => {
     const places = mount();
     places.render(renderArgs({
       favorites: [poi('Grenzturm', 213, 'sight'), poi('Far Away', 600, 'sight')],
-      days: [{ index: 0, startKm: 0, endKm: 265 }],
+      dayNumberForKm: (km) => (km <= 265 ? 1 : null),
     }));
 
     const rows = [...el.querySelectorAll('[data-place-section="fav"]')];
@@ -377,7 +393,7 @@ describe('createPlaces - favorites', () => {
     const places = mount();
     places.render(renderArgs({
       favorites: [poi('Grenzturm', 213.06, 'sight')],
-      days: [{ index: 0, startKm: 0, endKm: 265 }],
+      dayNumberForKm: () => 1,
     }));
 
     expect(el.querySelector('[data-place-section="fav"] .poi__meta').textContent).toContain('km 213.1');
@@ -406,19 +422,15 @@ describe('createPlaces - favorites', () => {
   });
 });
 
-// Day ownership is (startKm, endKm], widened at km 0 so day 1 owns the start —
-// the same convention main.js uses for breaks.
+// Which day owns a km is the model's rule — half-open (start, end] in RIDER km, plus
+// day 1's start line — and it is pinned once, in itinerary.test.js (dayOwnsKm). This
+// panel is handed the answer and words it; what follows is the wording.
 describe('createPlaces - favorite day tags', () => {
-  const DAYS = [
-    { index: 0, startKm: 0, endKm: 265 },
-    { index: 1, startKm: 265, endKm: 320 },
-  ];
-
-  it('gives a favorite on a boundary to the day that ends there', () => {
+  it('names the day the model gives a favorite to', () => {
     const places = mount();
     places.render(renderArgs({
       favorites: [poi('Boundary', 265, 'sight'), poi('Just past', 265.1, 'sight')],
-      days: DAYS,
+      dayNumberForKm: (km) => (km <= 265 ? 1 : 2),
     }));
 
     const rows = [...el.querySelectorAll('[data-place-section="fav"]')];
@@ -426,20 +438,26 @@ describe('createPlaces - favorite day tags', () => {
     expect(rows[1].querySelector('.fav-day').textContent).toBe('Day 2');
   });
 
-  it('gives a favorite at km 0 to day 1', () => {
-    const places = mount();
-    places.render(renderArgs({ favorites: [poi('Hamburg dock', 0, 'sight')], days: DAYS }));
-
-    expect(el.querySelector('[data-place-section="fav"] .fav-day').textContent).toBe('Day 1');
-  });
-
   it('marks a favorite no day covers', () => {
     const places = mount();
-    places.render(renderArgs({ favorites: [poi('Far Away', 600, 'sight')], days: DAYS }));
+    places.render(renderArgs({ favorites: [poi('Far Away', 600, 'sight')], dayNumberForKm: () => null }));
 
     const tag = el.querySelector('[data-place-section="fav"] .fav-day');
     expect(tag.textContent).toBe('beyond plan');
     expect(tag.classList.contains('fav-day--beyond')).toBe(true);
+  });
+});
+
+describe('createPlaces - without a trip', () => {
+  // The conversions all live inside row builders, so a trip-less render with its own
+  // stretch and no places used to succeed in silence — and then throw an unhelpful
+  // TypeError the first time something WAS in the lists. See the file header.
+  it('refuses to render, even with a stretch named and nothing to show', () => {
+    const places = mount();
+
+    expect(() =>
+      places.render({ dayNumber: 2, startKm: 160, endKm: 265, towns: [], food: [], sights: [], favorites: [] }),
+    ).toThrow(/trip/);
   });
 });
 
@@ -710,5 +728,223 @@ describe('createPlaces - marker hover highlight', () => {
     places.render(renderArgs({ food: [] }));
 
     expect(el.querySelector('.poi--hover')).toBeNull();
+  });
+});
+
+// --- Oriented trips --------------------------------------------------------
+//
+// The records and the stretch arrive in ABSOLUTE route km; every km on a row is
+// counted from the rider's own start.
+describe('createPlaces - oriented trips', () => {
+  const UP = createTrip({ startKm: 149.3, destinationKm: 797.6, totalKm: 1026.5 });
+  const DOWN = createTrip({ startKm: 797.6, destinationKm: 149.3, totalKm: 1026.5 });
+  // Day 2 of each trip: 80 km ridden, then 105 more.
+  const UP_STRETCH = { dayNumber: 2, startKm: 229.3, endKm: 334.3, fromName: 'Lenzen' };
+  const DOWN_STRETCH = { dayNumber: 2, startKm: 717.6, endKm: 612.6, fromName: 'Lenzen' };
+
+  it('scopes the panel to the stretch in rider km', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: UP, ...UP_STRETCH }));
+
+    expect(el.querySelector('.places__scope-range').textContent).toContain('km 80 → 185');
+    expect(el.innerHTML).not.toContain('229.3');
+  });
+
+  it('scopes a downstream stretch the same way round', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH }));
+
+    expect(el.querySelector('.places__scope-range').textContent).toContain('km 80 → 185');
+  });
+
+  it('measures a town from the day’s start and names its rider km', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: UP, ...UP_STRETCH, towns: [town('Rosenhof', 269.3)] }));
+
+    const meta = el.querySelector('.town__meta').textContent;
+    expect(meta).toContain('40 km from Lenzen');
+    expect(meta).toContain('km 120');
+  });
+
+  it('measures a town on a downstream day as a positive distance ridden', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, towns: [town('Rosenhof', 677.6)] }));
+
+    // 677.6 − 717.6 is −40: an absolute difference reads "-40 km from Lenzen".
+    const meta = el.querySelector('.town__meta').textContent;
+    expect(meta).toContain('40 km from Lenzen');
+    expect(meta).not.toContain('-40');
+    expect(meta).toContain('km 120');
+  });
+
+  it('measures a POI on a downstream day too', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, food: [poi('Café', 677.6)] }));
+
+    const meta = el.querySelector('.poi__meta').textContent;
+    expect(meta).toContain('40 km from Lenzen');
+    expect(meta).toContain('(km 120)');
+  });
+
+  it('shows a favorite at its rider km', () => {
+    const places = mount();
+    places.render(renderArgs({
+      trip: UP,
+      ...UP_STRETCH,
+      favorites: [poi('Grenzturm', 349.3, 'sight')],
+      dayNumberForKm: () => 3,
+    }));
+
+    const meta = el.querySelector('[data-place-section="fav"] .poi__meta').textContent;
+    expect(meta).toContain('km 200');
+    expect(meta).toContain('Day 3');
+  });
+
+  // tripKm is signed and unclamped by design (see trip.js): a place BEHIND the rider's
+  // start is genuinely at a negative km on their trip. The signed number is what we
+  // show — "km -3.2" is odd to read but it is true, and the alternatives are worse: 0
+  // would put an off-trip favorite on the start line, and prose ("3.2 km behind you")
+  // is a copy decision the spec does not make. The row already says "beyond plan".
+  it('shows a favorite behind the rider’s start as a negative km', () => {
+    const places = mount();
+    places.render(renderArgs({
+      trip: UP,
+      ...UP_STRETCH,
+      favorites: [poi('Hamburg dock', 146.1, 'sight')],
+      dayNumberForKm: () => null,
+    }));
+
+    const row = el.querySelector('[data-place-section="fav"]');
+    expect(row.querySelector('.poi__meta').textContent).toContain('km -3.2');
+    expect(row.querySelector('.fav-day').textContent).toBe('beyond plan');
+  });
+
+  // The favorites list is the one list this panel orders itself: it is the global
+  // starred list, not windowed to any stretch, and the store that holds it has no trip
+  // to order it by (see the note at inRideOrder in places.js). Three favorites at the
+  // same three absolute km, ridden both ways — the only variable between these two
+  // tests is the trip's direction.
+  const A = poi('A', 249.3, 'sight'); // UP: rider 100 · DOWN: rider 548.3
+  const B = poi('B', 349.3, 'sight'); // UP: rider 200 · DOWN: rider 448.3
+  const C = poi('C', 449.3, 'sight'); // UP: rider 300 · DOWN: rider 348.3
+
+  function favNamesAndKm() {
+    return [...el.querySelectorAll('[data-place-section="fav"]')].map((row) => [
+      row.querySelector('.poi__name').textContent.replace(/^\S+\s/, ''),
+      row.querySelector('.poi__meta').textContent.trim().split(' ').slice(0, 2).join(' '),
+    ]);
+  }
+
+  it('lists favorites in ride order, whatever order they arrive in', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: UP, ...UP_STRETCH, favorites: [C, A, B], dayNumberForKm: () => 1 }));
+
+    // Arrived C, A, B and rendered A, B, C: the panel orders them, it does not just
+    // pass an already-sorted list through.
+    expect(favNamesAndKm()).toEqual([['A', 'km 100'], ['B', 'km 200'], ['C', 'km 300']]);
+  });
+
+  // The bug this closes: sorted by ABSOLUTE km, a downstream rider's starred places ran
+  // back-to-front — the first row was the one they would reach LAST.
+  it('runs the same favorites the other way round on a downstream trip', () => {
+    const places = mount();
+    const given = [A, B, C];
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, favorites: given, dayNumberForKm: () => 1 }));
+
+    expect(favNamesAndKm()).toEqual([['C', 'km 348.3'], ['B', 'km 448.3'], ['A', 'km 548.3']]);
+    // Ordered on a copy: main.js hands this very array to map.setFavoriteMarkers after
+    // the render returns, and lastArgs keeps a reference to it for "show all".
+    expect(given).toEqual([A, B, C]);
+  });
+
+  // Reordering rows and resolving a click both go through data-place-index, so a
+  // reordered list is exactly where the two can come apart — and the symptom is silent:
+  // starring or ☕-ing one place would act on a different one. Every other favorite test
+  // in this file renders a single row, where any alignment passes.
+  it('resolves a click on a reordered favorite row to the row that was shown', () => {
+    const places = mount();
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, favorites: [A, B, C], dayNumberForKm: () => 1 }));
+
+    const first = el.querySelector('[data-place-section="fav"]');
+    expect(first.textContent).toContain('C'); // the place this rider meets first
+    first.querySelector('.poi__name').click();
+
+    expect(callbacks.onSelectPoi).toHaveBeenCalledWith(C);
+  });
+
+  // Ordering decides which favorites the 40-row cap KEEPS, which is the more serious
+  // half: in absolute order a downstream rider with more than 40 starred places was
+  // shown the 40 furthest from them and lost every one they would pass first.
+  it('caps the favorites at the ones the rider meets first, not last', () => {
+    const places = mount();
+    // Absolute 200…244. Downstream the rider starts at 797.6, so 244 is met FIRST and
+    // 200 last; the five that must drop off are the lowest absolute km, not the highest.
+    const many = Array.from({ length: 45 }, (_, i) => poi(`Fav ${String(i).padStart(2, '0')}`, 200 + i, 'sight'));
+    places.render(renderArgs({ trip: DOWN, ...DOWN_STRETCH, favorites: many, dayNumberForKm: () => 1 }));
+
+    const rows = favNamesAndKm();
+    expect(rows).toHaveLength(40);
+    expect(rows[0]).toEqual(['Fav 44', 'km 553.6']);
+    expect(rows[39]).toEqual(['Fav 05', 'km 592.6']);
+    expect(el.textContent).not.toContain('Fav 00');
+    expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 40 of 45');
+  });
+
+  // The same argument the caps themselves were wrong about, one layer in: the front of a
+  // signed-rider-km list is not the first place the rider reaches, it is the place
+  // furthest BEHIND them — one they will never reach at all. So a cap taking the plain
+  // front of it drops places on the trip in favour of places off it, under a footer
+  // promising "the first 40". Reachable by design, not exotic: the starred list is global
+  // and plan-independent, so leftovers from a previous plan on this road are the normal
+  // case. Ahead of the start is therefore grouped first and the cap eats that group first.
+  it('gives the cap the places ahead of the rider before any behind them', () => {
+    const places = mount();
+    const startLine = poi('Start line', 149.3, 'sight'); // rider km 0, exactly on the start
+    const ahead = Array.from({ length: 35 }, (_, i) => poi(`Ahead ${String(i).padStart(2, '0')}`, 200 + i, 'sight'));
+    const behind = Array.from({ length: 10 }, (_, i) => poi(`Behind ${String(i).padStart(2, '0')}`, 100 + i, 'sight'));
+
+    places.render(renderArgs({
+      trip: UP,
+      ...UP_STRETCH,
+      // Arriving behind-first, which is the order the old signed sort rendered them in.
+      favorites: [...behind, startLine, ...ahead],
+      dayNumberForKm: (km) => (km >= 149.3 && km <= 234 ? 1 : null),
+    }));
+
+    const rows = favNamesAndKm();
+    expect(rows).toHaveLength(40);
+    // Not one of the 36 places on the trip was dropped, so the footer's promise is true.
+    expect(rows.filter(([name]) => name.startsWith('Ahead'))).toHaveLength(35);
+    expect(rows[0]).toEqual(['Start line', 'km 0']); // rider km 0 counts as ahead, not behind
+    expect(rows[35]).toEqual(['Ahead 34', 'km 84.7']);
+    // ...and only then the tail, in the same monotone order, filling the 4 slots left.
+    expect(rows[36]).toEqual(['Behind 00', 'km -49.3']);
+    expect(rows[39]).toEqual(['Behind 03', 'km -46.3']);
+    expect(el.textContent).not.toContain('Behind 04');
+    expect(el.querySelector('.pois--fav .places__more').textContent).toContain('showing the first 40 of 46');
+    // Task 6's tag still speaks for the tail.
+    expect(el.querySelectorAll('[data-place-section="fav"]')[36].querySelector('.fav-day').textContent)
+      .toBe('beyond plan');
+  });
+
+  it('falls back to the rider’s own start when no day is focused', () => {
+    const places = mount();
+    places.render({
+      trip: UP,
+      dayNumber: null,
+      // A row is what makes the fallback observable at all: with no places rendered,
+      // any fallback passes. The road's origin — the value this replaced — would
+      // measure this town from 149.3 km behind the rider and read "169.3 km from".
+      towns: [town('Rosenhof', 169.3)],
+      food: [],
+      sights: [],
+      favorites: [],
+      breakKeys: new Set(),
+      favoriteKeys: new Set(),
+      dayNumberForKm: () => null,
+    });
+
+    expect(el.querySelector('.places__scope-range').textContent).toBe('no day focused');
+    expect(el.querySelector('.town__meta').textContent).toContain('20 km from your last stop');
   });
 });

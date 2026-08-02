@@ -2,6 +2,28 @@
 // stretch — favorites, overnight candidates, food, sights. One delegated
 // listener serves all four sections. No Leaflet and no data of its own: main.js
 // windows the lists and passes them in.
+//
+// The places, the stretch and the favorites all arrive in ABSOLUTE route km; every km
+// a row shows is counted from the rider's own start, through the `trip` render() is
+// given. There is deliberately no fallback for a missing trip: a display module that
+// quietly counts from the road's origin instead is the one bug this feature can
+// produce, and it produces it silently — every number still looks like a number.
+//
+// Every km-ordered list here runs in the rider's DIRECTION OF TRAVEL — the first row is
+// the first place they will reach — which matters twice over, because the 40-row cap
+// keeps the front of each list (see ROW_CAP). Food and sights arrive that way already
+// (poisInRange orders them); favorites are ordered here, being the one list with no
+// stretch to carry a direction (see inRideOrder).
+//
+// The overnight candidates are the deliberate exception: towns.js ranks them by how well
+// each suits the day's END — distance to it, weighted against the detour off route — and
+// its measure is symmetric, so the ranking already means the same thing in both
+// directions. Best-first is the point of that list; ride order would be a downgrade.
+// Symmetric UP TO TIES, to be exact: equally-ranked towns fall back on the sorted-by-
+// absolute-km order they arrive in, which is direction-blind, so two of them either side
+// of the day's end swap rows depending on the way the rider is going. The eight that
+// survive are the same eight either way — the tie-break cannot change the set — and the
+// ranking is genuinely equal, so this is left alone rather than fixed.
 
 import { esc, round1, townKey, poiKey, favGlyphFor } from './ui-util.js';
 // The one model import, and only for the key builder — a pure function, no store
@@ -15,30 +37,46 @@ import { favKey } from './favorites.js';
 // that scrolls 50,000 px is unusable. Ranking/grouping is a separate project —
 // until then, show the first 40 along the stretch and say how many there are.
 //
-// Route order, not nearest-by-detour, and map.js's POI_MAP_CAP must agree on both
-// the number and the criterion: the map draws that same set, and marker-hover
-// highlights a row by key, so a marker whose row was never rendered highlights
-// nothing. (map.js imports nothing but Leaflet, which is why the constant is
-// duplicated rather than shared.)
+// A PREFIX of each list, which is what makes those 40 the first 40 the rider will
+// reach: every list here already runs in the rider's direction of travel, so the cap
+// has only to take the front of it. It used to take the front of an absolute-km
+// ascending list, which downstream is the far end of the day — a rider looking for
+// lunch was shown the cafés they would reach last.
+//
+// The order, not nearest-by-detour, and map.js's POI_MAP_CAP must agree on both the
+// number and the criterion: the map draws that same set, and marker-hover highlights a
+// row by key, so a marker whose row was never rendered highlights nothing. They agree
+// by construction rather than by coincidence — main.js hands both this panel and the
+// map the one array poisInRange returned, and each takes its first 40. (map.js imports
+// nothing but Leaflet, which is why the constant is duplicated rather than shared.)
 const ROW_CAP = 40;
 
+// Distance ridden from one absolute km to another, counted the rider's way: positive
+// along the trip whichever direction it runs. tripKm is linear, so the difference of
+// two conversions IS the ride — and an absolute difference is its negation downstream,
+// which read "-40 km from Lenzen" on every row of such a trip.
+function rideKm(trip, fromKm, toKm) {
+  return trip.tripKm(toKm) - trip.tripKm(fromKm);
+}
+
 // Day-relative wording (spec §4): distance from the day's reference point (the
-// last overnight stop), absolute route km shown small in a .meta__abs span.
+// last overnight stop), then the place's own km — counted from the rider's start,
+// like every km on screen — shown small in a .meta__abs span.
 // fromName is an OSM-derived town name, so escape it before innerHTML use.
 //
 // The detour is rounded like every other km on screen. It arrives with two
 // decimals, and printing it raw put "0.05 km off route" here and "0.1 km off
 // route" in the day panel for the same town at the same moment.
-function townMeta(town, dayStartKm, fromName) {
-  const rel = round1(town.routeDistanceKm - dayStartKm);
-  return `${rel} km from ${esc(fromName)} · ${round1(town.offsetKm)} km off route <span class="meta__abs">km ${round1(town.routeDistanceKm)}</span>`;
+function townMeta(town, dayStartKm, fromName, trip) {
+  const rel = round1(rideKm(trip, dayStartKm, town.routeDistanceKm));
+  return `${rel} km from ${esc(fromName)} · ${round1(town.offsetKm)} km off route <span class="meta__abs">km ${round1(trip.tripKm(town.routeDistanceKm))}</span>`;
 }
 
-// Same day-relative wording as towns, but the absolute km sits inline in
+// Same day-relative wording as towns, but the place's own km sits inline in
 // parentheses (spec §4) rather than in a trailing .meta__abs span.
-function poiMeta(poi, dayStartKm, fromName) {
-  const rel = round1(poi.routeDistanceKm - dayStartKm);
-  return `${rel} km from ${esc(fromName)} (km ${round1(poi.routeDistanceKm)}) · ${round1(poi.offsetKm)} km off route`;
+function poiMeta(poi, dayStartKm, fromName, trip) {
+  const rel = round1(rideKm(trip, dayStartKm, poi.routeDistanceKm));
+  return `${rel} km from ${esc(fromName)} (km ${round1(trip.tripKm(poi.routeDistanceKm))}) · ${round1(poi.offsetKm)} km off route`;
 }
 
 // The ☕ break + ⭐ favorite actions shared by every place row (towns, POIs,
@@ -58,13 +96,64 @@ function rowActions(name, isBreak, isFav) {
       </span>`;
 }
 
-function dayTagFor(fav, days) {
-  // Same (startKm, endKm] convention as breaks, including the km-0 widening
-  // main.js applies in breaksForDay: day 1 owns a place at exactly km 0.
-  const day = days.find(
-    (d) => fav.routeDistanceKm > (d.startKm === 0 ? -1 : d.startKm) && fav.routeDistanceKm <= d.endKm,
-  );
-  return day ? `Day ${day.index + 1}` : 'beyond plan';
+// Every list this panel shows runs in the rider's direction of travel, so the first
+// row is the first place they will reach. For the food and sights lists that is
+// already true when they arrive — poisInRange returns a stretch in the order its span
+// was asked in, and main.js asks in trip order — and the favorites list is the one
+// exception, ordered HERE.
+//
+// It has to be: the starred list is global rather than windowed to a stretch, so there
+// is no span to carry a direction, and the store that holds it is shared across plans
+// and has no trip to order by. This module holds both the list and the trip, which
+// makes it the only place the question can be answered.
+//
+// Sorted through trip.tripKm rather than by `(a - b) * trip.direction`, which is the
+// same number: the conversion has one owner, and a change to it should reach this
+// list without anyone remembering to come back here. Copied, not sorted in place —
+// main.js hands the same array to map.setFavoriteMarkers afterwards.
+//
+// tripKm is signed, so a favorite starred BEHIND the rider's start is at a negative
+// rider km and one past their destination is beyond the trip's length. Both stay on the
+// one monotone axis — the order these places would be met riding the whole road this way
+// — and the row's own "beyond plan" tag is what says a place is not on the plan.
+//
+// But the ones BEHIND the start are then grouped to the tail, and that grouping is the
+// whole reason this is not a plain sort. The front of a signed list is not the first
+// place the rider reaches: it is the place furthest behind them, which they will never
+// reach at all. `section`'s cap takes the FRONT of this list, so a plain sort spent the
+// 40 rows on places off the trip before it reached places on it — the same false
+// promise the caps themselves used to make, one layer in, and printed under the same
+// "showing the first 40" footer. Grouped, the cap fills itself with the trip first and
+// only spends what is left over on the road behind, so the promise is true again.
+//
+// Reachable by design rather than exotic: the starred list is global and
+// plan-independent — which is why the ordering has to happen here at all — so favorites
+// left over from a previous plan on this road are the ordinary case, not a corner one.
+//
+// Places past the DESTINATION need no such handling: they sort last on the same axis, so
+// the cap already drops them before anything the rider will actually pass.
+//
+// Sorted through trip.tripKm rather than by `(a - b) * trip.direction`, which is the
+// same number: the conversion has one owner, and a change to it should reach this
+// list without anyone remembering to come back here. Copied, not sorted in place —
+// main.js hands the same array to map.setFavoriteMarkers afterwards.
+function inRideOrder(places, trip) {
+  const riderKm = (place) => trip.tripKm(place.routeDistanceKm);
+  const sorted = [...places].sort((a, b) => riderKm(a) - riderKm(b));
+  // Two passes over one sorted array, so each group keeps that order internally. Rider
+  // km 0 is the start LINE and belongs to the trip, not to the road behind it.
+  return [...sorted.filter((p) => riderKm(p) >= 0), ...sorted.filter((p) => riderKm(p) < 0)];
+}
+
+// Which day a favorite falls on is the model's question: `dayNumberForKm` is
+// itinerary.dayOwnsKm's answer (1-based, or null when no day owns the km), handed down
+// by main.js. This file only words it. Deciding it here meant a third copy of the
+// half-open rule and of day 1's start-line exception — spelled in absolute km against a
+// hardcoded km 0, so on an offset trip day 1 lost its start line and on a downstream
+// trip every favorite came back "beyond plan".
+function dayTagFor(fav, dayNumberForKm) {
+  const dayNumber = dayNumberForKm(fav.routeDistanceKm);
+  return dayNumber == null ? 'beyond plan' : `Day ${dayNumber}`;
 }
 
 export function createPlaces({ el, callbacks = {} }) {
@@ -102,7 +191,7 @@ export function createPlaces({ el, callbacks = {} }) {
       </details>`;
   }
 
-  function townRow(town, i, { startKm, fromName, selectedTownKey, breakKeys, favoriteKeys }) {
+  function townRow(town, i, { startKm, fromName, selectedTownKey, breakKeys, favoriteKeys, trip }) {
     const selected = townKey(town) === selectedTownKey ? ' town--selected' : '';
     const isBreak = breakKeys.has(townKey(town));
     // Favorites use the kind-prefixed key shape. A town candidate carries no kind
@@ -115,11 +204,11 @@ export function createPlaces({ el, callbacks = {} }) {
         <span class="town__name">${esc(town.name)}</span>
         <span class="town__place">${esc(town.place)}</span>
         ${rowActions(town.name, isBreak, isFav)}
-        <span class="town__meta">${townMeta(town, startKm, fromName)}</span>
+        <span class="town__meta">${townMeta(town, startKm, fromName, trip)}</span>
       </div>`;
   }
 
-  function poiRow(poi, i, kind, { startKm, fromName, breakKeys, favoriteKeys }) {
+  function poiRow(poi, i, kind, { startKm, fromName, breakKeys, favoriteKeys, trip }) {
     const hours = poi.openingHours ? `<span class="poi__hours">${esc(poi.openingHours)}</span>` : '';
     const isBreak = breakKeys.has(poiKey(poi));
     // The section's kind, not the record's: the two agree for every POI the data
@@ -131,15 +220,15 @@ export function createPlaces({ el, callbacks = {} }) {
         <span class="poi__name">${esc(poi.name)}</span>
         <span class="poi__cat">${esc(poi.category.replace(/_/g, ' '))}</span>
         ${rowActions(poi.name, isBreak, isFav)}
-        <span class="poi__meta">${poiMeta(poi, startKm, fromName)}</span>
+        <span class="poi__meta">${poiMeta(poi, startKm, fromName, trip)}</span>
         ${hours}
       </div>`;
   }
 
-  function favRow(fav, i, { days, breakKeys }) {
+  function favRow(fav, i, { dayNumberForKm, breakKeys, trip }) {
     const glyph = favGlyphFor(fav);
     const cat = fav.category ? `<span class="poi__cat">${esc(fav.category.replace(/_/g, ' '))}</span>` : '';
-    const tag = dayTagFor(fav, days);
+    const tag = dayTagFor(fav, dayNumberForKm);
     const beyond = tag === 'beyond plan' ? ' fav-day--beyond' : '';
     // ⭐ is always active here (every row IS a favorite); ☕ reflects whether the
     // place is currently a committed break, matched on the non-prefixed key.
@@ -149,23 +238,36 @@ export function createPlaces({ el, callbacks = {} }) {
         <span class="poi__name">${glyph} ${esc(fav.name)}</span>
         ${cat}
         ${rowActions(fav.name, breakKeys.has(poiKey(fav)), true)}
-        <span class="poi__meta">km ${round1(fav.routeDistanceKm)} <span class="fav-day${beyond}">${tag}</span></span>
+        <span class="poi__meta">km ${round1(trip.tripKm(fav.routeDistanceKm))} <span class="fav-day${beyond}">${tag}</span></span>
       </div>`;
   }
 
   function render(args = {}) {
+    // The header above says there is no fallback for a missing trip; this is what makes
+    // that true rather than incidental. The conversions below are all inside row
+    // builders, so a caller that forgot the trip AND named its own startKm/endKm
+    // rendered a panel with no rows perfectly quietly — and the first starred place
+    // turned that into a TypeError with no hint of which argument was missing.
+    if (!args.trip || typeof args.trip.tripKm !== 'function') {
+      throw new Error('places render needs a trip (see createTrip in src/trip.js)');
+    }
     lastArgs = { ...args };
     const {
       dayNumber = null,
-      startKm = 0,
-      endKm = 0,
+      trip,
+      // The focused day's stretch, in ABSOLUTE route km. With no day focused there is
+      // no stretch, and the rider's own start stands in for one: km 0 as they count it.
+      // Zero would be the ROAD's origin, which on an offset trip is behind them.
+      startKm = trip.startKm,
+      endKm = trip.startKm,
       fromName = 'your last stop',
       towns: townsIn,
       selectedTownKey = null,
       food: foodIn,
       sights: sightsIn,
       favorites: favoritesIn,
-      days: daysIn,
+      // itinerary.dayOwnsKm's answer for a km, 1-based, from main.js. See dayTagFor.
+      dayNumberForKm,
       breakKeys,
       favoriteKeys,
       poisMissing = false,
@@ -173,26 +275,32 @@ export function createPlaces({ el, callbacks = {} }) {
     // Not destructuring defaults: those fire only on `undefined`, so an explicit
     // null — a caller reading a list straight off a nullable field — threw here
     // where the ui.js this replaced tolerated it.
-    const [towns, food, sights, favorites, days] = [townsIn, foodIn, sightsIn, favoritesIn, daysIn].map(
-      (value) => (Array.isArray(value) ? value : []),
+    const [towns, food, sights, favorites] = [townsIn, foodIn, sightsIn, favoritesIn].map((value) =>
+      Array.isArray(value) ? value : [],
     );
     const breakSet = breakKeys instanceof Set ? breakKeys : new Set(breakKeys || []);
     const favSet = favoriteKeys instanceof Set ? favoriteKeys : new Set(favoriteKeys || []);
     // A different stretch is a different question — collapse expanded sections
-    // back to the cap so switching days never inherits a 451-row list.
+    // back to the cap so switching days never inherits a 451-row list. Keyed on the
+    // absolute km deliberately: an identity for the stretch, never rendered.
     const nextScope = `${startKm}:${endKm}`;
     if (nextScope !== scopeKey) {
       scopeKey = nextScope;
       expanded = new Set();
     }
-    lists = { fav: favorites, town: towns, food, sight: sights };
+    // Ordered before section() caps it, because the cap keeps a PREFIX: ordering after
+    // it would pick the wrong 40 and then sort those 40 nicely. `lists` holds the same
+    // ordered array the rows are built from — a click resolves back through
+    // data-place-index, so the two cannot be allowed to disagree.
+    const favRows = inRideOrder(favorites, trip);
+    lists = { fav: favRows, town: towns, food, sight: sights };
 
-    const ctx = { startKm, fromName, selectedTownKey, breakKeys: breakSet, favoriteKeys: favSet };
+    const ctx = { startKm, fromName, selectedTownKey, breakKeys: breakSet, favoriteKeys: favSet, trip };
     // Day numbers here are 1-based, but they are 0-based nearly everywhere else
     // in the app — only an absent one means "no day focused", never a zero.
     const scope = dayNumber != null
       ? `<span><b>On the way</b> · Day ${dayNumber}</span>
-         <span class="places__scope-range">km ${round1(startKm)} → ${round1(endKm)}</span>`
+         <span class="places__scope-range">km ${round1(trip.tripKm(startKm))} → ${round1(trip.tripKm(endKm))}</span>`
       : '<span><b>On the way</b></span><span class="places__scope-range">no day focused</span>';
 
     // POI data is optional (build:data may never have run); the food and sight
@@ -204,7 +312,7 @@ export function createPlaces({ el, callbacks = {} }) {
 
     el.innerHTML = `
       <div class="places__scope">${scope}</div>
-      ${section('fav', '⭐ Favorites', favorites, 'Nothing starred yet — hit ⭐ on any place.', (f, i) => favRow(f, i, { days, breakKeys: breakSet }))}
+      ${section('fav', '⭐ Favorites', favRows, 'Nothing starred yet — hit ⭐ on any place.', (f, i) => favRow(f, i, { dayNumberForKm, breakKeys: breakSet, trip }))}
       ${section('town', '🛏 Overnight options', towns, 'No towns near this stretch.', (t, i) => townRow(t, i, ctx))}
       ${poiSections}`;
 

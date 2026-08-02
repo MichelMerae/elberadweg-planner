@@ -89,6 +89,41 @@ describe('profilePoints', () => {
     expect(profilePoints(ramp, { startKm: 0, endKm: 1, width: 0, height: 10 })).toEqual([]);
   });
 
+  // The strip's axis runs in TRIP order, so a downstream ride hands this a window whose
+  // end is BELOW its start. `km = startKm + (endKm - startKm) * t` was already
+  // direction-correct; only the guard refused to let it run.
+  it('mirrors a descending window, so a downstream ride reads left to right', () => {
+    const shared = { width: 100, height: 80, columns: 11, minM: 0, maxM: 100 };
+    const up = profilePoints(ramp, { startKm: 0, endKm: 1, ...shared });
+    const down = profilePoints(ramp, { startKm: 1, endKm: 0, ...shared });
+
+    expect(down).toHaveLength(11);
+    // The point-mirror of the upstream profile: same x, the y from the far column.
+    down.forEach(([x, y], i) => {
+      expect(x).toBeCloseTo(up[i][0], 6);
+      expect(y).toBeCloseTo(up[up.length - 1 - i][1], 6);
+    });
+    // Which for this ramp means: ridden downstream it starts at the top and descends
+    // to the baseline, rather than being drawn identically to the climb.
+    expect(down[0][1]).toBeCloseTo(0, 6);
+    expect(down[10][1]).toBeCloseTo(80, 6);
+  });
+
+  it('mirrors a descending sub-stretch too, not only a whole-profile one', () => {
+    const shared = { width: 100, height: 100, columns: 2, minM: 0, maxM: 100 };
+    const down = profilePoints(ramp, { startKm: 1, endKm: 0.5, ...shared });
+    // 100 m at the top, 50 m halfway up — the sub-stretch test below, ridden the other
+    // way round.
+    expect(down[0][1]).toBeCloseTo(0, 6);
+    expect(down[1][1]).toBeCloseTo(50, 6);
+  });
+
+  // Still refused: a zero-length window has no stretch to draw, and every column
+  // would sample the same km — a flat line that reads as terrain.
+  it('returns an empty array for a zero-length window', () => {
+    expect(profilePoints(ramp, { startKm: 0.5, endKm: 0.5, width: 100, height: 80 })).toEqual([]);
+  });
+
   it('covers a sub-stretch of the route, not always the whole thing', () => {
     const pts = profilePoints(ramp, {
       startKm: 0.5,
@@ -176,6 +211,71 @@ describe('ascentBetween', () => {
     const out = ascentBetween(fine, 0, 10, { thresholdM: 5 });
     expect(out.ascentM).toBeGreaterThan(90);
     expect(out.ascentM).toBeLessThanOrEqual(100);
+  });
+});
+
+// The span's ORDER is the question asked, not a pair of bounds to normalise. This is
+// the point of the oriented window: the same stretch is 487 m of climbing one way and
+// 487 m of descent the other, and the figures the day panel and the strip block show
+// are direction-correct because the day's own km arrive in trip order.
+describe('ascentBetween - direction', () => {
+  it('swaps ascent and descent when the same stretch is asked in the other order', () => {
+    const up = ascentBetween(ramp, 0, 1, { thresholdM: 5 });
+    const down = ascentBetween(ramp, 1, 0, { thresholdM: 5 });
+
+    expect(up.ascentM).toBeCloseTo(100, 6);
+    expect(up.descentM).toBeCloseTo(0, 6);
+    expect(down.ascentM).toBeCloseTo(0, 6);
+    expect(down.descentM).toBeCloseTo(100, 6);
+    // The terrain is the same terrain, so the extremes do not move with the direction.
+    expect(down.minM).toBe(up.minM);
+    expect(down.maxM).toBe(up.maxM);
+  });
+
+  it('re-walks the stretch rather than swapping the totals', () => {
+    // Hysteresis is not symmetric under reversal, so the two directions are not each
+    // other's mirror. 0 → 3 → 8 clears the 5 m threshold once going up, and the accepted
+    // move is measured from the last reference: 8 m of ascent. Ridden the other way the
+    // same three samples give 5 m of descent (8 → 3), and the last 3 m never clears.
+    // A version that computed the upstream pair and swapped it would say 8 m down.
+    const step = { ...ramp, count: 3, elevationsM: [0, 3, 8] };
+
+    expect(ascentBetween(step, 0, 0.2, { thresholdM: 5 })).toMatchObject({ ascentM: 8, descentM: 0 });
+    expect(ascentBetween(step, 0.2, 0, { thresholdM: 5 })).toMatchObject({ ascentM: 0, descentM: 5 });
+  });
+
+  it('keeps the hysteresis threshold in both directions', () => {
+    // A 3 m ripple, then a 30 m climb. The ripple is the DEM's error bar and must not
+    // be counted whichever way the stretch is ridden: without the threshold this would
+    // read 33 m up / 3 m down upstream and 3 m up / 33 m down going back.
+    const ripple = { ...ramp, count: 4, elevationsM: [0, 3, 0, 30] };
+
+    expect(ascentBetween(ripple, 0, 0.3, { thresholdM: 5 })).toMatchObject({
+      ascentM: 30,
+      descentM: 0,
+    });
+    expect(ascentBetween(ripple, 0.3, 0, { thresholdM: 5 })).toMatchObject({
+      ascentM: 0,
+      descentM: 30,
+    });
+  });
+
+  it('reports no climb and unordered-proof extremes for a sub-sample stretch either way', () => {
+    // Too short to hold a whole sample, so there is nothing to accumulate — but the
+    // endpoints are still read, and min/max are the LOWER and HIGHER of them rather
+    // than the first and the second.
+    const shared = { ascentM: 0, descentM: 0, minM: 31, maxM: 33 };
+    expect(ascentBetween(ramp, 0.31, 0.33, { thresholdM: 5 })).toEqual(shared);
+    expect(ascentBetween(ramp, 0.33, 0.31, { thresholdM: 5 })).toEqual(shared);
+  });
+
+  it('reports zero for a zero-length span, which has no direction to have', () => {
+    expect(ascentBetween(ramp, 0.5, 0.5, { thresholdM: 5 })).toEqual({
+      ascentM: 0,
+      descentM: 0,
+      minM: 50,
+      maxM: 50,
+    });
   });
 });
 

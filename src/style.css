@@ -128,6 +128,37 @@ body {
   background: #e7e4dd; /* soft tone under the tiles while they load */
 }
 
+/* Armed for a pick (spec §6): the cursor is the only thing on the map that says the
+   next click means something different.
+
+   The id is load-bearing, not habit. Leaflet's own `.leaflet-grab` sits on this very
+   element and `.leaflet-interactive` on the route line, both single-class selectors —
+   and leaflet.css is imported from src/map.js, which the module graph reaches AFTER
+   main.js's own `import './style.css'`. Equal specificity, later sheet: a plain
+   `.map--picking` would lose, silently, to the grab cursor it is trying to replace. */
+#map.map--picking,
+#map.map--picking .leaflet-interactive {
+  cursor: crosshair;
+}
+
+/* Nothing on the map may eat an armed click. A POI dot, a ⭐ or a day pin sitting over
+   the route would otherwise swallow the pick and the rider would press again, harder,
+   at the same place.
+
+   The SECOND selector is the one that does the work, and the pane alone did not.
+   `pointer-events` inherits, but an explicit value on a descendant beats an inherited
+   one whatever the parent's specificity — and leaflet.css sets
+   `.leaflet-marker-icon.leaflet-interactive { pointer-events: auto }` on every marker
+   element. Measured in Chromium against the pane-only rule: with a pick armed,
+   `elementFromPoint` over a POI dot on the route still returned the dot, the click was
+   handled as a POI select (which pans the map), and the pick simply never happened —
+   the exact failure the paragraph above describes, silently. Naming the icons puts the
+   `none` where the `auto` is, at 1-3-0 against leaflet's 0-2-0. */
+#map.map--picking .leaflet-marker-pane,
+#map.map--picking .leaflet-marker-pane .leaflet-marker-icon {
+  pointer-events: none;
+}
+
 /* --- Panel shells --------------------------------------------------------
    Right panel (#panel) owns the trip: controls, overnight towns, itinerary.
    Left panel (#panel-left) owns what's along the way: food stops + sights. */
@@ -303,6 +334,50 @@ body {
 }
 .banner__dismiss:hover {
   color: #ffcf6f;
+}
+
+/* The picking prompt, over the map it is about (spec §6). z-index matches
+   #map-controls — 1001, above every Leaflet pane AND the .leaflet-top/-bottom corner
+   containers (1000) — and it stops short of #map-controls so the two never overlap.
+
+   `left` is 54px and not 10px because THIS corner is not empty. #map-controls gets away
+   with top: 10px; right: 10px only because Leaflet leaves the top-right corner unused
+   (zoom goes top-left, attribution bottom-right). At 10px this box overlapped
+   .leaflet-control-zoom by 34 x 39.5 px — and, winning on z-index, painted over it:
+   measured in Chromium, elementFromPoint at the zoom control's own centre returned this
+   banner, so + and − were unclickable for as long as a pick was armed. The zoom control
+   is 34px wide at a 10px inset, so 54px clears it by 10px. max-width keeps the same
+   250px of clearance from #map-controls it had before the shift. */
+.banner--pick {
+  position: absolute;
+  top: 10px;
+  left: 54px;
+  max-width: calc(100% - 304px);
+  z-index: 1001;
+  margin: 0;
+  align-items: center;
+  /* An opaque dark scrim, not the translucent tint the other banners use, because this
+     is the one banner that sits over MAP TILES rather than over the app's own dark
+     surface. Measured in Chromium: `rgba(91, 147, 255, 0.14)` composites against an OSM
+     land tile to about #dce2ec, and #d8e4ff text on that is a contrast ratio of roughly
+     1.0:1 — the prompt was there and could not be read. Same treatment .map-btn uses
+     two feet away, for the same reason. */
+  background: rgba(25, 23, 18, 0.88);
+  border-color: rgba(91, 147, 255, 0.5);
+  border-left-color: var(--river);
+  color: #d8e4ff;
+  backdrop-filter: blur(3px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* A refused pick (spec §8). Same box, so the answer arrives where the prompt was — and
+   the same scrim, since it is over the same tiles. Only .banner--pick ever wears this,
+   so it is written to sit on top of it rather than to stand alone. */
+.banner--error {
+  background: rgba(38, 18, 14, 0.9);
+  border-color: rgba(240, 112, 95, 0.55);
+  border-left-color: var(--day);
+  color: #ffd9d2;
 }
 
 /* Shared field styling for every number input. */
@@ -1016,17 +1091,70 @@ input[type="number"]:disabled {
 }
 
 /* --- Timeline strip ------------------------------------------------------
-   The trip, drawn to scale: 650 km always fits the width, so this can never
-   overflow. Blocks and handles are absolutely positioned from px values that
-   strip-geometry.js computes. */
-/* 24px of side padding, not 16: a boundary handle at km == totalKm sits at the
-   axis's right edge and hangs 5px past it, plus a 3px hover ring. Padding (not
-   an axis margin) keeps the summary and scale lines aligned with the axis ends. */
+   The TRIP, drawn to scale: the axis maps the rider's own window — their start at
+   the left edge, their destination at the right — so the whole ride always fits and
+   this can never overflow. Blocks and handles are absolutely positioned from px
+   values that strip-geometry.js computes. */
+/* 24px of side padding, not 16: a boundary handle at the trip's destination sits at
+   the axis's right edge and hangs 5px past it, plus a 3px hover ring; and where the
+   road continues past a trip end, an edge stub sits 12px out on the same side.
+   Padding (not an axis margin) keeps the summary and scale lines aligned with the
+   axis ends, and gives both overhangs somewhere to live. */
 #strip {
   border-top: 1px solid var(--line);
   background: var(--surface-sunk);
   padding: 10px 24px 9px;
   user-select: none;
+}
+
+/* The resize band. Dragging it up grows the axis and shrinks the map, which is what buys
+   the elevation profile the pixels to say something — at 46px one of them is ~6m of
+   climb (spec §6b). createStripResize owns the gesture and creates this element as the
+   strip's FIRST child, so it lays out above the summary line, inside #strip's own 10px of
+   top padding: the negative margin reaches back over that padding and over the 24px at
+   the sides, putting a full-width band on the strip's top edge. The 2px bottom margin
+   returns the 8px it took, so the summary line sits exactly where it did before.
+
+   touch-action: none for the same reason .strip__axis carries it — without it a touch
+   drag scrolls the page instead of resizing. #strip already sets user-select: none, so a
+   drag selects nothing. */
+.strip__resize {
+  position: relative;
+  height: 8px;
+  margin: -10px -24px 2px;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+/* The affordance: a short grip in the middle, taking .strip__handle's colour and its
+   hover/drag treatment. Not the whole band, which at the strip's full width would be a
+   1400px blue rule competing with the axis it resizes; and faint rather than absent
+   until then, because a grab target nothing marks is one nobody finds. */
+.strip__resize::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 40px;
+  height: 3px;
+  margin-left: -20px;
+  border-radius: 2px;
+  background: var(--river);
+  opacity: 0.3;
+  transition: opacity 0.12s ease;
+}
+
+.strip__resize:hover::after,
+.strip__resize:focus-visible::after,
+.strip__resize--dragging::after {
+  opacity: 1;
+}
+
+/* Inset, where .strip__handle's ring sits 1px outside: this band's own box already
+   reaches the strip's top edge, so an outward ring would be drawn over the map. */
+.strip__resize:focus-visible {
+  outline: 2px solid var(--river);
+  outline-offset: -2px;
 }
 
 .strip__summary {
@@ -1051,7 +1179,12 @@ input[type="number"]:disabled {
    handle element and any capture held on it (see strip.js). */
 .strip__axis {
   position: relative;
-  height: 46px;
+  /* Set on #strip by main.js from the height createStripResize reports, so a resize
+     needs no reach into strip.js's DOM — strip.js measures this box back through its own
+     measureHeight seam, which is what rescales the elevation profile. The fallback is the
+     height the axis had before it was resizable, and it is also the gesture's floor and
+     strip.js's FALLBACK_HEIGHT: three copies of 46, each in the place that needs it. */
+  height: var(--strip-axis-height, 46px);
   overflow: visible;
   touch-action: none;
 }
@@ -1153,13 +1286,32 @@ input[type="number"]:disabled {
   color: var(--text-dim);
 }
 
-.strip__block-town {
-  display: block;
+/* The block's second label line: where the day ends, and how much it climbs. A flex
+   row so the two shrink differently — the town gives way and the climb does not (see
+   secondLineMarkup in strip-markup.js). The gap is the space in "Hitzacker · ↑ 340 m";
+   the dot itself belongs to the climb, which is the half that can have a neighbour. */
+.strip__block-second {
+  display: flex;
+  gap: 3px;
   font-size: 10px;
+}
+
+.strip__block-town {
   color: var(--town);
   white-space: nowrap;
+  /* min-width: 0 is what lets a flex item ellipsis at all — without it a long town name
+     refuses to shrink below its content and pushes the climb out of the block. */
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Terrain-coloured, like the profile and the range in the scale line, and never the one
+   that gives way: TIER_FULL_PX exists to make room for it. */
+.strip__block-climb {
+  color: var(--terrain);
+  white-space: nowrap;
+  flex: none;
 }
 
 /* One layer for the whole axis, each break at its absolute route km — not a
@@ -1212,6 +1364,42 @@ input[type="number"]:disabled {
   color: var(--done);
 }
 
+/* Where the ROAD continues past an end of the trip (spec §3). The axis maps the
+   rider's window, so road nobody is riding has no x inside it — these caps sit in
+   #strip's side padding instead, offset by --strip-stub-gap so they read as beside
+   the axis rather than as part of it. Without them a trip that finishes at Dresden
+   looks like a road that finishes at Dresden.
+
+   Dimmed and inert: extending the trip is what the scale line's Set start / Set
+   finish will do, and a cap that looked draggable would promise otherwise. Unlike
+   the glyph layer it does take pointer events, because its title is the only place
+   the remaining road is named — and out here it covers no part of the axis's drag
+   surface, so it cannot eat a grab.
+
+   --start / --destination are the TRIP's ends, named as the model names them, and they
+   are always left and right on screen: the axis runs in trip order whichever way along
+   the road that is. */
+.strip__stub {
+  --strip-stub-width: 10px;
+  --strip-stub-gap: 2px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--strip-stub-width);
+  border-radius: 3px;
+  background: var(--line);
+  opacity: 0.55;
+  cursor: help;
+}
+
+.strip__stub--start {
+  right: calc(100% + var(--strip-stub-gap));
+}
+
+.strip__stub--destination {
+  left: calc(100% + var(--strip-stub-gap));
+}
+
 /* The boundary itself: a thin grab bar straddling two blocks, 10 px wide.
    Deliberately NOT the grab target — a press is hit-tested against the geometry
    in strip.js (its hitTestHandle call, tolerance HANDLE_TOLERANCE_PX in
@@ -1256,10 +1444,57 @@ input[type="number"]:disabled {
 
 .strip__scale {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
+  gap: 8px;
   font-size: 10px;
   color: var(--text-faint);
   margin-top: 5px;
+}
+
+/* The two endpoint labels, which ARE the controls that move those ends (spec §6):
+   editing a value where it is displayed needs no new vocabulary, so the text is
+   unchanged and only what it is changed. Stripped back to its own line of the scale so
+   it reads as text first — the dotted underline is what says it can be changed, the
+   same idiom .row-edit uses in the day panel. */
+.strip__end {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line);
+}
+
+.strip__end:hover {
+  color: var(--text);
+  text-decoration-color: var(--river);
+}
+
+.strip__end:focus-visible {
+  outline: 2px solid var(--river);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Armed. Obvious from across the room, because while it is on, a click anywhere on the
+   route means something different from what it usually means. */
+.strip__end[aria-pressed="true"] {
+  color: var(--river);
+  font-weight: 600;
+  text-decoration: underline solid;
+  text-decoration-color: var(--river);
+}
+
+/* Keeps the trip's far end flush with the axis's right edge whether or not the
+   `⚑ reached` flag follows it: an auto margin eats the free space before
+   justify-content can distribute it, so the two states line up the same way. */
+.strip__end--destination {
+  margin-left: auto;
 }
 
 /* Screen-reader only. The handle is a role="slider" whose element is destroyed
@@ -1287,6 +1522,61 @@ input[type="number"]:disabled {
 }
 .day-panel--empty .day-panel__hint {
   max-width: 30ch;
+}
+
+/* --- Trip setup (a plan with no days yet) ---------------------------------
+   The two rows are the same object .day-panel__field is — a label, a value, and a
+   control on the right — so they draw the same box rather than a second one that only
+   almost matches. Reusing the idiom is also what makes them work at all: the km line
+   inside each row is a .day-panel__hint, whose `flex: 1 0 100%` puts it on its own line
+   ONLY inside a flex container. As a plain <dl> the step rendered three stacked blocks
+   per row, a browser 40px indent under each <dd>, and the two texts run together —
+   "anywhere on the roadkm 149.3 of the road". */
+.trip-setup {
+  margin: 6px 0 14px;
+}
+
+.trip-setup__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Fixed, so "Start" and "Finish" put their two values on the same column. */
+.trip-setup__row dt {
+  flex: 0 0 44px;
+}
+
+/* The flex container the hint wraps inside, and the one place the <dd>'s own 40px
+   browser indent is cancelled. */
+.trip-setup__row dd {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* baseline-aligned with the value, and never squeezed by a long town name. */
+.trip-setup__row button {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+/* The same sentence the prompt shows after a pick, so the step and the confirmation
+   cannot describe one trip two ways. */
+.trip-setup__headline {
+  font-size: 13px;
+  color: var(--river);
+  margin: 0 0 10px;
 }
 
 .day-panel__head {

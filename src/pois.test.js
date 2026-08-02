@@ -34,7 +34,7 @@ describe('poisInRange', () => {
     expect(names).not.toContain('Waterfall Lookout'); // 70, just above
   });
 
-  test('returns entries in stored ascending-km order', () => {
+  test('returns an ascending span in ascending-km order', () => {
     const kms = poisInRange(POIS, 0, 1000).map((p) => p.routeDistanceKm);
     const sorted = [...kms].sort((a, b) => a - b);
     expect(kms).toEqual(sorted);
@@ -90,6 +90,42 @@ describe('poisInRange', () => {
 
   test('returns an empty array for an empty POI list', () => {
     expect(poisInRange([], 0, 100)).toEqual([]);
+  });
+
+  // A day's stretch arrives in TRIP order, so on a downstream trip (Dresden ->
+  // Hamburg) startKm is the greater number. Two things have been wrong there in turn.
+  // First the span was not normalised at all and the search returned nothing: every
+  // day of such a trip showed an empty Food and Sights section while the POIs sat
+  // right on the stretch. Then it returned the right stretch in the wrong ORDER —
+  // ascending km, which downstream runs back-to-front against the ride.
+  test('reads a descending span as the same stretch, mirrored into ride order', () => {
+    const ascending = poisInRange(POIS, 20, 50);
+    const descending = poisInRange(POIS, 50, 20);
+
+    // The same places...
+    expect(new Set(descending)).toEqual(new Set(ascending));
+    expect(ascending).not.toEqual([]);
+    // ...in the opposite order. Asserted as the exact mirror rather than as "not the
+    // ascending order": this stretch holds five POIs and is not palindromic, so the
+    // reversal is observable and leaving the order alone cannot pass.
+    expect(descending).toEqual([...ascending].reverse());
+  });
+
+  // The claim every capped caller leans on. places.js's ROW_CAP and map.js's
+  // POI_MAP_CAP both keep a PREFIX of this list, so the head has to be the end of the
+  // stretch the rider reaches FIRST. In ascending km a downstream rider looking for
+  // lunch was shown the far end of their day, and once capped it was the wrong 40
+  // places rather than merely a reversed 40.
+  test('puts the POI met first at the head of the list, both directions', () => {
+    const kmsFrom = (from, to) => poisInRange(POIS, from, to).map((p) => p.routeDistanceKm);
+
+    expect(kmsFrom(20, 60).slice(0, 2)).toEqual([20, 30]);
+    expect(kmsFrom(60, 20).slice(0, 2)).toEqual([60, 50]);
+  });
+
+  test('filters a descending span by kind, in ride order too', () => {
+    const names = poisInRange(POIS, 50, 20, { kind: 'food' }).map((p) => p.name);
+    expect(names).toEqual(['Quiet Ice Cream', 'Village Bakery']);
   });
 
   test('does not mutate the input array or its POI objects', () => {

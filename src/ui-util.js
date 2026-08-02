@@ -69,6 +69,32 @@ export function esc(value) {
   );
 }
 
+// Which way along the road the km run. The corridor is a river and its km ascend
+// towards the source (elevation.json puts km 0, Cuxhaven, at 5 m and the far end,
+// Prague, at 205 m), so an ascending trip rides upstream — the one place that
+// assumption is written down. A corridor that is not a river would name its own two
+// words in route.meta.json; nothing needs that yet.
+const DIRECTION_WORD = { 1: 'upstream', '-1': 'downstream' };
+
+/**
+ * The trip in one line: `Hamburg → Dresden · 648.3 km upstream`.
+ *
+ * The direction is in WORDS because the sign of a subtraction is not something a rider
+ * should have to infer (spec §6a) — and the same sentence serves the empty-plan setup
+ * step and the confirmation after a pick, so the two cannot describe one trip
+ * differently. It is also the one word most Elberadweg literature will not have
+ * prepared a reader for: the guidebooks run source-to-sea, and Michel's own trip runs
+ * against them, so naming the direction is doing real work rather than decorating.
+ *
+ * Names are the caller's (main.js resolves them); an unnamed end reads as its role,
+ * which is all anything knows about it.
+ */
+export function tripHeadline(trip, { startName, destinationName } = {}) {
+  const from = esc(startName ?? 'your start');
+  const to = esc(destinationName ?? 'your finish');
+  return `${from} → ${to} · ${round1(trip.lengthKm)} km ${DIRECTION_WORD[trip.direction]}`;
+}
+
 // Debounced wrapper with a .flush() escape hatch so commit can synchronously
 // deliver the latest pending value before it is read.
 export function debounce(fn, ms) {

@@ -104,7 +104,9 @@ The same expression serves both directions: a descending window makes the denomi
 
 `profilePoints` already computes `km = startKm + (endKm - startKm) * t`, which is direction-correct; its `endKm <= startKm` guard has to be relaxed to allow a descending window.
 
-`ascentBetween` currently normalises with `Math.min/Math.max`, so it always reports the upstream figure. It gains a direction: riding downstream, the ascent and descent totals swap. That is the whole point of the feature — the same stretch is 487 m of climbing one way and 487 m of descent the other.
+`ascentBetween` currently normalises with `Math.min/Math.max`, so it always reports the upstream figure. It gains a direction: riding downstream, the ascent and descent totals swap. That is the whole point of the feature — km 920 → 1000 reads 453 m of climbing and 398 m of descent ridden upstream, and 398 / 453 ridden back.
+
+(Illustration corrected during Task 9; the requirement above is unchanged. An earlier draft said *"the same stretch is 487 m of climbing one way and 487 m of descent the other"*, which assumes a monotonic climb this corridor does not contain: **the Elbe is nearly symmetric in elevation** — across 95 sampled 80 km stretches the weaker side is a median 0.947 of the stronger, and not one is below 20% — so reversing a stretch trades two similar numbers rather than turning a climb into a descent. Direction-awareness still matters, and for the reason the swap illustrates rather than the magnitude.)
 
 ### 5. Per-day climb on the strip
 
@@ -137,9 +139,13 @@ A plan with no days shows a setup step rather than "click the strip":
 > Start — *not set* · `Set start`
 > Finish — *not set* · `Set finish`
 
-Both default to the road's ends (Cuxhaven → Prague), so the step can be skipped entirely by anyone happy with the whole road. Once both are set the panel switches to the normal "add your first day" state and reports the trip's length and direction: *"Hamburg → Dresden · 649 km downstream"*.
+Both default to the road's ends (Cuxhaven → Prague), so the step can be skipped entirely by anyone happy with the whole road. Once both are set the panel switches to the normal "add your first day" state and reports the trip's length and direction: *"Hamburg → Dresden · 641.9 km upstream"*.
 
 Direction is named in words because the sign of a subtraction is not something a user should have to infer.
+
+(Example corrected during Task 16; the requirement above is unchanged. An earlier draft read *"649 km downstream"* and **both figures were wrong**. Settled against the data rather than the prose: `src/data/elevation.json` puts km 0 (Cuxhaven) at **5 m** and the road's far end (Prague) at **205 m**, so ascending km climbs *toward the source*. Cuxhaven is the mouth, and Hamburg → Dresden is therefore **upstream** — which is also what §1's model comment says and what the implementation does. The distance is 641.9 km: in the built corridor Hamburg sits at km 155.8 and Dresden at km 797.7.
+
+Worth keeping in view as a product fact, because it is why this sentence earns its place: the Elberadweg's own literature describes the route source-to-sea, so a rider heading for Dresden is going *against* the direction the guidebooks are written in. "Upstream" is a word most users will not have been prepared for by anything else they have read about this route. Naming the direction in words is doing real work here, not decoration.)
 
 ### 6b. A vertically resizable strip
 

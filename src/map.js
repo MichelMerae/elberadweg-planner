@@ -170,16 +170,19 @@ const FAV_ICON = L.divIcon({
 });
 
 // A dense city stretch can hold hundreds of food POIs, so the map shows the first
-// POI_MAP_CAP of a kind in ROUTE ORDER — the order they arrive in.
+// POI_MAP_CAP of a kind IN THE ORDER THEY ARRIVE — a prefix, and no order of its own.
 //
 // The criterion matters more than the number, and it has to be the same one
-// places.js's ROW_CAP uses (also 40, also route order). It used to keep the 40
-// NEAREST by offsetKm instead, which on a dense stretch is a different set from
+// places.js's ROW_CAP uses (also 40, also a prefix of the same list). It used to keep
+// the 40 NEAREST by offsetKm instead, which on a dense stretch is a different set from
 // the panel's first 40: hovering a marker then highlighted nothing, because that
-// POI's row was never rendered. Route order makes the two sets identical by
-// construction, so every marker has a row to light up — and it is the order the
-// panel reads in, which is what makes "the first 40 along this stretch" an
-// explicable cap rather than an arbitrary subset.
+// POI's row was never rendered. Taking a prefix makes the two sets identical by
+// construction, so every marker has a row to light up.
+//
+// Which is why re-sorting here would be a bug and not a tidy-up, however harmless a
+// sort looks: the list arrives in the RIDER's direction of travel (see poisInRange),
+// which on a downstream trip descends by route km. Imposing ascending km would pin the
+// 40 places the rider reaches LAST while the panel listed the 40 they reach first.
 //
 // The constants are deliberately not shared: map.js imports nothing but Leaflet
 // (see poiMarkerKey below for the same trade). Change one, change the other.
@@ -194,10 +197,12 @@ function cappedByKind(pois, kind) {
  *
  * @param {Object} opts
  * @param {Feature<LineString>} opts.routeFeature - the route in GeoJSON order.
- * @param {string} [opts.originName] - the place km 0 sits in, named on the start
- *   pin. Omitted, the pin reads just "Start" (see below).
  * @param {(lngLat: [number, number]) => void} [opts.onRouteClick] - fired when
- *   the user clicks the map; receives the clicked point as [lng, lat].
+ *   the user clicks the map and NO pick is armed; receives the clicked point as
+ *   [lng, lat].
+ * @param {(lngLat: [number, number], tripEnd: 'start'|'destination') => void}
+ *   [opts.onPickPoint] - fired INSTEAD of onRouteClick while setPickingMode has
+ *   the map armed; receives the clicked point and the end it was armed for.
  * @param {(poi: object) => void} [opts.onPoiClick] - fired when the user clicks
  *   a POI marker; receives the POI record.
  * @param {(poi: object|null) => void} [opts.onPoiHover] - fired when the pointer
@@ -216,6 +221,8 @@ function cappedByKind(pois, kind) {
  *     opts?: {draggable?: boolean,
  *             onDragBoundary?: (index: number, lngLat: [number, number], commit: boolean) => void},
  *   ) => void,
+ *   setPickingMode: (mode: 'start'|'destination'|null) => void,
+ *   setStartPin: (pin?: {coord: [number, number], name: string|null}) => void,
  *   setPoiMarkers: (pois: Array<object>) => void,
  *   setPoiHighlight: (poi: object|null) => void,
  *   setBreakMarkers: (breaks: Array<object>) => void,
@@ -231,8 +238,8 @@ function cappedByKind(pois, kind) {
  */
 export function createMap({
   routeFeature,
-  originName,
   onRouteClick,
+  onPickPoint,
   onPoiClick,
   onPoiHover,
   onUserMove,
@@ -392,31 +399,61 @@ export function createMap({
 
   fitWholeRoute({ animate: false });
 
-  // Static start pin at km 0 — the first route coordinate.
+  // Which end of the trip the next route click resolves, or null.
   //
-  // The place name comes in from the route data rather than being spelled out
-  // here: which town km 0 is in is a fact about the route, and the module has no
-  // business knowing it. With no name given the pin claims nothing — a wrong
-  // fallback town would be worse than an unnamed pin, and this module has to stay
-  // mountable on its own.
-  // The glyph followed the same rule as the title, and for the same reason: it used
-  // to be a hardcoded "H" for Hamburg, which silently became wrong the moment km 0
-  // moved to Cuxhaven. An initial derived from the name cannot go stale that way.
-  const startCoord = routeFeature.geometry.coordinates[0];
-  L.marker(toLatLng(startCoord), {
-    icon: numberedPinIcon(originName ? originName.trim().charAt(0).toUpperCase() : '•', 'start'),
-    zIndexOffset: 400,
-    title: originName ? `Start — ${originName}` : 'Start',
-  }).addTo(map);
+  // main.js owns this mode; this is a plain setter and a plain report. A one-shot that
+  // cleared itself here would be a second owner of the same fact, and the two would
+  // disagree the first time a pick was REFUSED — the control would go unpressed while
+  // the map still believed it was armed, or the reverse.
+  let pickingMode = null;
 
-  if (typeof onRouteClick === 'function') {
-    map.on('click', (e) => onRouteClick([e.latlng.lng, e.latlng.lat]));
+  function setPickingMode(mode) {
+    pickingMode = mode ?? null;
+    map.getContainer().classList.toggle('map--picking', pickingMode !== null);
   }
 
+  // One handler, two exclusive destinations — see setPickingMode. While a pick is armed
+  // a route click means the pick and NOTHING else. Registered unconditionally: either
+  // callback may be absent, and the branch is what matters.
+  map.on('click', (e) => {
+    const lngLat = [e.latlng.lng, e.latlng.lat];
+    if (pickingMode) {
+      if (typeof onPickPoint === 'function') onPickPoint(lngLat, pickingMode);
+      return;
+    }
+    if (typeof onRouteClick === 'function') onRouteClick(lngLat);
+  });
+
+  const startPinLayer = L.layerGroup().addTo(map);
   const dayPinLayer = L.layerGroup().addTo(map);
   const poiLayer = L.layerGroup().addTo(map);
   const breakLayer = L.layerGroup().addTo(map);
   const favLayer = L.layerGroup().addTo(map);
+
+  /**
+   * The pin for where the RIDER starts, at `coord` ([lng, lat]) with `name` as the
+   * place it sits in — both from main.js, which is the only module that knows the
+   * trip's window and the corridor's names.
+   *
+   * It used to be built once, at construction, from the route's first coordinate: the
+   * ROAD's origin, which on a downstream trip is the rider's destination and on any
+   * offset trip is 149 km of road they never ride. The pin is trip state, so it is
+   * rebuilt with every render, in its own layer group — the same clear-and-rebuild
+   * discipline setDayPins uses. No draggable marker lives in this group, so clearing
+   * it cannot disturb an in-flight pin drag the way rebuilding the day pins would.
+   *
+   * `title` is a DOM property, not markup, so an OSM place name needs no escaping here
+   * — unlike every tooltip in this file, which Leaflet renders as HTML.
+   */
+  function setStartPin({ coord, name } = {}) {
+    startPinLayer.clearLayers();
+    if (!coord) return;
+    L.marker(toLatLng(coord), {
+      icon: numberedPinIcon(name ? name.trim().charAt(0).toUpperCase() : '•', 'start'),
+      zIndexOffset: 400,
+      title: name ? `Start — ${name}` : 'Start',
+    }).addTo(startPinLayer);
+  }
 
   // Leaflet ends a marker drag on a document-level mouseup/touchend, and its
   // mousemove never asks whether the button is still down. A pointer that comes
@@ -667,6 +704,8 @@ export function createMap({
   return {
     setRouteHighlight,
     setDayPins,
+    setPickingMode,
+    setStartPin,
     setBreakMarkers,
     setFavoriteMarkers,
     setPoiMarkers,

@@ -36,3 +36,49 @@ export function createBanner({ el }) {
 
   return { show, hide };
 }
+
+/**
+ * The picking line above the map: what to click, what was picked, and the one
+ * refinement a pick can offer (spec §6.3's "Start at Hamburg instead?").
+ *
+ * Not createBanner, deliberately. That one is a dismissable WARNING about the route
+ * data, and main.js's renderBanner shows or hides it from plan state on every save — a
+ * prompt parked in it would be wiped by the first persist. This one is owned entirely
+ * by the picking flow: role="status" so it is announced, no × (a dismiss that left the
+ * mode armed would be a lie — Escape and the control itself are the way out), and an
+ * optional action button, which is the only interactive thing the flow needs.
+ *
+ * @param {Object} opts
+ * @param {HTMLElement} opts.el
+ */
+export function createPickBanner({ el }) {
+  function hide() {
+    el.hidden = true;
+    el.innerHTML = '';
+    el.classList.remove('banner--error');
+  }
+
+  /**
+   * @param {string} text
+   * @param {{tone?: 'hint'|'error', action?: {label: string, onPress: () => void}|null}} [opts]
+   *   `tone` toggles rather than adds: a refusal that never cleared would leave every
+   *   later hint red.
+   */
+  function show(text, { tone = 'hint', action = null } = {}) {
+    el.classList.toggle('banner--error', tone === 'error');
+    el.innerHTML =
+      `<span>${esc(text)}</span>` +
+      (action
+        ? `<button type="button" class="btn btn--sm btn--primary" data-action="pick-action">${esc(action.label)}</button>`
+        : '');
+    el.hidden = false;
+    // Spent before the callback runs: the offer is taken, and whatever the callback
+    // does next reports itself in this same line.
+    el.querySelector('[data-action="pick-action"]')?.addEventListener('click', () => {
+      hide();
+      action.onPress();
+    });
+  }
+
+  return { show, hide };
+}

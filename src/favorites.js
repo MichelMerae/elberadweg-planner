@@ -81,7 +81,14 @@ export function createFavorites({ storage } = {}) {
     }
   }
 
-  // Defensive copy, sorted ascending by route distance for display.
+  // Defensive copy in a stable, trip-independent order: ascending absolute route km.
+  //
+  // Deliberately NOT the order anything shows. Which end of a stretch a rider reaches
+  // first depends on the direction they are riding, and this store is global — shared
+  // across plans and told about none of them — so it cannot answer that; places.js
+  // re-orders the list by rider km before rendering it, and on a downstream trip that
+  // is this order reversed. What the sort here is for is being the same every time, so
+  // that the display order is a function of the trip and nothing else.
   function list() {
     return favorites.map((f) => ({ ...f })).sort((a, b) => a.routeDistanceKm - b.routeDistanceKm);
   }
